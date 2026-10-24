@@ -44,6 +44,11 @@ services:
       - ASPNETCORE_ENVIRONMENT=Production
       - ASPNETCORE_URLS=http://+:5200
       - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=${POSTGRES_DB:-shopify_engine};Username=${POSTGRES_USER:-shopify_admin};Password=${POSTGRES_PASSWORD};Maximum Pool Size=100;Connection Idle Lifetime=15;Timeout=15;
+      - R2_ACCOUNT_ID=${R2_ACCOUNT_ID:-}
+      - R2_ACCESS_KEY_ID=${R2_ACCESS_KEY_ID:-}
+      - R2_SECRET_ACCESS_KEY=${R2_SECRET_ACCESS_KEY:-}
+      - R2_BUCKET_NAME=${R2_BUCKET_NAME:-istora-media}
+      - R2_PUBLIC_URL=${R2_PUBLIC_URL:-https://media.istora.online}
     volumes:
       - uploads_data:/app/uploads
     networks:

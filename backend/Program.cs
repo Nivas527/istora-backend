@@ -30,6 +30,7 @@ builder.Services.Configure<FormOptions>(options =>
 // Register Singleton Services
 builder.Services.AddSingleton<DeploymentService>();
 builder.Services.AddSingleton<StoreService>();
+builder.Services.AddSingleton<R2StorageService>();
 builder.Services.AddSingleton<JsxCompilerService>();
 
 // Add Swagger / OpenAPI documentation
@@ -426,8 +427,8 @@ app.MapPost("/api/storefront/cart.json", (JsonDocument body) =>
 var uploadsDir = Path.Combine(Directory.GetCurrentDirectory(), "uploads");
 if (!Directory.Exists(uploadsDir)) Directory.CreateDirectory(uploadsDir);
 
-// Upload local image files
-app.MapPost("/api/upload", async (HttpRequest request) =>
+// Upload image files (supports Cloudflare R2 or local disk fallback)
+app.MapPost("/api/upload", async (HttpRequest request, R2StorageService r2Storage) =>
 {
     try
     {
@@ -451,15 +452,10 @@ app.MapPost("/api/upload", async (HttpRequest request) =>
         }
 
         var safeFileName = $"upload_{DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}_{Random.Shared.Next(1000, 9999)}{ext}";
-        var filePath = Path.Combine(uploadsDir, safeFileName);
+        using var stream = file.OpenReadStream();
+        var url = await r2Storage.UploadFileAsync(stream, safeFileName, file.ContentType ?? "image/jpeg");
 
-        using (var stream = new FileStream(filePath, FileMode.Create))
-        {
-            await file.CopyToAsync(stream);
-        }
-
-        var url = $"/uploads/{safeFileName}";
-        return Results.Ok(new { url, fileName = safeFileName, size = file.Length });
+        return Results.Ok(new { url, fileName = safeFileName, size = file.Length, isR2 = r2Storage.IsR2Configured() });
     }
     catch (Exception ex)
     {
