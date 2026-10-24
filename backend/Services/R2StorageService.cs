@@ -45,7 +45,8 @@ public class R2StorageService
                 var s3Config = new AmazonS3Config
                 {
                     ServiceURL = $"https://{accountId}.r2.cloudflarestorage.com",
-                    ForcePathStyle = true
+                    ForcePathStyle = true,
+                    AuthenticationRegion = "auto"
                 };
 
                 using var s3Client = new AmazonS3Client(credentials, s3Config);
