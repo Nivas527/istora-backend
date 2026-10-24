@@ -33,7 +33,7 @@ public class R2StorageService
         var accountId = _config["R2_ACCOUNT_ID"] ?? _config["R2:AccountId"];
         var accessKey = _config["R2_ACCESS_KEY_ID"] ?? _config["R2:AccessKeyId"];
         var secretKey = _config["R2_SECRET_ACCESS_KEY"] ?? _config["R2:SecretAccessKey"];
-        var bucketName = _config["R2_BUCKET_NAME"] ?? _config["R2:BucketName"] ?? "istora-media";
+        var bucketName = _config["R2_BUCKET_NAME"] ?? _config["R2:BucketName"] ?? "apexcommerce";
         var publicUrl = _config["R2_PUBLIC_URL"] ?? _config["R2:PublicUrl"] ?? "https://media.istora.online";
 
         // If R2 credentials are fully set, upload to Cloudflare R2
