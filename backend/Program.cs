@@ -10,7 +10,7 @@ var builder = WebApplication.CreateBuilder(args);
 
 // Configure port from environment or default 5200
 var port = Environment.GetEnvironmentVariable("PORT") ?? "5200";
-builder.WebHost.UseUrls($"http://localhost:{port}", $"http://0.0.0.0:{port}");
+builder.WebHost.UseUrls($"http://0.0.0.0:{port}");
 
 // Configure PostgreSQL Database Context
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
