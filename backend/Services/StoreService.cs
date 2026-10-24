@@ -8,11 +8,13 @@ namespace ShopifyEngine.Api.Services;
 public class StoreService
 {
     private readonly IServiceScopeFactory _scopeFactory;
+    private readonly R2StorageService _r2Storage;
     private readonly object _lock = new();
 
-    public StoreService(IServiceScopeFactory scopeFactory)
+    public StoreService(IServiceScopeFactory scopeFactory, R2StorageService r2Storage)
     {
         _scopeFactory = scopeFactory;
+        _r2Storage = r2Storage;
         InitializeDatabase();
     }
 
@@ -417,6 +419,7 @@ public class StoreService
         var existing = db.Products.FirstOrDefault(p => p.Id == id);
         if (existing == null) return null;
 
+        var oldImage = existing.Image;
         existing.Title = product.Title;
         existing.Category = product.Category;
         existing.Price = product.Price;
@@ -430,20 +433,39 @@ public class StoreService
             existing.VariantsJson = JsonSerializer.Serialize(product.Variants);
         }
 
+        // If product image was replaced, clean up old image from R2
+        if (!string.IsNullOrWhiteSpace(oldImage) &&
+            !string.IsNullOrWhiteSpace(product.Image) &&
+            !string.Equals(oldImage, product.Image, StringComparison.OrdinalIgnoreCase))
+        {
+            _ = Task.Run(() => _r2Storage.DeleteFileAsync(oldImage));
+        }
+
         db.SaveChanges();
         return product;
     }
 
-    public bool DeleteProduct(string id)
+    public async Task<bool> DeleteProductAsync(string id)
     {
         using var scope = _scopeFactory.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<ShopifyDbContext>();
         var existing = db.Products.FirstOrDefault(p => p.Id == id);
         if (existing == null) return false;
 
+        // Automatically delete image from Cloudflare R2 / local uploads
+        if (!string.IsNullOrWhiteSpace(existing.Image))
+        {
+            await _r2Storage.DeleteFileAsync(existing.Image);
+        }
+
         db.Products.Remove(existing);
-        db.SaveChanges();
+        await db.SaveChangesAsync();
         return true;
+    }
+
+    public bool DeleteProduct(string id)
+    {
+        return DeleteProductAsync(id).GetAwaiter().GetResult();
     }
 
     // =========================================================================

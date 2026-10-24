@@ -29,8 +29,8 @@ builder.Services.Configure<FormOptions>(options =>
 
 // Register Singleton Services
 builder.Services.AddSingleton<DeploymentService>();
-builder.Services.AddSingleton<StoreService>();
 builder.Services.AddSingleton<R2StorageService>();
+builder.Services.AddSingleton<StoreService>();
 builder.Services.AddSingleton<JsxCompilerService>();
 
 // Add Swagger / OpenAPI documentation
@@ -249,9 +249,9 @@ app.MapPut("/api/products/{id}", (string id, Product product, StoreService store
     var updated = store.UpdateProduct(id, product);
     return updated != null ? Results.Ok(updated) : Results.NotFound();
 });
-app.MapDelete("/api/products/{id}", (string id, StoreService store) =>
+app.MapDelete("/api/products/{id}", async (string id, StoreService store) =>
 {
-    var deleted = store.DeleteProduct(id);
+    var deleted = await store.DeleteProductAsync(id);
     return Results.Ok(new { success = deleted });
 });
 
@@ -357,9 +357,9 @@ app.MapPut("/admin/api/2024-01/products/{id}.json", (string id, JsonDocument bod
     return updated != null ? Results.Ok(new { product = updated }) : Results.NotFound();
 });
 
-app.MapDelete("/admin/api/2024-01/products/{id}.json", (string id, StoreService store) =>
+app.MapDelete("/admin/api/2024-01/products/{id}.json", async (string id, StoreService store) =>
 {
-    var deleted = store.DeleteProduct(id);
+    var deleted = await store.DeleteProductAsync(id);
     return Results.Ok(new { success = deleted });
 });
 

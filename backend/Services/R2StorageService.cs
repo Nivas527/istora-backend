@@ -81,4 +81,82 @@ public class R2StorageService
 
         return $"/uploads/{fileName}";
     }
+
+    public async Task<bool> DeleteFileAsync(string fileUrlOrPath)
+    {
+        if (string.IsNullOrWhiteSpace(fileUrlOrPath)) return false;
+
+        var accountId = _config["R2_ACCOUNT_ID"] ?? _config["R2:AccountId"];
+        var accessKey = _config["R2_ACCESS_KEY_ID"] ?? _config["R2:AccessKeyId"];
+        var secretKey = _config["R2_SECRET_ACCESS_KEY"] ?? _config["R2:SecretAccessKey"];
+        var bucketName = _config["R2_BUCKET_NAME"] ?? _config["R2:BucketName"] ?? "apexcommerce";
+        var publicUrl = _config["R2_PUBLIC_URL"] ?? _config["R2:PublicUrl"] ?? "https://media.istora.online";
+
+        // Extract filename or key
+        string? key = null;
+        var normalizedBase = publicUrl.TrimEnd('/');
+
+        if (fileUrlOrPath.StartsWith(normalizedBase, StringComparison.OrdinalIgnoreCase))
+        {
+            key = fileUrlOrPath.Substring(normalizedBase.Length).TrimStart('/');
+        }
+        else if (fileUrlOrPath.StartsWith("/uploads/", StringComparison.OrdinalIgnoreCase))
+        {
+            key = fileUrlOrPath.Substring("/uploads/".Length).TrimStart('/');
+        }
+        else if (!fileUrlOrPath.StartsWith("http://", StringComparison.OrdinalIgnoreCase) &&
+                 !fileUrlOrPath.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+        {
+            key = Path.GetFileName(fileUrlOrPath);
+        }
+
+        // External URLs (like Unsplash) are safely skipped
+        if (string.IsNullOrWhiteSpace(key)) return false;
+
+        // 1. Delete from Cloudflare R2 if configured
+        if (IsR2Configured())
+        {
+            try
+            {
+                var credentials = new BasicAWSCredentials(accessKey, secretKey);
+                var s3Config = new AmazonS3Config
+                {
+                    ServiceURL = $"https://{accountId}.r2.cloudflarestorage.com",
+                    ForcePathStyle = true,
+                    AuthenticationRegion = "auto"
+                };
+
+                using var s3Client = new AmazonS3Client(credentials, s3Config);
+                var deleteRequest = new DeleteObjectRequest
+                {
+                    BucketName = bucketName,
+                    Key = key
+                };
+
+                await s3Client.DeleteObjectAsync(deleteRequest);
+                _logger.LogInformation("[R2 Storage] Deleted {Key} from bucket {Bucket}", key, bucketName);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "[R2 Storage] Failed to delete {Key} from bucket {Bucket}", key, bucketName);
+            }
+        }
+
+        // 2. Also clean up local file if it exists
+        var localPath = Path.Combine(_uploadsLocalDir, Path.GetFileName(key));
+        if (File.Exists(localPath))
+        {
+            try
+            {
+                File.Delete(localPath);
+                _logger.LogInformation("[R2 Storage] Deleted local file {Path}", localPath);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "[R2 Storage] Failed to delete local file {Path}", localPath);
+            }
+        }
+
+        return true;
+    }
 }
