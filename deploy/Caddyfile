@@ -1,0 +1,53 @@
+{
+    # Global options
+    email {$ACME_EMAIL:admin@yourdomain.com}
+    admin off
+}
+
+# =========================================================================
+# API & Media Uploads Endpoint (e.g. api.yourplatform.com)
+# =========================================================================
+{$API_DOMAIN:api.yourdomain.com} {
+    # Automatic Brotli & Gzip compression
+    encode zstd gzip
+
+    # Security headers
+    header {
+        Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+        X-Content-Type-Options "nosniff"
+        X-Frame-Options "DENY"
+        Referrer-Policy "strict-origin-when-cross-origin"
+        Access-Control-Allow-Origin *
+        Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS"
+        Access-Control-Allow-Headers "Content-Type, Authorization, X-Requested-With, X-Store-Key"
+    }
+
+    # Handle CORS preflight options requests
+    @options {
+        method OPTIONS
+    }
+    respond @options 204
+
+    # Direct static file serving for local product uploads with 30-day cache
+    handle_path /uploads/* {
+        root * /var/www/uploads
+        file_server
+        header Cache-Control "public, max-age=2592000, immutable"
+    }
+
+    # Reverse proxy all API routes to ASP.NET Core Kestrel backend
+    handle {
+        reverse_proxy backend-api:5200 {
+            header_up Host {host}
+            header_up X-Real-IP {remote_host}
+            header_up X-Forwarded-For {remote_host}
+            header_up X-Forwarded-Proto {scheme}
+        }
+    }
+
+    # Logging
+    log {
+        output stdout
+        format console
+    }
+}
