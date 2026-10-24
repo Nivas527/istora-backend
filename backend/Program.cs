@@ -65,6 +65,83 @@ using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<ShopifyDbContext>();
     db.Database.EnsureCreated();
+
+    // Automatically create new multi-tenant tables and partitions if database already exists
+    try
+    {
+        db.Database.ExecuteSqlRaw(@"
+            CREATE TABLE IF NOT EXISTS stores (
+                ""Id"" text PRIMARY KEY,
+                ""Name"" text NOT NULL,
+                ""Slug"" text NOT NULL,
+                ""Subdomain"" text NOT NULL,
+                ""CustomDomain"" text,
+                ""Category"" text NOT NULL,
+                ""ThemeId"" text NOT NULL,
+                ""AccentColor"" text NOT NULL,
+                ""Currency"" text NOT NULL,
+                ""CurrencySymbol"" text NOT NULL,
+                ""TaxRate"" numeric NOT NULL,
+                ""FreeShippingThreshold"" numeric NOT NULL,
+                ""StandardShippingRate"" numeric NOT NULL,
+                ""ExpressShippingRate"" numeric NOT NULL,
+                ""ContactEmail"" text NOT NULL,
+                ""Status"" text NOT NULL,
+                ""CreatedAt"" text NOT NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS customers (
+                ""Id"" text PRIMARY KEY,
+                ""StoreId"" text NOT NULL,
+                ""Name"" text NOT NULL,
+                ""Email"" text NOT NULL,
+                ""Phone"" text,
+                ""OrdersCount"" integer NOT NULL,
+                ""TotalSpent"" numeric NOT NULL,
+                ""CreatedAt"" text NOT NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS categories (
+                ""Id"" text PRIMARY KEY,
+                ""StoreId"" text NOT NULL,
+                ""Name"" text NOT NULL,
+                ""Slug"" text NOT NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS discounts (
+                ""Id"" text PRIMARY KEY,
+                ""StoreId"" text NOT NULL,
+                ""Code"" text NOT NULL,
+                ""Type"" text NOT NULL,
+                ""Value"" numeric NOT NULL,
+                ""MinSubtotal"" numeric NOT NULL,
+                ""Description"" text NOT NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS reviews (
+                ""Id"" text PRIMARY KEY,
+                ""StoreId"" text NOT NULL,
+                ""ProductId"" text NOT NULL,
+                ""CustomerName"" text NOT NULL,
+                ""Rating"" integer NOT NULL,
+                ""Title"" text NOT NULL,
+                ""Comment"" text NOT NULL,
+                ""VerifiedBuyer"" boolean NOT NULL,
+                ""CreatedAt"" text NOT NULL
+            );
+
+            ALTER TABLE products ADD COLUMN IF NOT EXISTS ""StoreId"" text NOT NULL DEFAULT 'store_apex';
+            ALTER TABLE orders ADD COLUMN IF NOT EXISTS ""StoreId"" text NOT NULL DEFAULT 'store_apex';
+            ALTER TABLE orders ADD COLUMN IF NOT EXISTS ""PaymentMethod"" text NOT NULL DEFAULT 'UPI';
+            ALTER TABLE orders ADD COLUMN IF NOT EXISTS ""TrackingNumber"" text;
+            ALTER TABLE orders ADD COLUMN IF NOT EXISTS ""Carrier"" text;
+        ");
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"[Database Migration Notice] {ex.Message}");
+    }
+
     scope.ServiceProvider.GetRequiredService<StoreService>();
 }
 
