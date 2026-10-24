@@ -124,6 +124,29 @@ app.Use(async (context, next) =>
 // ==========================================
 // 1. STOREFRONT & MULTI-TENANT E-COMMERCE APIS
 // ==========================================
+// Multi-Tenant Stores (Registry)
+app.MapGet("/api/stores", (StoreService store) => Results.Ok(store.GetStores()));
+app.MapGet("/api/stores/{id}", (string id, StoreService store) =>
+{
+    var s = store.GetStoreById(id);
+    return s != null ? Results.Ok(s) : Results.NotFound();
+});
+app.MapPost("/api/stores", (TenantStore newStore, StoreService store) =>
+{
+    var created = store.CreateStore(newStore);
+    return Results.Created($"/api/stores/{created.Id}", created);
+});
+app.MapPut("/api/stores/{id}", (string id, TenantStore updated, StoreService store) =>
+{
+    var res = store.UpdateStore(id, updated);
+    return res != null ? Results.Ok(res) : Results.NotFound();
+});
+app.MapDelete("/api/stores/{id}", (string id, StoreService store) =>
+{
+    var deleted = store.DeleteStore(id);
+    return Results.Ok(new { success = deleted });
+});
+
 app.MapGet("/api/store", (StoreService store) => Results.Ok(store.GetSettings()));
 app.MapPost("/api/store", (StoreSettings settings, StoreService store) =>
 {
@@ -131,10 +154,11 @@ app.MapPost("/api/store", (StoreSettings settings, StoreService store) =>
     return Results.Ok(store.GetSettings());
 });
 
-app.MapGet("/api/products", (string? category, StoreService store) => Results.Ok(store.GetProducts(category)));
-app.MapGet("/api/products/{id}", (string id, StoreService store) =>
+// Products (multi-tenant filtered by storeId)
+app.MapGet("/api/products", (string? storeId, string? category, StoreService store) => Results.Ok(store.GetProducts(storeId, category)));
+app.MapGet("/api/products/{id}", (string id, string? storeId, StoreService store) =>
 {
-    var product = store.GetProductById(id);
+    var product = store.GetProductById(id, storeId);
     return product != null ? Results.Ok(product) : Results.NotFound();
 });
 app.MapPost("/api/products", (Product product, StoreService store) =>
@@ -153,11 +177,39 @@ app.MapDelete("/api/products/{id}", (string id, StoreService store) =>
     return Results.Ok(new { success = deleted });
 });
 
-app.MapGet("/api/orders", (StoreService store) => Results.Ok(store.GetOrders()));
+// Orders (multi-tenant filtered by storeId)
+app.MapGet("/api/orders", (string? storeId, StoreService store) => Results.Ok(store.GetOrders(storeId)));
 app.MapPost("/api/orders", (Order orderRequest, StoreService store) =>
 {
-    var order = store.CreateOrder(orderRequest.CustomerName, orderRequest.CustomerEmail, orderRequest.Items);
+    var order = store.CreateOrder(orderRequest);
     return Results.Created($"/api/orders/{order.Id}", order);
+});
+
+// Customers
+app.MapGet("/api/customers", (string? storeId, StoreService store) => Results.Ok(store.GetCustomers(storeId)));
+
+// Discounts
+app.MapGet("/api/discounts", (string? storeId, StoreService store) => Results.Ok(store.GetDiscounts(storeId)));
+app.MapPost("/api/discounts", (Discount discount, StoreService store) =>
+{
+    var created = store.CreateDiscount(discount);
+    return Results.Created($"/api/discounts/{created.Id}", created);
+});
+
+// Categories
+app.MapGet("/api/categories", (string? storeId, StoreService store) => Results.Ok(store.GetCategories(storeId)));
+app.MapPost("/api/categories", (CategoryItem category, StoreService store) =>
+{
+    var created = store.CreateCategory(category);
+    return Results.Created($"/api/categories/{created.Id}", created);
+});
+
+// Reviews
+app.MapGet("/api/reviews", (string? storeId, string? productId, StoreService store) => Results.Ok(store.GetReviews(storeId, productId)));
+app.MapPost("/api/reviews", (ProductReview review, StoreService store) =>
+{
+    var created = store.CreateReview(review);
+    return Results.Created($"/api/reviews/{created.Id}", created);
 });
 
 // ==========================================
@@ -251,7 +303,7 @@ app.MapPost("/admin/api/2024-01/orders.json", (JsonDocument body, StoreService s
     {
         orderRequest = JsonSerializer.Deserialize<Order>(body.RootElement.GetRawText()) ?? new();
     }
-    var order = store.CreateOrder(orderRequest.CustomerName, orderRequest.CustomerEmail, orderRequest.Items);
+    var order = store.CreateOrder(orderRequest);
     return Results.Created($"/admin/api/2024-01/orders/{order.Id}.json", new { order });
 });
 
@@ -359,21 +411,7 @@ app.MapGet("/uploads/{fileName}", (string fileName) =>
     return Results.File(filePath, mime);
 });
 
-// Dynamic Categories listing
-app.MapGet("/api/categories", (StoreService store) =>
-{
-    var categories = store.GetProducts()
-        .Select(p => p.Category)
-        .Where(c => !string.IsNullOrWhiteSpace(c))
-        .Distinct(StringComparer.OrdinalIgnoreCase)
-        .ToList();
 
-    if (!categories.Contains("Apparel", StringComparer.OrdinalIgnoreCase)) categories.Insert(0, "Apparel");
-    if (!categories.Contains("Footwear", StringComparer.OrdinalIgnoreCase)) categories.Add("Footwear");
-    if (!categories.Contains("Gear", StringComparer.OrdinalIgnoreCase)) categories.Add("Gear");
-
-    return Results.Ok(new { categories });
-});
 
 // Public Order Tracking Endpoint
 app.MapGet("/api/orders/track/{orderNumber}", (string orderNumber, StoreService store) =>

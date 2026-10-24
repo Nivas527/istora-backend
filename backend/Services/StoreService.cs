@@ -8,9 +8,6 @@ namespace ShopifyEngine.Api.Services;
 public class StoreService
 {
     private readonly IServiceScopeFactory _scopeFactory;
-    private StoreSettings _settings = new();
-    private readonly List<Product> _products = new();
-    private readonly List<Order> _orders = new();
     private readonly object _lock = new();
 
     public StoreService(IServiceScopeFactory scopeFactory)
@@ -19,422 +16,738 @@ public class StoreService
         InitializeDatabase();
     }
 
-    public StoreSettings GetSettings() => _settings;
-
-    public void UpdateSettings(StoreSettings settings)
-    {
-        lock (_lock)
-        {
-            _settings = settings;
-            try
-            {
-                using var scope = _scopeFactory.CreateScope();
-                var db = scope.ServiceProvider.GetRequiredService<ShopifyDbContext>();
-                var dbSettings = db.StoreSettings.FirstOrDefault(s => s.Id == "default");
-                if (dbSettings != null)
-                {
-                    dbSettings.StoreName = settings.StoreName;
-                    dbSettings.StoreDomain = settings.StoreDomain;
-                    dbSettings.Currency = settings.Currency;
-                    dbSettings.CurrencySymbol = settings.CurrencySymbol;
-                    dbSettings.ContactEmail = settings.ContactEmail;
-                    dbSettings.Theme = settings.Theme;
-                }
-                else
-                {
-                    db.StoreSettings.Add(new DbStoreSetting
-                    {
-                        Id = "default",
-                        StoreName = settings.StoreName,
-                        StoreDomain = settings.StoreDomain,
-                        Currency = settings.Currency,
-                        CurrencySymbol = settings.CurrencySymbol,
-                        ContactEmail = settings.ContactEmail,
-                        Theme = settings.Theme
-                    });
-                }
-                db.SaveChanges();
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"[PostgreSQL] UpdateSettings error: {ex.Message}");
-            }
-        }
-    }
-
-    public List<Product> GetProducts(string? category = null)
-    {
-        lock (_lock)
-        {
-            if (string.IsNullOrWhiteSpace(category) || category.Equals("all", StringComparison.OrdinalIgnoreCase))
-                return new List<Product>(_products);
-
-            return _products.Where(p => p.Category.Equals(category, StringComparison.OrdinalIgnoreCase)).ToList();
-        }
-    }
-
-    public Product? GetProductById(string id)
-    {
-        lock (_lock)
-        {
-            return _products.FirstOrDefault(p => p.Id == id);
-        }
-    }
-
-    public Product CreateProduct(Product product)
-    {
-        lock (_lock)
-        {
-            if (string.IsNullOrWhiteSpace(product.Id))
-            {
-                product.Id = "prod_" + DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-            }
-            _products.RemoveAll(p => p.Id == product.Id);
-            _products.Insert(0, product);
-
-            try
-            {
-                using var scope = _scopeFactory.CreateScope();
-                var db = scope.ServiceProvider.GetRequiredService<ShopifyDbContext>();
-                var existing = db.Products.FirstOrDefault(p => p.Id == product.Id);
-                if (existing != null)
-                {
-                    existing.Title = product.Title;
-                    existing.Category = product.Category;
-                    existing.Price = product.Price;
-                    existing.CompareAtPrice = product.CompareAtPrice;
-                    existing.Badge = product.Badge;
-                    existing.Image = product.Image;
-                    existing.Description = product.Description;
-                    existing.Inventory = product.Inventory;
-                    existing.VariantsJson = JsonSerializer.Serialize(product.Variants);
-                }
-                else
-                {
-                    db.Products.Add(new DbProduct
-                    {
-                        Id = product.Id,
-                        Title = product.Title,
-                        Category = product.Category,
-                        Price = product.Price,
-                        CompareAtPrice = product.CompareAtPrice,
-                        Badge = product.Badge,
-                        Image = product.Image,
-                        Description = product.Description,
-                        Inventory = product.Inventory,
-                        VariantsJson = JsonSerializer.Serialize(product.Variants)
-                    });
-                }
-                db.SaveChanges();
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"[PostgreSQL] CreateProduct error: {ex.Message}");
-            }
-
-            return product;
-        }
-    }
-
-    public Product? UpdateProduct(string id, Product updated)
-    {
-        lock (_lock)
-        {
-            var existing = _products.FirstOrDefault(p => p.Id == id);
-            if (existing == null) return null;
-
-            existing.Title = updated.Title;
-            existing.Category = updated.Category;
-            existing.Price = updated.Price;
-            existing.CompareAtPrice = updated.CompareAtPrice;
-            existing.Badge = updated.Badge;
-            existing.Image = updated.Image;
-            existing.Description = updated.Description;
-            existing.Inventory = updated.Inventory;
-            if (updated.Variants != null && updated.Variants.Count > 0)
-            {
-                existing.Variants = updated.Variants;
-            }
-
-            try
-            {
-                using var scope = _scopeFactory.CreateScope();
-                var db = scope.ServiceProvider.GetRequiredService<ShopifyDbContext>();
-                var dbProd = db.Products.FirstOrDefault(p => p.Id == id);
-                if (dbProd != null)
-                {
-                    dbProd.Title = existing.Title;
-                    dbProd.Category = existing.Category;
-                    dbProd.Price = existing.Price;
-                    dbProd.CompareAtPrice = existing.CompareAtPrice;
-                    dbProd.Badge = existing.Badge;
-                    dbProd.Image = existing.Image;
-                    dbProd.Description = existing.Description;
-                    dbProd.Inventory = existing.Inventory;
-                    dbProd.VariantsJson = JsonSerializer.Serialize(existing.Variants);
-                    db.SaveChanges();
-                }
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"[PostgreSQL] UpdateProduct error: {ex.Message}");
-            }
-
-            return existing;
-        }
-    }
-
-    public bool DeleteProduct(string id)
-    {
-        lock (_lock)
-        {
-            var removed = _products.RemoveAll(p => p.Id == id) > 0;
-            try
-            {
-                using var scope = _scopeFactory.CreateScope();
-                var db = scope.ServiceProvider.GetRequiredService<ShopifyDbContext>();
-                var dbProd = db.Products.FirstOrDefault(p => p.Id == id);
-                if (dbProd != null)
-                {
-                    db.Products.Remove(dbProd);
-                    db.SaveChanges();
-                }
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"[PostgreSQL] DeleteProduct error: {ex.Message}");
-            }
-            return removed;
-        }
-    }
-
-    public List<Order> GetOrders()
-    {
-        lock (_lock)
-        {
-            return new List<Order>(_orders);
-        }
-    }
-
-    public Order CreateOrder(string customerName, string customerEmail, List<CartItem> items)
-    {
-        lock (_lock)
-        {
-            var total = items.Sum(i => (i.Variant?.Price ?? i.Product?.Price ?? 0) * i.Quantity);
-            var order = new Order
-            {
-                Id = "ord_" + Random.Shared.Next(10000, 99999),
-                CustomerName = customerName,
-                CustomerEmail = customerEmail,
-                Items = items,
-                Total = total,
-                Status = "Paid",
-                CreatedAt = DateTime.UtcNow.ToString("o")
-            };
-            _orders.Insert(0, order);
-
-            try
-            {
-                using var scope = _scopeFactory.CreateScope();
-                var db = scope.ServiceProvider.GetRequiredService<ShopifyDbContext>();
-                db.Orders.Add(new DbOrder
-                {
-                    Id = order.Id,
-                    OrderNumber = order.Id,
-                    CustomerName = order.CustomerName,
-                    CustomerEmail = order.CustomerEmail,
-                    ItemsJson = JsonSerializer.Serialize(order.Items),
-                    Total = order.Total,
-                    Status = order.Status,
-                    CreatedAt = order.CreatedAt
-                });
-                db.SaveChanges();
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"[PostgreSQL] CreateOrder error: {ex.Message}");
-            }
-
-            return order;
-        }
-    }
-
     private void InitializeDatabase()
     {
         try
         {
             using var scope = _scopeFactory.CreateScope();
             var db = scope.ServiceProvider.GetRequiredService<ShopifyDbContext>();
-            db.Database.EnsureCreated();
 
-            // 1. Settings
-            var dbSettings = db.StoreSettings.FirstOrDefault(s => s.Id == "default");
-            if (dbSettings != null)
+            // 1. Ensure Stores table is seeded
+            if (!db.Stores.Any())
             {
-                _settings = new StoreSettings
+                var apexStore = new DbStore
                 {
-                    StoreName = dbSettings.StoreName,
-                    StoreDomain = dbSettings.StoreDomain,
-                    Currency = dbSettings.Currency,
-                    CurrencySymbol = dbSettings.CurrencySymbol,
-                    ContactEmail = dbSettings.ContactEmail,
-                    Theme = dbSettings.Theme
+                    Id = "store_apex",
+                    Name = "Apex Athletics & Co.",
+                    Slug = "apex",
+                    Subdomain = "apex.istora.online",
+                    CustomDomain = "apexstore.fashion.com",
+                    Category = "Sportswear & Performance",
+                    ThemeId = "theme_apex_velocity",
+                    AccentColor = "#008060",
+                    Currency = "USD",
+                    CurrencySymbol = "$",
+                    TaxRate = 0.08m,
+                    FreeShippingThreshold = 75.00m,
+                    StandardShippingRate = 6.99m,
+                    ExpressShippingRate = 14.99m,
+                    ContactEmail = "support@apexathletics.com",
+                    Status = "active"
                 };
-            }
-            else
-            {
-                db.StoreSettings.Add(new DbStoreSetting
+
+                var auraStore = new DbStore
                 {
-                    Id = "default",
-                    StoreName = _settings.StoreName,
-                    StoreDomain = _settings.StoreDomain,
-                    Currency = _settings.Currency,
-                    CurrencySymbol = _settings.CurrencySymbol,
-                    ContactEmail = _settings.ContactEmail,
-                    Theme = _settings.Theme
-                });
+                    Id = "store_aura",
+                    Name = "Aura Studio Acoustics",
+                    Slug = "aura",
+                    Subdomain = "aura.istora.online",
+                    CustomDomain = "aurasound.audio.com",
+                    Category = "Consumer Electronics & Audio",
+                    ThemeId = "theme_nordic_sound",
+                    AccentColor = "#4f46e5",
+                    Currency = "USD",
+                    CurrencySymbol = "$",
+                    TaxRate = 0.07m,
+                    FreeShippingThreshold = 100.00m,
+                    StandardShippingRate = 9.99m,
+                    ExpressShippingRate = 19.99m,
+                    ContactEmail = "contact@aurasound.io",
+                    Status = "active"
+                };
+
+                db.Stores.AddRange(apexStore, auraStore);
                 db.SaveChanges();
             }
 
-            // 2. Products
-            var dbProducts = db.Products.ToList();
-            if (dbProducts.Count > 0)
+            // 2. Ensure Categories seeded
+            if (!db.Categories.Any())
             {
-                _products.Clear();
-                foreach (var p in dbProducts)
-                {
-                    var variants = JsonSerializer.Deserialize<List<ProductVariant>>(p.VariantsJson) ?? new();
-                    _products.Add(new Product
-                    {
-                        Id = p.Id,
-                        Title = p.Title,
-                        Category = p.Category,
-                        Price = p.Price,
-                        CompareAtPrice = p.CompareAtPrice,
-                        Badge = p.Badge,
-                        Image = p.Image,
-                        Description = p.Description,
-                        Inventory = p.Inventory,
-                        Variants = variants
-                    });
-                }
-            }
-            else
-            {
-                SeedInitialProducts();
-                foreach (var p in _products)
-                {
-                    db.Products.Add(new DbProduct
-                    {
-                        Id = p.Id,
-                        Title = p.Title,
-                        Category = p.Category,
-                        Price = p.Price,
-                        CompareAtPrice = p.CompareAtPrice,
-                        Badge = p.Badge,
-                        Image = p.Image,
-                        Description = p.Description,
-                        Inventory = p.Inventory,
-                        VariantsJson = JsonSerializer.Serialize(p.Variants)
-                    });
-                }
+                db.Categories.AddRange(
+                    new DbCategory { Id = "cat_1", StoreId = "store_apex", Name = "Apparel", Slug = "apparel" },
+                    new DbCategory { Id = "cat_2", StoreId = "store_apex", Name = "Footwear", Slug = "footwear" },
+                    new DbCategory { Id = "cat_3", StoreId = "store_apex", Name = "Gear", Slug = "gear" },
+                    new DbCategory { Id = "cat_4", StoreId = "store_aura", Name = "Headphones", Slug = "headphones" },
+                    new DbCategory { Id = "cat_5", StoreId = "store_aura", Name = "Speakers", Slug = "speakers" }
+                );
                 db.SaveChanges();
             }
 
-            // 3. Orders
-            var dbOrders = db.Orders.OrderByDescending(o => o.CreatedAt).ToList();
-            _orders.Clear();
-            foreach (var o in dbOrders)
+            // 3. Ensure Products seeded with StoreId
+            if (!db.Products.Any())
             {
-                var items = JsonSerializer.Deserialize<List<CartItem>>(o.ItemsJson) ?? new();
-                _orders.Add(new Order
-                {
-                    Id = o.Id,
-                    CustomerName = o.CustomerName,
-                    CustomerEmail = o.CustomerEmail,
-                    Items = items,
-                    Total = o.Total,
-                    Status = o.Status,
-                    CreatedAt = o.CreatedAt
-                });
+                db.Products.AddRange(
+                    new DbProduct
+                    {
+                        Id = "prod_1",
+                        StoreId = "store_apex",
+                        Title = "AeroGlide Elite Carbon Runner",
+                        Category = "Footwear",
+                        Price = 189.99m,
+                        CompareAtPrice = 220.00m,
+                        Badge = "Bestseller",
+                        Image = "https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=600&q=80",
+                        Description = "Precision engineered dual-density carbon plate runner for elite road racing.",
+                        Inventory = 45,
+                        VariantsJson = JsonSerializer.Serialize(new[]
+                        {
+                            new { id = "var_1_9", name = "US 9 / Stealth Black", price = 189.99m, sku = "AG-BLK-9" },
+                            new { id = "var_1_10", name = "US 10 / Stealth Black", price = 189.99m, sku = "AG-BLK-10" }
+                        })
+                    },
+                    new DbProduct
+                    {
+                        Id = "prod_2",
+                        StoreId = "store_apex",
+                        Title = "Vortex Seamless Compression Layer",
+                        Category = "Apparel",
+                        Price = 54.00m,
+                        Badge = "New",
+                        Image = "https://images.unsplash.com/photo-1521572267360-ee0c2909d518?auto=format&fit=crop&w=600&q=80",
+                        Description = "Micro-rib thermal regulating base layer with zero-friction bonded flatlock seams.",
+                        Inventory = 80,
+                        VariantsJson = JsonSerializer.Serialize(new[]
+                        {
+                            new { id = "var_2_s", name = "Small / Matte Obsidian", price = 54.00m, sku = "VX-S" },
+                            new { id = "var_2_m", name = "Medium / Matte Obsidian", price = 54.00m, sku = "VX-M" }
+                        })
+                    },
+                    new DbProduct
+                    {
+                        Id = "prod_aura_1",
+                        StoreId = "store_aura",
+                        Title = "Aura Studio ANC Wireless Headphones",
+                        Category = "Headphones",
+                        Price = 199.00m,
+                        CompareAtPrice = 249.00m,
+                        Badge = "Flagship",
+                        Image = "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=600&q=80",
+                        Description = "Custom 40mm bio-cellulose drivers with hybrid active noise cancellation up to -38dB.",
+                        Inventory = 35,
+                        VariantsJson = JsonSerializer.Serialize(new[]
+                        {
+                            new { id = "var_aura_blk", name = "Midnight Black", price = 199.00m, sku = "AURA-ANC-BLK" },
+                            new { id = "var_aura_slv", name = "Silver Birch", price = 199.00m, sku = "AURA-ANC-SLV" }
+                        })
+                    }
+                );
+                db.SaveChanges();
+            }
+
+            // 4. Ensure Discounts seeded
+            if (!db.Discounts.Any())
+            {
+                db.Discounts.AddRange(
+                    new DbDiscount { Id = "disc_1", StoreId = "store_apex", Code = "WELCOME20", Type = "percentage", Value = 20, Description = "20% off all orders" },
+                    new DbDiscount { Id = "disc_2", StoreId = "store_apex", Code = "FREESHIP", Type = "shipping", Value = 100, Description = "Free Express Shipping" },
+                    new DbDiscount { Id = "disc_3", StoreId = "store_aura", Code = "AURA10", Type = "percentage", Value = 10, Description = "10% off Audio Gear" }
+                );
+                db.SaveChanges();
             }
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"[PostgreSQL] Initializing fallback in-memory cache: {ex.Message}");
-            if (_products.Count == 0) SeedInitialProducts();
+            Console.WriteLine($"[PostgreSQL] InitializeDatabase notice: {ex.Message}");
         }
     }
 
-    private void SeedInitialProducts()
+    // =========================================================================
+    // 1. MULTI-TENANT STORES APIS
+    // =========================================================================
+    public List<TenantStore> GetStores()
     {
-        _products.AddRange(new[]
+        using var scope = _scopeFactory.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ShopifyDbContext>();
+        return db.Stores.AsNoTracking().Select(s => new TenantStore
         {
-            new Product
+            Id = s.Id,
+            Name = s.Name,
+            Slug = s.Slug,
+            Subdomain = s.Subdomain,
+            CustomDomain = s.CustomDomain,
+            Category = s.Category,
+            ThemeId = s.ThemeId,
+            AccentColor = s.AccentColor,
+            Currency = s.Currency,
+            CurrencySymbol = s.CurrencySymbol,
+            TaxRate = s.TaxRate,
+            FreeShippingThreshold = s.FreeShippingThreshold,
+            StandardShippingRate = s.StandardShippingRate,
+            ExpressShippingRate = s.ExpressShippingRate,
+            ContactEmail = s.ContactEmail,
+            Status = s.Status,
+            CreatedAt = s.CreatedAt
+        }).ToList();
+    }
+
+    public TenantStore? GetStoreById(string storeId)
+    {
+        using var scope = _scopeFactory.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ShopifyDbContext>();
+        var s = db.Stores.AsNoTracking().FirstOrDefault(x => x.Id == storeId || x.Slug == storeId);
+        if (s == null) return null;
+        return new TenantStore
+        {
+            Id = s.Id,
+            Name = s.Name,
+            Slug = s.Slug,
+            Subdomain = s.Subdomain,
+            CustomDomain = s.CustomDomain,
+            Category = s.Category,
+            ThemeId = s.ThemeId,
+            AccentColor = s.AccentColor,
+            Currency = s.Currency,
+            CurrencySymbol = s.CurrencySymbol,
+            TaxRate = s.TaxRate,
+            FreeShippingThreshold = s.FreeShippingThreshold,
+            StandardShippingRate = s.StandardShippingRate,
+            ExpressShippingRate = s.ExpressShippingRate,
+            ContactEmail = s.ContactEmail,
+            Status = s.Status,
+            CreatedAt = s.CreatedAt
+        };
+    }
+
+    public TenantStore CreateStore(TenantStore store)
+    {
+        if (string.IsNullOrWhiteSpace(store.Id))
+        {
+            var slug = string.IsNullOrWhiteSpace(store.Slug)
+                ? store.Name.ToLower().Replace(" ", "-").Replace("&", "and")
+                : store.Slug.ToLower();
+            store.Id = "store_" + slug;
+            store.Slug = slug;
+        }
+
+        if (string.IsNullOrWhiteSpace(store.Subdomain))
+        {
+            store.Subdomain = $"{store.Slug}.istora.online";
+        }
+
+        using var scope = _scopeFactory.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ShopifyDbContext>();
+
+        var dbStore = new DbStore
+        {
+            Id = store.Id,
+            Name = store.Name,
+            Slug = store.Slug,
+            Subdomain = store.Subdomain,
+            CustomDomain = store.CustomDomain,
+            Category = store.Category,
+            ThemeId = store.ThemeId,
+            AccentColor = store.AccentColor,
+            Currency = store.Currency,
+            CurrencySymbol = store.CurrencySymbol,
+            TaxRate = store.TaxRate,
+            FreeShippingThreshold = store.FreeShippingThreshold,
+            StandardShippingRate = store.StandardShippingRate,
+            ExpressShippingRate = store.ExpressShippingRate,
+            ContactEmail = store.ContactEmail,
+            Status = store.Status,
+            CreatedAt = DateTime.UtcNow.ToString("o")
+        };
+
+        db.Stores.Add(dbStore);
+
+        // Seed default categories for the new store
+        db.Categories.AddRange(
+            new DbCategory { Id = $"cat_{store.Slug}_1", StoreId = store.Id, Name = "Featured", Slug = "featured" },
+            new DbCategory { Id = $"cat_{store.Slug}_2", StoreId = store.Id, Name = "New Arrivals", Slug = "new-arrivals" }
+        );
+
+        db.SaveChanges();
+        return store;
+    }
+
+    public TenantStore? UpdateStore(string storeId, TenantStore store)
+    {
+        using var scope = _scopeFactory.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ShopifyDbContext>();
+        var existing = db.Stores.FirstOrDefault(s => s.Id == storeId);
+        if (existing == null) return null;
+
+        existing.Name = store.Name;
+        existing.Category = store.Category;
+        existing.ThemeId = store.ThemeId;
+        existing.AccentColor = store.AccentColor;
+        existing.CustomDomain = store.CustomDomain;
+        existing.Currency = store.Currency;
+        existing.CurrencySymbol = store.CurrencySymbol;
+        existing.TaxRate = store.TaxRate;
+        existing.FreeShippingThreshold = store.FreeShippingThreshold;
+        existing.ContactEmail = store.ContactEmail;
+        existing.Status = store.Status;
+
+        db.SaveChanges();
+        return store;
+    }
+
+    public bool DeleteStore(string storeId)
+    {
+        using var scope = _scopeFactory.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ShopifyDbContext>();
+        var existing = db.Stores.FirstOrDefault(s => s.Id == storeId);
+        if (existing == null) return false;
+
+        // Cascade delete store's products, orders, categories, discounts
+        db.Products.RemoveRange(db.Products.Where(p => p.StoreId == storeId));
+        db.Orders.RemoveRange(db.Orders.Where(o => o.StoreId == storeId));
+        db.Categories.RemoveRange(db.Categories.Where(c => c.StoreId == storeId));
+        db.Discounts.RemoveRange(db.Discounts.Where(d => d.StoreId == storeId));
+        db.Customers.RemoveRange(db.Customers.Where(cu => cu.StoreId == storeId));
+        db.Stores.Remove(existing);
+
+        db.SaveChanges();
+        return true;
+    }
+
+    // =========================================================================
+    // 2. ISOLATED PRODUCTS APIS (Filtered by storeId)
+    // =========================================================================
+    public List<Product> GetProducts(string? storeId = null, string? category = null)
+    {
+        using var scope = _scopeFactory.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ShopifyDbContext>();
+
+        var query = db.Products.AsNoTracking().AsQueryable();
+
+        if (!string.IsNullOrWhiteSpace(storeId))
+        {
+            query = query.Where(p => p.StoreId == storeId);
+        }
+
+        if (!string.IsNullOrWhiteSpace(category) && !category.Equals("all", StringComparison.OrdinalIgnoreCase))
+        {
+            query = query.Where(p => p.Category.ToLower() == category.ToLower());
+        }
+
+        return query.Select(p => new Product
+        {
+            Id = p.Id,
+            StoreId = p.StoreId,
+            Title = p.Title,
+            Category = p.Category,
+            Price = p.Price,
+            CompareAtPrice = p.CompareAtPrice,
+            Badge = p.Badge,
+            Image = p.Image,
+            Description = p.Description,
+            Inventory = p.Inventory,
+            Variants = DeserializeVariants(p.VariantsJson)
+        }).ToList();
+    }
+
+    public Product? GetProductById(string id, string? storeId = null)
+    {
+        using var scope = _scopeFactory.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ShopifyDbContext>();
+
+        var query = db.Products.AsNoTracking().AsQueryable();
+        if (!string.IsNullOrWhiteSpace(storeId)) query = query.Where(p => p.StoreId == storeId);
+
+        var p = query.FirstOrDefault(x => x.Id == id);
+        if (p == null) return null;
+
+        return new Product
+        {
+            Id = p.Id,
+            StoreId = p.StoreId,
+            Title = p.Title,
+            Category = p.Category,
+            Price = p.Price,
+            CompareAtPrice = p.CompareAtPrice,
+            Badge = p.Badge,
+            Image = p.Image,
+            Description = p.Description,
+            Inventory = p.Inventory,
+            Variants = DeserializeVariants(p.VariantsJson)
+        };
+    }
+
+    public Product CreateProduct(Product product)
+    {
+        if (string.IsNullOrWhiteSpace(product.Id))
+        {
+            product.Id = "prod_" + DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+        }
+        if (string.IsNullOrWhiteSpace(product.StoreId))
+        {
+            product.StoreId = "store_apex";
+        }
+
+        using var scope = _scopeFactory.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ShopifyDbContext>();
+
+        var dbProd = new DbProduct
+        {
+            Id = product.Id,
+            StoreId = product.StoreId,
+            Title = product.Title,
+            Category = product.Category,
+            Price = product.Price,
+            CompareAtPrice = product.CompareAtPrice,
+            Badge = product.Badge,
+            Image = product.Image,
+            Description = product.Description,
+            Inventory = product.Inventory,
+            VariantsJson = JsonSerializer.Serialize(product.Variants ?? new List<ProductVariant>())
+        };
+
+        db.Products.Add(dbProd);
+        db.SaveChanges();
+        return product;
+    }
+
+    public Product? UpdateProduct(string id, Product product)
+    {
+        using var scope = _scopeFactory.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ShopifyDbContext>();
+
+        var existing = db.Products.FirstOrDefault(p => p.Id == id);
+        if (existing == null) return null;
+
+        existing.Title = product.Title;
+        existing.Category = product.Category;
+        existing.Price = product.Price;
+        existing.CompareAtPrice = product.CompareAtPrice;
+        existing.Badge = product.Badge;
+        existing.Image = product.Image;
+        existing.Description = product.Description;
+        existing.Inventory = product.Inventory;
+        if (product.Variants != null)
+        {
+            existing.VariantsJson = JsonSerializer.Serialize(product.Variants);
+        }
+
+        db.SaveChanges();
+        return product;
+    }
+
+    public bool DeleteProduct(string id)
+    {
+        using var scope = _scopeFactory.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ShopifyDbContext>();
+        var existing = db.Products.FirstOrDefault(p => p.Id == id);
+        if (existing == null) return false;
+
+        db.Products.Remove(existing);
+        db.SaveChanges();
+        return true;
+    }
+
+    // =========================================================================
+    // 3. ISOLATED ORDERS APIS (Filtered by storeId)
+    // =========================================================================
+    public List<Order> GetOrders(string? storeId = null)
+    {
+        using var scope = _scopeFactory.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ShopifyDbContext>();
+
+        var query = db.Orders.AsNoTracking().AsQueryable();
+        if (!string.IsNullOrWhiteSpace(storeId))
+        {
+            query = query.Where(o => o.StoreId == storeId);
+        }
+
+        return query.OrderByDescending(o => o.CreatedAt).Select(o => new Order
+        {
+            Id = o.Id,
+            StoreId = o.StoreId,
+            OrderNumber = o.OrderNumber,
+            CustomerName = o.CustomerName,
+            CustomerEmail = o.CustomerEmail,
+            Total = o.Total,
+            Status = o.Status,
+            PaymentMethod = o.PaymentMethod,
+            TrackingNumber = o.TrackingNumber,
+            Carrier = o.Carrier,
+            CreatedAt = o.CreatedAt,
+            Items = DeserializeCartItems(o.ItemsJson)
+        }).ToList();
+    }
+
+    public Order CreateOrder(Order order)
+    {
+        if (string.IsNullOrWhiteSpace(order.Id))
+        {
+            order.Id = "ord_" + DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+        }
+        if (string.IsNullOrWhiteSpace(order.OrderNumber))
+        {
+            order.OrderNumber = "ORD-" + Random.Shared.Next(10000, 99999);
+        }
+        if (string.IsNullOrWhiteSpace(order.StoreId))
+        {
+            order.StoreId = "store_apex";
+        }
+        if (string.IsNullOrWhiteSpace(order.CreatedAt))
+        {
+            order.CreatedAt = DateTime.UtcNow.ToString("o");
+        }
+
+        using var scope = _scopeFactory.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ShopifyDbContext>();
+
+        var dbOrder = new DbOrder
+        {
+            Id = order.Id,
+            StoreId = order.StoreId,
+            OrderNumber = order.OrderNumber,
+            CustomerName = order.CustomerName,
+            CustomerEmail = order.CustomerEmail,
+            Total = order.Total,
+            Status = order.Status,
+            PaymentMethod = order.PaymentMethod,
+            TrackingNumber = order.TrackingNumber,
+            Carrier = order.Carrier,
+            CreatedAt = order.CreatedAt,
+            ItemsJson = JsonSerializer.Serialize(order.Items ?? new List<CartItem>())
+        };
+
+        db.Orders.Add(dbOrder);
+
+        // Update or add customer record automatically
+        var existingCust = db.Customers.FirstOrDefault(c => c.StoreId == order.StoreId && c.Email.ToLower() == order.CustomerEmail.ToLower());
+        if (existingCust != null)
+        {
+            existingCust.OrdersCount += 1;
+            existingCust.TotalSpent += order.Total;
+        }
+        else
+        {
+            db.Customers.Add(new DbCustomer
             {
-                Id = "prod_1",
-                Title = "AeroGlide Elite Carbon Runner",
-                Category = "Footwear",
-                Price = 189.99m,
-                CompareAtPrice = 220.00m,
-                Badge = "Bestseller",
-                Image = "https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=600&q=80",
-                Description = "Precision engineered dual-density carbon plate runner for elite road racing.",
-                Inventory = 45,
-                Variants = new List<ProductVariant>
-                {
-                    new() { Id = "var_1_9", Name = "US 9 / Stealth Black", Price = 189.99m, Sku = "AG-BLK-9" },
-                    new() { Id = "var_1_10", Name = "US 10 / Stealth Black", Price = 189.99m, Sku = "AG-BLK-10" },
-                    new() { Id = "var_1_11", Name = "US 11 / Stealth Black", Price = 189.99m, Sku = "AG-BLK-11" }
-                }
-            },
-            new Product
-            {
-                Id = "prod_2",
-                Title = "Vortex Seamless Compression Layer",
-                Category = "Apparel",
-                Price = 54.00m,
-                Badge = "New",
-                Image = "https://images.unsplash.com/photo-1521572267360-ee0c2909d518?auto=format&fit=crop&w=600&q=80",
-                Description = "Micro-rib thermal regulating base layer with zero-friction bonded flatlock seams.",
-                Inventory = 80,
-                Variants = new List<ProductVariant>
-                {
-                    new() { Id = "var_2_s", Name = "Small / Matte Obsidian", Price = 54.00m, Sku = "VX-S" },
-                    new() { Id = "var_2_m", Name = "Medium / Matte Obsidian", Price = 54.00m, Sku = "VX-M" },
-                    new() { Id = "var_2_l", Name = "Large / Matte Obsidian", Price = 54.00m, Sku = "VX-L" }
-                }
-            },
-            new Product
-            {
-                Id = "prod_3",
-                Title = "Titanium Rapid-Lock Hydration Vessel",
-                Category = "Gear",
-                Price = 68.00m,
-                Badge = "Limited Edition",
-                Image = "https://images.unsplash.com/photo-1602143407151-7111542de6e8?auto=format&fit=crop&w=600&q=80",
-                Description = "Ultralight vacuum insulated grade-5 titanium flask with magnetic leak-proof cap.",
-                Inventory = 28,
-                Variants = new List<ProductVariant>
-                {
-                    new() { Id = "var_3_750", Name = "750ml / Raw Titanium", Price = 68.00m, Sku = "TI-750" }
-                }
-            },
-            new Product
-            {
-                Id = "prod_4",
-                Title = "Apex Carbon Velocity Singlet",
-                Category = "Apparel",
-                Price = 48.00m,
-                Image = "https://images.unsplash.com/photo-1503342217505-b0a15ec3261c?auto=format&fit=crop&w=600&q=80",
-                Description = "Laser-perforated competition racing singlet with bonded hem technology.",
-                Inventory = 60,
-                Variants = new List<ProductVariant>
-                {
-                    new() { Id = "var_4_s", Name = "Small / Acid Lime", Price = 48.00m, Sku = "AVS-S" },
-                    new() { Id = "var_4_m", Name = "Medium / Acid Lime", Price = 48.00m, Sku = "AVS-M" }
-                }
-            }
+                Id = "cust_" + DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
+                StoreId = order.StoreId,
+                Name = order.CustomerName,
+                Email = order.CustomerEmail,
+                OrdersCount = 1,
+                TotalSpent = order.Total,
+                CreatedAt = DateTime.UtcNow.ToString("o")
+            });
+        }
+
+        db.SaveChanges();
+        return order;
+    }
+
+    // =========================================================================
+    // 4. CATEGORIES, CUSTOMERS, DISCOUNTS & REVIEWS APIS
+    // =========================================================================
+    public List<CategoryItem> GetCategories(string? storeId = null)
+    {
+        using var scope = _scopeFactory.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ShopifyDbContext>();
+
+        var query = db.Categories.AsNoTracking().AsQueryable();
+        if (!string.IsNullOrWhiteSpace(storeId)) query = query.Where(c => c.StoreId == storeId);
+
+        return query.Select(c => new CategoryItem
+        {
+            Id = c.Id,
+            StoreId = c.StoreId,
+            Name = c.Name,
+            Slug = c.Slug
+        }).ToList();
+    }
+
+    public CategoryItem CreateCategory(CategoryItem category)
+    {
+        if (string.IsNullOrWhiteSpace(category.Id)) category.Id = "cat_" + DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+        if (string.IsNullOrWhiteSpace(category.Slug)) category.Slug = category.Name.ToLower().Replace(" ", "-");
+        if (string.IsNullOrWhiteSpace(category.StoreId)) category.StoreId = "store_apex";
+
+        using var scope = _scopeFactory.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ShopifyDbContext>();
+        db.Categories.Add(new DbCategory { Id = category.Id, StoreId = category.StoreId, Name = category.Name, Slug = category.Slug });
+        db.SaveChanges();
+        return category;
+    }
+
+    public List<Customer> GetCustomers(string? storeId = null)
+    {
+        using var scope = _scopeFactory.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ShopifyDbContext>();
+        var query = db.Customers.AsNoTracking().AsQueryable();
+        if (!string.IsNullOrWhiteSpace(storeId)) query = query.Where(c => c.StoreId == storeId);
+
+        return query.OrderByDescending(c => c.TotalSpent).Select(c => new Customer
+        {
+            Id = c.Id,
+            StoreId = c.StoreId,
+            Name = c.Name,
+            Email = c.Email,
+            Phone = c.Phone,
+            OrdersCount = c.OrdersCount,
+            TotalSpent = c.TotalSpent,
+            CreatedAt = c.CreatedAt
+        }).ToList();
+    }
+
+    public List<Discount> GetDiscounts(string? storeId = null)
+    {
+        using var scope = _scopeFactory.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ShopifyDbContext>();
+        var query = db.Discounts.AsNoTracking().AsQueryable();
+        if (!string.IsNullOrWhiteSpace(storeId)) query = query.Where(d => d.StoreId == storeId);
+
+        return query.Select(d => new Discount
+        {
+            Id = d.Id,
+            StoreId = d.StoreId,
+            Code = d.Code,
+            Type = d.Type,
+            Value = d.Value,
+            MinSubtotal = d.MinSubtotal,
+            Description = d.Description
+        }).ToList();
+    }
+
+    public Discount CreateDiscount(Discount discount)
+    {
+        if (string.IsNullOrWhiteSpace(discount.Id)) discount.Id = "disc_" + DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+        if (string.IsNullOrWhiteSpace(discount.StoreId)) discount.StoreId = "store_apex";
+
+        using var scope = _scopeFactory.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ShopifyDbContext>();
+        db.Discounts.Add(new DbDiscount
+        {
+            Id = discount.Id,
+            StoreId = discount.StoreId,
+            Code = discount.Code,
+            Type = discount.Type,
+            Value = discount.Value,
+            MinSubtotal = discount.MinSubtotal,
+            Description = discount.Description
         });
+        db.SaveChanges();
+        return discount;
+    }
+
+    public List<ProductReview> GetReviews(string? storeId = null, string? productId = null)
+    {
+        using var scope = _scopeFactory.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ShopifyDbContext>();
+        var query = db.Reviews.AsNoTracking().AsQueryable();
+        if (!string.IsNullOrWhiteSpace(storeId)) query = query.Where(r => r.StoreId == storeId);
+        if (!string.IsNullOrWhiteSpace(productId)) query = query.Where(r => r.ProductId == productId);
+
+        return query.OrderByDescending(r => r.CreatedAt).Select(r => new ProductReview
+        {
+            Id = r.Id,
+            StoreId = r.StoreId,
+            ProductId = r.ProductId,
+            CustomerName = r.CustomerName,
+            Rating = r.Rating,
+            Title = r.Title,
+            Comment = r.Comment,
+            VerifiedBuyer = r.VerifiedBuyer,
+            CreatedAt = r.CreatedAt
+        }).ToList();
+    }
+
+    public ProductReview CreateReview(ProductReview review)
+    {
+        if (string.IsNullOrWhiteSpace(review.Id)) review.Id = "rev_" + DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+        if (string.IsNullOrWhiteSpace(review.StoreId)) review.StoreId = "store_apex";
+
+        using var scope = _scopeFactory.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ShopifyDbContext>();
+        db.Reviews.Add(new DbReview
+        {
+            Id = review.Id,
+            StoreId = review.StoreId,
+            ProductId = review.ProductId,
+            CustomerName = review.CustomerName,
+            Rating = review.Rating,
+            Title = review.Title,
+            Comment = review.Comment,
+            VerifiedBuyer = review.VerifiedBuyer,
+            CreatedAt = DateTime.UtcNow.ToString("o")
+        });
+        db.SaveChanges();
+        return review;
+    }
+
+    public StoreSettings GetSettings()
+    {
+        using var scope = _scopeFactory.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ShopifyDbContext>();
+        var s = db.StoreSettings.AsNoTracking().FirstOrDefault(x => x.Id == "default");
+        if (s == null) return new StoreSettings();
+        return new StoreSettings
+        {
+            StoreName = s.StoreName,
+            StoreDomain = s.StoreDomain,
+            Currency = s.Currency,
+            CurrencySymbol = s.CurrencySymbol,
+            ContactEmail = s.ContactEmail,
+            Theme = s.Theme
+        };
+    }
+
+    public void UpdateSettings(StoreSettings settings)
+    {
+        using var scope = _scopeFactory.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ShopifyDbContext>();
+        var existing = db.StoreSettings.FirstOrDefault(s => s.Id == "default");
+        if (existing != null)
+        {
+            existing.StoreName = settings.StoreName;
+            existing.StoreDomain = settings.StoreDomain;
+            existing.Currency = settings.Currency;
+            existing.CurrencySymbol = settings.CurrencySymbol;
+            existing.ContactEmail = settings.ContactEmail;
+            existing.Theme = settings.Theme;
+        }
+        else
+        {
+            db.StoreSettings.Add(new DbStoreSetting
+            {
+                Id = "default",
+                StoreName = settings.StoreName,
+                StoreDomain = settings.StoreDomain,
+                Currency = settings.Currency,
+                CurrencySymbol = settings.CurrencySymbol,
+                ContactEmail = settings.ContactEmail,
+                Theme = settings.Theme
+            });
+        }
+        db.SaveChanges();
+    }
+
+    private static List<ProductVariant> DeserializeVariants(string json)
+    {
+        try
+        {
+            return JsonSerializer.Deserialize<List<ProductVariant>>(json) ?? new();
+        }
+        catch
+        {
+            return new();
+        }
+    }
+
+    private static List<CartItem> DeserializeCartItems(string json)
+    {
+        try
+        {
+            return JsonSerializer.Deserialize<List<CartItem>>(json) ?? new();
+        }
+        catch
+        {
+            return new();
+        }
     }
 }
