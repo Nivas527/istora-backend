@@ -1,0 +1,57 @@
+@import "tailwindcss";
+
+@layer base {
+  body {
+    font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+    color: #202223;
+    background-color: #f6f6f7;
+  }
+}
+
+/* Custom scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #f1f2f4;
+}
+::-webkit-scrollbar-thumb {
+  background: #c9cccf;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #8c9196;
+}
+
+/* Shopify Polaris Accents */
+.polaris-shadow {
+  box-shadow: 0 0 0 1px rgba(63, 63, 68, 0.05), 0 1px 3px 0 rgba(63, 63, 68, 0.15);
+}
+
+.polaris-card {
+  background: #ffffff;
+  border-radius: 12px;
+  border: 1px solid #e1e3e5;
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+}
+
+.polaris-btn-primary {
+  background-color: #008060;
+  color: #ffffff;
+  font-weight: 600;
+  border-radius: 8px;
+  transition: all 0.15s ease-in-out;
+}
+.polaris-btn-primary:hover {
+  background-color: #006e52;
+}
+
+@keyframes pulse-subtle {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.85; transform: scale(1.02); }
+}
+
+.animate-pulse-subtle {
+  animation: pulse-subtle 2s infinite ease-in-out;
+}

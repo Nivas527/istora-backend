@@ -141,37 +141,81 @@ export function StoreProvider({ children }) {
   // 1. Multi-tenant stores array with schema validation and self-healing defaults
   const [stores, setStores] = useState(() => {
     try {
-      const saved = localStorage.getItem(STORAGE_KEY);
+      const initResolution = resolveDedicatedStore(initialStores);
+      const isDed = initResolution.isDedicated && initResolution.storeId;
+      const targetId = isDed ? initResolution.storeId : null;
+
+      const saved = isDed
+        ? (localStorage.getItem(`${STORAGE_KEY}_${targetId}`) || localStorage.getItem(STORAGE_KEY))
+        : localStorage.getItem(STORAGE_KEY);
+
+      let list = initialStores;
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          return parsed.map((s) => ({
-            id: s.id || `store_${Date.now()}`,
-            name: s.name || 'Apex Athletics & Co.',
-            subdomain: s.subdomain || 'apex-athletics.myshopify.local',
-            customDomain: s.customDomain || (s.id === 'store_apex' ? 'apexstore.fashion.com' : s.id === 'store_aura' ? 'aurasound.audio.com' : `${s.subdomain?.split('.')[0] || 'store'}.com`),
-            category: s.category || 'Sportswear & Performance',
-            accentColor: s.accentColor || '#008060',
-            themeId: s.themeId || 'theme_apex_velocity',
-            currency: s.currency || 'USD',
-            currencySymbol: s.currencySymbol || '$',
-            status: s.status || 'active',
-            taxRate: typeof s.taxRate === 'number' ? s.taxRate : 0.08,
-            freeShippingThreshold: typeof s.freeShippingThreshold === 'number' ? s.freeShippingThreshold : 75.00,
-            standardShippingRate: typeof s.standardShippingRate === 'number' ? s.standardShippingRate : 6.99,
-            expressShippingRate: typeof s.expressShippingRate === 'number' ? s.expressShippingRate : 14.99,
-            contactEmail: s.contactEmail || 'support@apexathletics.com',
-            products: Array.isArray(s.products) && s.products.length > 0 ? s.products : initialApexProducts,
-            collections: Array.isArray(s.collections) && s.collections.length > 0 ? s.collections : initialCollections,
-            orders: Array.isArray(s.orders) ? s.orders : [],
-            customers: Array.isArray(s.customers) ? s.customers : [],
-            discounts: Array.isArray(s.discounts) ? s.discounts : initialApexDiscounts,
-            cart: s.cart && Array.isArray(s.cart.items) ? s.cart : { items: [], discountCode: null },
-            createdAt: s.createdAt || new Date().toISOString()
-          }));
+          list = parsed;
         }
       }
-      return initialStores;
+
+      if (isDed && targetId) {
+        const matched = list.find((s) => s.id === targetId || s.slug === targetId || s.id === `store_${targetId}`);
+        if (matched) {
+          list = [matched];
+        } else {
+          // Dedicated domain for a store not yet in storage, create initial scaffold until backend sync
+          const cleanSlug = targetId.replace('store_', '');
+          list = [{
+            id: targetId,
+            name: cleanSlug.charAt(0).toUpperCase() + cleanSlug.slice(1) + ' Store',
+            subdomain: `${cleanSlug}.istora.online`,
+            customDomain: `${cleanSlug}.istora.online`,
+            slug: cleanSlug,
+            category: 'Retail',
+            accentColor: '#008060',
+            themeId: 'theme_apex_velocity',
+            currency: 'USD',
+            currencySymbol: '$',
+            status: 'active',
+            taxRate: 0.08,
+            freeShippingThreshold: 75.00,
+            standardShippingRate: 6.99,
+            expressShippingRate: 14.99,
+            contactEmail: `owner@${cleanSlug}.com`,
+            products: [],
+            collections: initialCollections,
+            orders: [],
+            customers: [],
+            discounts: initialApexDiscounts,
+            cart: { items: [], discountCode: null },
+            createdAt: new Date().toISOString()
+          }];
+        }
+      }
+
+      return list.map((s) => ({
+        id: s.id || `store_${Date.now()}`,
+        name: s.name || 'Apex Athletics & Co.',
+        subdomain: s.subdomain || 'apex-athletics.myshopify.local',
+        customDomain: s.customDomain || (s.id === 'store_apex' ? 'apexstore.fashion.com' : s.id === 'store_aura' ? 'aurasound.audio.com' : `${s.subdomain?.split('.')[0] || 'store'}.com`),
+        category: s.category || 'Sportswear & Performance',
+        accentColor: s.accentColor || '#008060',
+        themeId: s.themeId || 'theme_apex_velocity',
+        currency: s.currency || 'USD',
+        currencySymbol: s.currencySymbol || '$',
+        status: s.status || 'active',
+        taxRate: typeof s.taxRate === 'number' ? s.taxRate : 0.08,
+        freeShippingThreshold: typeof s.freeShippingThreshold === 'number' ? s.freeShippingThreshold : 75.00,
+        standardShippingRate: typeof s.standardShippingRate === 'number' ? s.standardShippingRate : 6.99,
+        expressShippingRate: typeof s.expressShippingRate === 'number' ? s.expressShippingRate : 14.99,
+        contactEmail: s.contactEmail || 'support@apexathletics.com',
+        products: Array.isArray(s.products) ? s.products : [],
+        collections: Array.isArray(s.collections) && s.collections.length > 0 ? s.collections : initialCollections,
+        orders: Array.isArray(s.orders) ? s.orders : [],
+        customers: Array.isArray(s.customers) ? s.customers : [],
+        discounts: Array.isArray(s.discounts) ? s.discounts : initialApexDiscounts,
+        cart: s.cart && Array.isArray(s.cart.items) ? s.cart : { items: [], discountCode: null },
+        createdAt: s.createdAt || new Date().toISOString()
+      }));
     } catch (e) {
       console.warn('Storage parse fallback to initialStores:', e);
       return initialStores;
@@ -282,10 +326,13 @@ export function StoreProvider({ children }) {
     let isMounted = true;
     async function loadBackendData() {
       try {
+        const isDedicated = dedicatedResolution.isDedicated;
+        const targetStoreId = (isDedicated && dedicatedResolution.storeId) ? dedicatedResolution.storeId : null;
+
         const [backendDeployments, backendStores, backendProducts] = await Promise.all([
           apiClient.getDeployments().catch(() => null),
           apiClient.getStores().catch(() => null),
-          apiClient.getProducts().catch(() => null)
+          apiClient.getProducts('all', targetStoreId).catch(() => null)
         ]);
 
         if (!isMounted) return;
@@ -303,9 +350,18 @@ export function StoreProvider({ children }) {
         }
 
         if (Array.isArray(backendStores) && backendStores.length > 0) {
+          // If accessing a dedicated merchant domain, filter stores array strictly to their store
+          const relevantBackendStores = (isDedicated && targetStoreId)
+            ? backendStores.filter((s) => s.id === targetStoreId || s.slug === targetStoreId || s.id === `store_${targetStoreId}`)
+            : backendStores;
+
           setStores((prev) => {
-            const map = new Map(prev.map((s) => [s.id, s]));
-            backendStores.forEach((bs) => {
+            const baseList = (isDedicated && targetStoreId)
+              ? prev.filter((s) => s.id === targetStoreId || s.slug === targetStoreId || s.id === `store_${targetStoreId}`)
+              : prev;
+            const map = new Map(baseList.map((s) => [s.id, s]));
+
+            relevantBackendStores.forEach((bs) => {
               const existing = map.get(bs.id);
               if (existing) {
                 map.set(bs.id, {
@@ -329,7 +385,7 @@ export function StoreProvider({ children }) {
 
             // If backend products are returned, attach them to their respective store
             if (Array.isArray(backendProducts) && backendProducts.length > 0) {
-              backendStores.forEach((bs) => {
+              relevantBackendStores.forEach((bs) => {
                 const storeProds = backendProducts.filter((p) => p.storeId === bs.id);
                 if (storeProds.length > 0) {
                   const target = map.get(bs.id);
@@ -357,8 +413,8 @@ export function StoreProvider({ children }) {
             return Array.from(map.values());
           });
 
-          if (dedicated.isDedicated && dedicated.storeId) {
-            setActiveStoreId(dedicated.storeId);
+          if (isDedicated && targetStoreId) {
+            setActiveStoreId(targetStoreId);
           }
         }
       } catch (err) {
@@ -475,11 +531,15 @@ export function StoreProvider({ children }) {
 
   useEffect(() => {
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(stores));
+      if (!isDedicatedStore) {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(stores));
+      } else if (activeStoreId) {
+        localStorage.setItem(`${STORAGE_KEY}_${activeStoreId}`, JSON.stringify(stores));
+      }
     } catch (e) {
       console.error('Failed to save stores to localStorage:', e);
     }
-  }, [stores]);
+  }, [stores, isDedicatedStore, activeStoreId]);
 
   useEffect(() => {
     try {
@@ -611,6 +671,10 @@ export function StoreProvider({ children }) {
   };
 
   const switchStore = (storeId) => {
+    if (isDedicatedStore && !isImpersonating) {
+      console.warn('[Tenant Guard] Store switching disabled on dedicated merchant domains.');
+      return;
+    }
     if (stores.some((s) => s.id === storeId)) {
       setActiveStoreId(storeId);
       setIsCartOpen(false);
