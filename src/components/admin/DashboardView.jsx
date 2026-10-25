@@ -9,10 +9,12 @@ import {
   Clock,
   ArrowUpRight,
   CheckCircle,
-  Truck
+  Truck,
+  Sparkles,
+  ArrowRight
 } from 'lucide-react';
 
-export default function DashboardView({ onNavigateTab }) {
+export default function DashboardView({ onNavigateTab, onOpenImportModal }) {
   const {
     totalRevenue,
     totalOrdersCount,
@@ -27,6 +29,34 @@ export default function DashboardView({ onNavigateTab }) {
 
   return (
     <div className="space-y-6">
+      {/* Shopify Migration Quick Banner (Always accessible if merchant forgot during creation) */}
+      <div className="bg-gradient-to-r from-emerald-600/10 via-emerald-500/5 to-white border border-emerald-500/20 p-4 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs">
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 rounded-lg bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-xs">
+            <Sparkles className="w-4 h-4" />
+          </div>
+          <div>
+            <div className="text-xs font-bold text-zinc-900 flex items-center gap-2">
+              <span>Moving from Shopify?</span>
+              <span className="text-[10px] font-bold px-1.5 py-0.2 bg-emerald-100 text-emerald-800 rounded-full">
+                Zero Tech Setup
+              </span>
+            </div>
+            <p className="text-[11px] text-zinc-500 mt-0.5">
+              If you didn't import data during store setup, you can import your CSV or connect your live Shopify store now.
+            </p>
+          </div>
+        </div>
+
+        <button
+          onClick={onOpenImportModal}
+          className="px-3.5 py-2 bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold rounded-lg shadow-xs flex items-center justify-center gap-1.5 shrink-0 transition-all cursor-pointer"
+        >
+          <span>Import Store Data</span>
+          <ArrowRight className="w-3.5 h-3.5" />
+        </button>
+      </div>
+
       {/* Overview Cards (Polaris KPI Metrics) */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Total Sales */}

@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useStore } from '../../context/StoreContext';
 import GlobalHeader from '../common/GlobalHeader';
 import StoreSelectorDropdown from '../StoreSelectorDropdown';
+import ShopifyMigrationModal from './ShopifyMigrationModal';
 import DashboardView from './DashboardView';
 import ProductsView from './ProductsView';
 import OrdersView from './OrdersView';
@@ -21,7 +22,9 @@ import {
   Layers,
   ExternalLink,
   Plus,
-  ShieldCheck
+  ShieldCheck,
+  Sparkles,
+  ArrowRight
 } from 'lucide-react';
 
 export default function AdminLayout() {
@@ -38,12 +41,15 @@ export default function AdminLayout() {
     isImpersonating
   } = useStore();
 
+  const [isMigrationModalOpen, setIsMigrationModalOpen] = useState(false);
+
   const navItems = [
     { id: 'dashboard', label: 'Home / Dashboard', icon: LayoutDashboard },
     { id: 'orders', label: 'Orders', icon: ShoppingBag, badge: unfulfilledOrdersCount > 0 ? unfulfilledOrdersCount : null, badgeColor: 'bg-amber-500' },
     { id: 'products', label: 'Products', icon: Package, badge: products.length, badgeColor: 'bg-zinc-200 text-zinc-700' },
     { id: 'customers', label: 'Customers', icon: Users },
     { id: 'discounts', label: 'Discounts', icon: Tag },
+    { id: 'import', label: 'Import from Shopify', icon: Sparkles, badge: 'Shopify', badgeColor: 'bg-emerald-100 text-emerald-800', isAction: true },
     { id: 'themes', label: 'Themes & Designs', icon: Palette },
     ...(!isDedicatedStore ? [{ id: 'hosting', label: 'React Hosting (Vercel)', icon: Layers, badge: (deployments || []).length, badgeColor: 'bg-zinc-900 text-emerald-400' }] : []),
     { id: 'settings', label: 'Settings', icon: Settings }
@@ -107,7 +113,13 @@ export default function AdminLayout() {
                 return (
                   <button
                     key={item.id}
-                    onClick={() => setAdminTab(item.id)}
+                    onClick={() => {
+                      if (item.isAction) {
+                        setIsMigrationModalOpen(true);
+                      } else {
+                        setAdminTab(item.id);
+                      }
+                    }}
                     className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
                       isActive
                         ? 'bg-white text-zinc-900 shadow-xs border border-zinc-200/80'
@@ -134,8 +146,27 @@ export default function AdminLayout() {
             </nav>
           </div>
 
-          {/* Master Admin shortcut & Storefront Link */}
+          {/* Master Admin shortcut, Shopify Migrator card & Storefront Link */}
           <div className="p-3 border-t border-[#d2d5d8]/70 space-y-2">
+            {/* Migrate from Shopify Card (Always accessible if merchant forgot during setup) */}
+            <div className="p-3 bg-gradient-to-br from-emerald-950 via-emerald-900 to-zinc-900 rounded-xl text-white shadow-xs border border-emerald-700/50">
+              <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-300 mb-1">
+                <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
+                <span>Migrate from Shopify</span>
+              </div>
+              <p className="text-[10px] text-zinc-300 leading-snug mb-2">
+                Forgot to import during setup? Upload CSV or sync live store anytime.
+              </p>
+              <button
+                type="button"
+                onClick={() => setIsMigrationModalOpen(true)}
+                className="w-full py-1.5 px-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-[11px] font-bold transition-colors flex items-center justify-center gap-1 cursor-pointer shadow-xs"
+              >
+                <span>Import Data Now</span>
+                <ArrowRight className="w-3 h-3" />
+              </button>
+            </div>
+
             {!isDedicatedStore && (
               <button
                 onClick={() => setActiveMode('master')}
@@ -222,7 +253,12 @@ export default function AdminLayout() {
 
           {/* Tab Body */}
           <main className="p-4 sm:p-8 flex-1 overflow-y-auto">
-            {adminTab === 'dashboard' && <DashboardView onNavigateTab={setAdminTab} />}
+            {adminTab === 'dashboard' && (
+              <DashboardView
+                onNavigateTab={setAdminTab}
+                onOpenImportModal={() => setIsMigrationModalOpen(true)}
+              />
+            )}
             {adminTab === 'products' && <ProductsView />}
             {adminTab === 'orders' && <OrdersView />}
             {adminTab === 'customers' && <CustomersView />}
@@ -233,6 +269,12 @@ export default function AdminLayout() {
           </main>
         </div>
       </div>
+
+      {/* Shopify Migration Modal */}
+      <ShopifyMigrationModal
+        isOpen={isMigrationModalOpen}
+        onClose={() => setIsMigrationModalOpen(false)}
+      />
     </div>
   );
 }

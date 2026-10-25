@@ -604,7 +604,7 @@ export function StoreProvider({ children }) {
   };
 
   // Multi-Tenancy Store Creator with Developer Theme Binding
-  const createStore = ({ name, handle, category, templateId, themeId, contactEmail }) => {
+  const createStore = ({ name, handle, category, templateId, themeId, contactEmail, emptyCatalog = false }) => {
     const cleanSubdomain = (handle || name.toLowerCase().replace(/[^a-z0-9]+/g, '-')).replace(/(^-|-$)/g, '');
     const template = storeTemplates.find((t) => t.id === templateId) || storeTemplates[0];
     const selectedTheme = themes.find((t) => t.id === themeId) || themes[0];
@@ -628,7 +628,7 @@ export function StoreProvider({ children }) {
       standardShippingRate: 6.99,
       expressShippingRate: 14.99,
       contactEmail: contactEmail || `owner@${cleanSubdomain}.com`,
-      products: template.products.map((p) => ({
+      products: emptyCatalog ? [] : template.products.map((p) => ({
         ...p,
         id: `prod_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
         storeId: newStoreId
