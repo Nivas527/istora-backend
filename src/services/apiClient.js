@@ -402,9 +402,15 @@ export const apiClient = {
         headers,
         body: JSON.stringify(verificationData)
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || `HTTP ${res.status}`);
-      return data;
+      if (!res.ok) {
+        let msg = `HTTP ${res.status}`;
+        try {
+          const d = await res.json();
+          msg = d.message || msg;
+        } catch (_) {}
+        throw new Error(msg);
+      }
+      return await res.json();
     } catch (err) {
       console.error('[C# API] verifyRazorpayPayment failed:', err);
       throw err;
@@ -419,7 +425,14 @@ export const apiClient = {
         headers,
         body: JSON.stringify(intentData)
       });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      if (!res.ok) {
+        let msg = `HTTP ${res.status}`;
+        try {
+          const d = await res.json();
+          msg = d.message || msg;
+        } catch (_) {}
+        throw new Error(msg);
+      }
       return await res.json();
     } catch (err) {
       console.error('[C# API] createStripeIntent failed:', err);
@@ -435,9 +448,15 @@ export const apiClient = {
         headers,
         body: JSON.stringify(verificationData)
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || `HTTP ${res.status}`);
-      return data;
+      if (!res.ok) {
+        let msg = `HTTP ${res.status}`;
+        try {
+          const d = await res.json();
+          msg = d.message || msg;
+        } catch (_) {}
+        throw new Error(msg);
+      }
+      return await res.json();
     } catch (err) {
       console.error('[C# API] verifyStripePayment failed:', err);
       throw err;
@@ -452,9 +471,15 @@ export const apiClient = {
         headers,
         body: JSON.stringify(orderData)
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || `HTTP ${res.status}`);
-      return data;
+      if (!res.ok) {
+        let msg = `HTTP ${res.status}`;
+        try {
+          const d = await res.json();
+          msg = d.message || msg;
+        } catch (_) {}
+        throw new Error(msg);
+      }
+      return await res.json();
     } catch (err) {
       console.error('[C# API] confirmCodOrder failed:', err);
       throw err;
