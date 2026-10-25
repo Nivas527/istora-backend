@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useStore } from '../../context/StoreContext';
+import { apiClient } from '../../services/apiClient';
 import {
   Lock,
   ShieldCheck,
@@ -9,7 +10,9 @@ import {
   ArrowLeft,
   Tag,
   AlertCircle,
-  Sparkles
+  Sparkles,
+  Zap,
+  Globe
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
@@ -20,6 +23,7 @@ export default function CheckoutPage({ onBackToStore, onOrderPlaced }) {
     cartDiscountAmount,
     appliedDiscount,
     settings,
+    activeStore,
     isFreeShipping,
     createOrder,
     applyDiscount,
@@ -46,6 +50,27 @@ export default function CheckoutPage({ onBackToStore, onOrderPlaced }) {
   const [couponInput, setCouponInput] = useState('');
   const [couponError, setCouponError] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
+  const [paymentError, setPaymentError] = useState('');
+  const [paymentConfig, setPaymentConfig] = useState(null);
+
+  useEffect(() => {
+    let isMounted = true;
+    apiClient.getPaymentConfig(activeStore?.id).then((cfg) => {
+      if (isMounted && cfg) {
+        setPaymentConfig(cfg);
+      }
+    }).catch(() => null);
+
+    // Dynamically load Razorpay SDK
+    if (typeof window !== 'undefined' && !window.Razorpay) {
+      const script = document.createElement('script');
+      script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+      script.async = true;
+      document.body.appendChild(script);
+    }
+
+    return () => { isMounted = false; };
+  }, [activeStore?.id]);
 
   // Calculations
   const shippingCost =
@@ -76,31 +101,173 @@ export default function CheckoutPage({ onBackToStore, onOrderPlaced }) {
     }
   };
 
-  const handleCompleteOrder = (e) => {
+  const finalizeOrder = (paymentMethodLabel, statusLabel) => {
+    try {
+      confetti({
+        particleCount: 120,
+        spread: 70,
+        origin: { y: 0.6 }
+      });
+    } catch (err) {}
+
+    const createdOrder = createOrder({
+      ...formData,
+      shippingMethod: formData.shippingMethod,
+      paymentMethod: paymentMethodLabel,
+      financialStatus: statusLabel.toLowerCase()
+    });
+
+    setIsProcessing(false);
+    onOrderPlaced(createdOrder);
+  };
+
+  const handleCompleteOrder = async (e) => {
     e.preventDefault();
     setIsProcessing(true);
+    setPaymentError('');
 
-    setTimeout(() => {
-      // 1. Trigger Confetti
-      try {
-        confetti({
-          particleCount: 120,
-          spread: 70,
-          origin: { y: 0.6 }
-        });
-      } catch (err) {
-        console.error(err);
+    const storeId = activeStore?.id || 'store_apex';
+    const orderNumber = `#${Math.floor(1000 + Math.random() * 9000)}`;
+
+    try {
+      // 1. RAZORPAY (UPI, GPay, PhonePe, Netbanking)
+      if (formData.paymentMethod === 'upi' || formData.paymentMethod === 'netbanking') {
+        const orderRes = await apiClient.createRazorpayOrder({
+          amount: grandTotal,
+          currency: activeStore?.currency || 'INR',
+          storeId,
+          receipt: `rcpt_${Date.now()}`,
+          customerName: `${formData.firstName} ${formData.lastName}`,
+          customerEmail: formData.email
+        }, storeId);
+
+        // If Razorpay SDK loaded and not in simulation
+        if (typeof window !== 'undefined' && window.Razorpay && !orderRes.isSimulated) {
+          const rzp = new window.Razorpay({
+            key: orderRes.keyId,
+            amount: orderRes.amount,
+            currency: orderRes.currency,
+            name: settings.storeName || 'Istora Commerce',
+            description: `Order ${orderNumber}`,
+            order_id: orderRes.orderId,
+            prefill: {
+              name: `${formData.firstName} ${formData.lastName}`,
+              email: formData.email,
+              contact: formData.phone || '9999999999'
+            },
+            theme: { color: settings.accentColor || '#008060' },
+            handler: async (response) => {
+              try {
+                await apiClient.verifyRazorpayPayment({
+                  razorpay_order_id: response.razorpay_order_id,
+                  razorpay_payment_id: response.razorpay_payment_id,
+                  razorpay_signature: response.razorpay_signature,
+                  storeId,
+                  order: {
+                    customerName: `${formData.firstName} ${formData.lastName}`,
+                    customerEmail: formData.email,
+                    total: grandTotal,
+                    items: cart.items.map(i => ({
+                      product: { id: i.productId, title: i.title, price: i.price },
+                      variant: { id: i.variantId, name: i.variantTitle, price: i.price, sku: i.sku || '' },
+                      quantity: i.quantity
+                    }))
+                  }
+                }, storeId);
+                finalizeOrder('Razorpay (UPI / Cards)', 'Paid');
+              } catch (err) {
+                setPaymentError(err.message || 'Payment signature verification failed.');
+                setIsProcessing(false);
+              }
+            },
+            modal: {
+              ondismiss: () => {
+                setIsProcessing(false);
+              }
+            }
+          });
+          rzp.open();
+          return;
+        } else {
+          // Automated Test Sandbox Verification
+          await apiClient.verifyRazorpayPayment({
+            razorpay_order_id: orderRes.orderId,
+            razorpay_payment_id: `pay_sim_${Date.now()}`,
+            razorpay_signature: 'simulated_signature',
+            storeId,
+            order: {
+              customerName: `${formData.firstName} ${formData.lastName}`,
+              customerEmail: formData.email,
+              total: grandTotal,
+              items: cart.items.map(i => ({
+                product: { id: i.productId, title: i.title, price: i.price },
+                variant: { id: i.variantId, name: i.variantTitle, price: i.price, sku: i.sku || '' },
+                quantity: i.quantity
+              }))
+            }
+          }, storeId);
+
+          finalizeOrder('Razorpay (UPI / NetBanking)', 'Paid');
+          return;
+        }
       }
 
-      // 2. Materialize order in store engine
-      const createdOrder = createOrder({
-        ...formData,
-        shippingMethod: formData.shippingMethod
-      });
+      // 2. STRIPE (International Credit & Debit Cards, Apple Pay)
+      if (formData.paymentMethod === 'card') {
+        const intentRes = await apiClient.createStripeIntent({
+          amount: grandTotal,
+          currency: activeStore?.currency || 'USD',
+          storeId,
+          customerName: `${formData.firstName} ${formData.lastName}`,
+          customerEmail: formData.email
+        }, storeId);
 
+        await apiClient.verifyStripePayment({
+          paymentIntentId: intentRes.paymentIntentId,
+          storeId,
+          order: {
+            customerName: `${formData.firstName} ${formData.lastName}`,
+            customerEmail: formData.email,
+            total: grandTotal,
+            items: cart.items.map(i => ({
+              product: { id: i.productId, title: i.title, price: i.price },
+              variant: { id: i.variantId, name: i.variantTitle, price: i.price, sku: i.sku || '' },
+              quantity: i.quantity
+            }))
+          }
+        }, storeId);
+
+        finalizeOrder('Stripe (Cards / Apple Pay)', 'Paid');
+        return;
+      }
+
+      // 3. CASH ON DELIVERY (COD)
+      if (formData.paymentMethod === 'cod') {
+        await apiClient.confirmCodOrder({
+          storeId,
+          order: {
+            customerName: `${formData.firstName} ${formData.lastName}`,
+            customerEmail: formData.email,
+            total: grandTotal,
+            items: cart.items.map(i => ({
+              product: { id: i.productId, title: i.title, price: i.price },
+              variant: { id: i.variantId, name: i.variantTitle, price: i.price, sku: i.sku || '' },
+              quantity: i.quantity
+            }))
+          }
+        }, storeId);
+
+        finalizeOrder('Cash on Delivery', 'Pending');
+        return;
+      }
+
+      // Fallback
+      finalizeOrder('Direct Checkout', 'Paid');
+    } catch (err) {
+      console.error('Payment error:', err);
+      setPaymentError(err.message || 'Payment execution failed. Please verify credentials.');
       setIsProcessing(false);
-      onOrderPlaced(createdOrder);
-    }, 1200);
+    }
   };
 
   if (cart.items.length === 0) {
@@ -467,6 +634,14 @@ export default function CheckoutPage({ onBackToStore, onOrderPlaced }) {
                   </div>
                 )}
               </div>
+
+              {/* Payment Error Alert */}
+              {paymentError && (
+                <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-800 flex items-start gap-2">
+                  <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                  <span>{paymentError}</span>
+                </div>
+              )}
             </div>
 
             {/* Submit Button */}

@@ -363,6 +363,105 @@ export const apiClient = {
   },
 
   // ==========================================
+  // PAYMENT GATEWAYS (RAZORPAY & STRIPE & COD)
+  // ==========================================
+  async getPaymentConfig(storeId = null) {
+    try {
+      const headers = getHeaders({}, storeId);
+      const url = storeId ? `/api/payments/config?storeId=${storeId}` : '/api/payments/config';
+      const res = await fetch(getUrl(url), { headers });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return await res.json();
+    } catch (err) {
+      console.warn('[C# API] getPaymentConfig fallback:', err.message);
+      return null;
+    }
+  },
+
+  async createRazorpayOrder(orderData, storeId = null) {
+    try {
+      const headers = getHeaders({ 'Content-Type': 'application/json' }, storeId);
+      const res = await fetch(getUrl('/api/payments/razorpay/create-order'), {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(orderData)
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return await res.json();
+    } catch (err) {
+      console.error('[C# API] createRazorpayOrder failed:', err);
+      throw err;
+    }
+  },
+
+  async verifyRazorpayPayment(verificationData, storeId = null) {
+    try {
+      const headers = getHeaders({ 'Content-Type': 'application/json' }, storeId);
+      const res = await fetch(getUrl('/api/payments/razorpay/verify'), {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(verificationData)
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || `HTTP ${res.status}`);
+      return data;
+    } catch (err) {
+      console.error('[C# API] verifyRazorpayPayment failed:', err);
+      throw err;
+    }
+  },
+
+  async createStripeIntent(intentData, storeId = null) {
+    try {
+      const headers = getHeaders({ 'Content-Type': 'application/json' }, storeId);
+      const res = await fetch(getUrl('/api/payments/stripe/create-payment-intent'), {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(intentData)
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return await res.json();
+    } catch (err) {
+      console.error('[C# API] createStripeIntent failed:', err);
+      throw err;
+    }
+  },
+
+  async verifyStripePayment(verificationData, storeId = null) {
+    try {
+      const headers = getHeaders({ 'Content-Type': 'application/json' }, storeId);
+      const res = await fetch(getUrl('/api/payments/stripe/verify'), {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(verificationData)
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || `HTTP ${res.status}`);
+      return data;
+    } catch (err) {
+      console.error('[C# API] verifyStripePayment failed:', err);
+      throw err;
+    }
+  },
+
+  async confirmCodOrder(orderData, storeId = null) {
+    try {
+      const headers = getHeaders({ 'Content-Type': 'application/json' }, storeId);
+      const res = await fetch(getUrl('/api/payments/cod/confirm'), {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(orderData)
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || `HTTP ${res.status}`);
+      return data;
+    } catch (err) {
+      console.error('[C# API] confirmCodOrder failed:', err);
+      throw err;
+    }
+  },
+
+  // ==========================================
   // 5. DEPLOYMENTS (Vercel React / dist.zip)
   // ==========================================
   async getDeployments() {

@@ -733,7 +733,15 @@ export function StoreProvider({ children }) {
     expressShippingRate: typeof activeStore?.expressShippingRate === 'number' ? activeStore.expressShippingRate : 14.99,
     contactEmail: activeStore?.contactEmail || 'support@apexathletics.com',
     accentColor: activeStore?.accentColor || '#008060',
-    status: activeStore?.status || 'active'
+    status: activeStore?.status || 'active',
+    // Payment Gateways
+    razorpayEnabled: activeStore?.razorpayEnabled ?? true,
+    razorpayKeyId: activeStore?.razorpayKeyId || '',
+    razorpayKeySecret: activeStore?.razorpayKeySecret || '',
+    stripeEnabled: activeStore?.stripeEnabled ?? true,
+    stripePublishableKey: activeStore?.stripePublishableKey || '',
+    stripeSecretKey: activeStore?.stripeSecretKey || '',
+    codEnabled: activeStore?.codEnabled ?? true
   };
 
   const appliedDiscount = discounts.find(
@@ -1108,7 +1116,14 @@ export function StoreProvider({ children }) {
         taxRate: typeof newSettings.taxRate === 'number' ? newSettings.taxRate : store.taxRate,
         freeShippingThreshold: typeof newSettings.freeShippingThreshold === 'number' ? newSettings.freeShippingThreshold : store.freeShippingThreshold,
         standardShippingRate: typeof newSettings.standardShippingRate === 'number' ? newSettings.standardShippingRate : store.standardShippingRate,
-        expressShippingRate: typeof newSettings.expressShippingRate === 'number' ? newSettings.expressShippingRate : store.expressShippingRate
+        expressShippingRate: typeof newSettings.expressShippingRate === 'number' ? newSettings.expressShippingRate : store.expressShippingRate,
+        razorpayEnabled: newSettings.razorpayEnabled !== undefined ? newSettings.razorpayEnabled : store.razorpayEnabled,
+        razorpayKeyId: newSettings.razorpayKeyId !== undefined ? newSettings.razorpayKeyId : store.razorpayKeyId,
+        razorpayKeySecret: newSettings.razorpayKeySecret !== undefined ? newSettings.razorpayKeySecret : store.razorpayKeySecret,
+        stripeEnabled: newSettings.stripeEnabled !== undefined ? newSettings.stripeEnabled : store.stripeEnabled,
+        stripePublishableKey: newSettings.stripePublishableKey !== undefined ? newSettings.stripePublishableKey : store.stripePublishableKey,
+        stripeSecretKey: newSettings.stripeSecretKey !== undefined ? newSettings.stripeSecretKey : store.stripeSecretKey,
+        codEnabled: newSettings.codEnabled !== undefined ? newSettings.codEnabled : store.codEnabled
       };
       return updatedStore;
     });
@@ -1130,7 +1145,14 @@ export function StoreProvider({ children }) {
         standardShippingRate: updatedStore.standardShippingRate,
         expressShippingRate: updatedStore.expressShippingRate,
         contactEmail: updatedStore.contactEmail,
-        status: updatedStore.status
+        status: updatedStore.status,
+        razorpayEnabled: updatedStore.razorpayEnabled,
+        razorpayKeyId: updatedStore.razorpayKeyId,
+        razorpayKeySecret: updatedStore.razorpayKeySecret,
+        stripeEnabled: updatedStore.stripeEnabled,
+        stripePublishableKey: updatedStore.stripePublishableKey,
+        stripeSecretKey: updatedStore.stripeSecretKey,
+        codEnabled: updatedStore.codEnabled
       }).catch(err => console.warn('[StoreContext] Backend updateStore error:', err));
     }
   };

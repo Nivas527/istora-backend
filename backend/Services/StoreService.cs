@@ -184,7 +184,14 @@ public class StoreService
             ExpressShippingRate = s.ExpressShippingRate,
             ContactEmail = s.ContactEmail,
             Status = s.Status,
-            CreatedAt = s.CreatedAt
+            CreatedAt = s.CreatedAt,
+            RazorpayEnabled = s.RazorpayEnabled,
+            RazorpayKeyId = s.RazorpayKeyId,
+            RazorpayKeySecret = s.RazorpayKeySecret,
+            StripeEnabled = s.StripeEnabled,
+            StripePublishableKey = s.StripePublishableKey,
+            StripeSecretKey = s.StripeSecretKey,
+            CodEnabled = s.CodEnabled
         }).ToList();
     }
 
@@ -211,7 +218,14 @@ public class StoreService
             ExpressShippingRate = s.ExpressShippingRate,
             ContactEmail = s.ContactEmail,
             Status = s.Status,
-            CreatedAt = s.CreatedAt
+            CreatedAt = s.CreatedAt,
+            RazorpayEnabled = s.RazorpayEnabled,
+            RazorpayKeyId = s.RazorpayKeyId,
+            RazorpayKeySecret = s.RazorpayKeySecret,
+            StripeEnabled = s.StripeEnabled,
+            StripePublishableKey = s.StripePublishableKey,
+            StripeSecretKey = s.StripeSecretKey,
+            CodEnabled = s.CodEnabled
         };
     }
 
@@ -249,7 +263,14 @@ public class StoreService
             ExpressShippingRate = store.ExpressShippingRate,
             ContactEmail = store.ContactEmail,
             Status = store.Status,
-            CreatedAt = DateTime.UtcNow.ToString("o")
+            CreatedAt = DateTime.UtcNow.ToString("o"),
+            RazorpayEnabled = store.RazorpayEnabled,
+            RazorpayKeyId = store.RazorpayKeyId,
+            RazorpayKeySecret = store.RazorpayKeySecret,
+            StripeEnabled = store.StripeEnabled,
+            StripePublishableKey = store.StripePublishableKey,
+            StripeSecretKey = store.StripeSecretKey,
+            CodEnabled = store.CodEnabled
         };
 
         _db.Stores.Add(dbStore);
@@ -278,6 +299,13 @@ public class StoreService
         existing.ExpressShippingRate = store.ExpressShippingRate;
         existing.ContactEmail = store.ContactEmail;
         existing.Status = store.Status;
+        existing.RazorpayEnabled = store.RazorpayEnabled;
+        existing.RazorpayKeyId = store.RazorpayKeyId;
+        existing.RazorpayKeySecret = store.RazorpayKeySecret;
+        existing.StripeEnabled = store.StripeEnabled;
+        existing.StripePublishableKey = store.StripePublishableKey;
+        existing.StripeSecretKey = store.StripeSecretKey;
+        existing.CodEnabled = store.CodEnabled;
 
         _db.SaveChanges();
         return store;

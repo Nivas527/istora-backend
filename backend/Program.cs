@@ -32,6 +32,7 @@ builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ITenantProvider, HttpTenantProvider>();
 builder.Services.AddScoped<StoreService>();
 builder.Services.AddScoped<ShopifyMigrationService>();
+builder.Services.AddScoped<PaymentService>();
 
 // Register Singleton Services
 builder.Services.AddSingleton<DeploymentService>();
@@ -141,6 +142,14 @@ using (var scope = app.Services.CreateScope())
             ALTER TABLE orders ADD COLUMN IF NOT EXISTS ""PaymentMethod"" text NOT NULL DEFAULT 'UPI';
             ALTER TABLE orders ADD COLUMN IF NOT EXISTS ""TrackingNumber"" text;
             ALTER TABLE orders ADD COLUMN IF NOT EXISTS ""Carrier"" text;
+
+            ALTER TABLE stores ADD COLUMN IF NOT EXISTS ""RazorpayEnabled"" boolean NOT NULL DEFAULT true;
+            ALTER TABLE stores ADD COLUMN IF NOT EXISTS ""RazorpayKeyId"" text NOT NULL DEFAULT '';
+            ALTER TABLE stores ADD COLUMN IF NOT EXISTS ""RazorpayKeySecret"" text NOT NULL DEFAULT '';
+            ALTER TABLE stores ADD COLUMN IF NOT EXISTS ""StripeEnabled"" boolean NOT NULL DEFAULT true;
+            ALTER TABLE stores ADD COLUMN IF NOT EXISTS ""StripePublishableKey"" text NOT NULL DEFAULT '';
+            ALTER TABLE stores ADD COLUMN IF NOT EXISTS ""StripeSecretKey"" text NOT NULL DEFAULT '';
+            ALTER TABLE stores ADD COLUMN IF NOT EXISTS ""CodEnabled"" boolean NOT NULL DEFAULT true;
         ");
     }
     catch (Exception ex)
@@ -536,6 +545,86 @@ app.MapPost("/api/import/shopify-api", async (ShopifyApiImportRequest req, Shopi
     catch (Exception ex)
     {
         return Results.Problem($"Shopify API sync failed: {ex.Message}");
+    }
+});
+
+// ==========================================
+// PAYMENT GATEWAYS (RAZORPAY & STRIPE & COD)
+// ==========================================
+// 1. Get Payment Configuration for Store
+app.MapGet("/api/payments/config", (string? storeId, PaymentService payments) =>
+{
+    var config = payments.GetPaymentConfig(storeId);
+    return Results.Ok(config);
+});
+
+// 2. Razorpay: Create Order
+app.MapPost("/api/payments/razorpay/create-order", async (CreatePaymentOrderRequest req, string? storeId, PaymentService payments) =>
+{
+    try
+    {
+        var res = await payments.CreateRazorpayOrderAsync(req, storeId);
+        return Results.Ok(res);
+    }
+    catch (Exception ex)
+    {
+        return Results.Problem($"Razorpay order creation failed: {ex.Message}");
+    }
+});
+
+// 3. Razorpay: Verify Payment Signature & Confirm Order
+app.MapPost("/api/payments/razorpay/verify", async (RazorpayVerificationRequest req, string? storeId, PaymentService payments) =>
+{
+    try
+    {
+        var result = await payments.VerifyRazorpayPaymentAsync(req, storeId);
+        return result.Success ? Results.Ok(result) : Results.BadRequest(result);
+    }
+    catch (Exception ex)
+    {
+        return Results.Problem($"Razorpay payment verification failed: {ex.Message}");
+    }
+});
+
+// 4. Stripe: Create Payment Intent
+app.MapPost("/api/payments/stripe/create-payment-intent", async (CreatePaymentOrderRequest req, string? storeId, PaymentService payments) =>
+{
+    try
+    {
+        var res = await payments.CreateStripePaymentIntentAsync(req, storeId);
+        return Results.Ok(res);
+    }
+    catch (Exception ex)
+    {
+        return Results.Problem($"Stripe PaymentIntent creation failed: {ex.Message}");
+    }
+});
+
+// 5. Stripe: Verify Payment Intent & Confirm Order
+app.MapPost("/api/payments/stripe/verify", async (StripeVerificationRequest req, string? storeId, PaymentService payments) =>
+{
+    try
+    {
+        var result = await payments.VerifyStripePaymentAsync(req, storeId);
+        return result.Success ? Results.Ok(result) : Results.BadRequest(result);
+    }
+    catch (Exception ex)
+    {
+        return Results.Problem($"Stripe verification failed: {ex.Message}");
+    }
+});
+
+// 6. Cash on Delivery (COD) Confirmation
+app.MapPost("/api/payments/cod/confirm", async (CodOrderRequest req, string? storeId, PaymentService payments) =>
+{
+    try
+    {
+        var result = await payments.ConfirmCodOrderAsync(req, storeId);
+        return result.Success ? Results.Ok(result) : Results.BadRequest(result);
+    }
+    catch (Exception ex)
+    {
+        return Results.Problem($"COD confirmation failed: {ex.Message}");
     }
 });
 

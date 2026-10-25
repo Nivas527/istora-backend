@@ -54,6 +54,28 @@ public class TenantStore
 
     [JsonPropertyName("createdAt")]
     public string CreatedAt { get; set; } = DateTime.UtcNow.ToString("o");
+
+    // Payment Gateway Settings
+    [JsonPropertyName("razorpayEnabled")]
+    public bool RazorpayEnabled { get; set; } = true;
+
+    [JsonPropertyName("razorpayKeyId")]
+    public string RazorpayKeyId { get; set; } = string.Empty;
+
+    [JsonPropertyName("razorpayKeySecret")]
+    public string RazorpayKeySecret { get; set; } = string.Empty;
+
+    [JsonPropertyName("stripeEnabled")]
+    public bool StripeEnabled { get; set; } = true;
+
+    [JsonPropertyName("stripePublishableKey")]
+    public string StripePublishableKey { get; set; } = string.Empty;
+
+    [JsonPropertyName("stripeSecretKey")]
+    public string StripeSecretKey { get; set; } = string.Empty;
+
+    [JsonPropertyName("codEnabled")]
+    public bool CodEnabled { get; set; } = true;
 }
 
 public class StoreSettings
@@ -294,5 +316,179 @@ public class ShopifyApiImportRequest
 
     [JsonPropertyName("importCustomers")]
     public bool ImportCustomers { get; set; } = true;
+}
+
+// ==========================================
+// PAYMENT GATEWAY MODELS (RAZORPAY & STRIPE)
+// ==========================================
+public class CreatePaymentOrderRequest
+{
+    [JsonPropertyName("amount")]
+    public decimal Amount { get; set; }
+
+    [JsonPropertyName("currency")]
+    public string Currency { get; set; } = "INR";
+
+    [JsonPropertyName("storeId")]
+    public string? StoreId { get; set; }
+
+    [JsonPropertyName("receipt")]
+    public string? Receipt { get; set; }
+
+    [JsonPropertyName("customerName")]
+    public string? CustomerName { get; set; }
+
+    [JsonPropertyName("customerEmail")]
+    public string? CustomerEmail { get; set; }
+}
+
+public class RazorpayOrderResponse
+{
+    [JsonPropertyName("orderId")]
+    public string OrderId { get; set; } = string.Empty;
+
+    [JsonPropertyName("amount")]
+    public long Amount { get; set; }
+
+    [JsonPropertyName("currency")]
+    public string Currency { get; set; } = "INR";
+
+    [JsonPropertyName("keyId")]
+    public string KeyId { get; set; } = string.Empty;
+
+    [JsonPropertyName("isSimulated")]
+    public bool IsSimulated { get; set; }
+}
+
+public class RazorpayVerificationRequest
+{
+    [JsonPropertyName("razorpay_order_id")]
+    public string RazorpayOrderId { get; set; } = string.Empty;
+
+    [JsonPropertyName("razorpay_payment_id")]
+    public string RazorpayPaymentId { get; set; } = string.Empty;
+
+    [JsonPropertyName("razorpay_signature")]
+    public string RazorpaySignature { get; set; } = string.Empty;
+
+    [JsonPropertyName("storeId")]
+    public string? StoreId { get; set; }
+
+    [JsonPropertyName("order")]
+    public Order? Order { get; set; }
+}
+
+public class StripeIntentResponse
+{
+    [JsonPropertyName("clientSecret")]
+    public string ClientSecret { get; set; } = string.Empty;
+
+    [JsonPropertyName("paymentIntentId")]
+    public string PaymentIntentId { get; set; } = string.Empty;
+
+    [JsonPropertyName("publishableKey")]
+    public string PublishableKey { get; set; } = string.Empty;
+
+    [JsonPropertyName("amount")]
+    public long Amount { get; set; }
+
+    [JsonPropertyName("currency")]
+    public string Currency { get; set; } = "USD";
+
+    [JsonPropertyName("isSimulated")]
+    public bool IsSimulated { get; set; }
+}
+
+public class StripeVerificationRequest
+{
+    [JsonPropertyName("paymentIntentId")]
+    public string PaymentIntentId { get; set; } = string.Empty;
+
+    [JsonPropertyName("storeId")]
+    public string? StoreId { get; set; }
+
+    [JsonPropertyName("order")]
+    public Order? Order { get; set; }
+}
+
+public class CodOrderRequest
+{
+    [JsonPropertyName("storeId")]
+    public string? StoreId { get; set; }
+
+    [JsonPropertyName("order")]
+    public Order? Order { get; set; }
+}
+
+public class PaymentVerificationResult
+{
+    [JsonPropertyName("success")]
+    public bool Success { get; set; }
+
+    [JsonPropertyName("orderId")]
+    public string OrderId { get; set; } = string.Empty;
+
+    [JsonPropertyName("orderNumber")]
+    public string OrderNumber { get; set; } = string.Empty;
+
+    [JsonPropertyName("paymentMethod")]
+    public string PaymentMethod { get; set; } = string.Empty;
+
+    [JsonPropertyName("status")]
+    public string Status { get; set; } = "Paid";
+
+    [JsonPropertyName("message")]
+    public string Message { get; set; } = string.Empty;
+}
+
+public class PaymentGatewayConfigResponse
+{
+    [JsonPropertyName("storeId")]
+    public string StoreId { get; set; } = string.Empty;
+
+    [JsonPropertyName("currency")]
+    public string Currency { get; set; } = "USD";
+
+    [JsonPropertyName("currencySymbol")]
+    public string CurrencySymbol { get; set; } = "$";
+
+    [JsonPropertyName("razorpay")]
+    public RazorpayConfigDto Razorpay { get; set; } = new();
+
+    [JsonPropertyName("stripe")]
+    public StripeConfigDto Stripe { get; set; } = new();
+
+    [JsonPropertyName("cod")]
+    public CodConfigDto Cod { get; set; } = new();
+}
+
+public class RazorpayConfigDto
+{
+    [JsonPropertyName("enabled")]
+    public bool Enabled { get; set; } = true;
+
+    [JsonPropertyName("keyId")]
+    public string KeyId { get; set; } = string.Empty;
+
+    [JsonPropertyName("isTestMode")]
+    public bool IsTestMode { get; set; } = true;
+}
+
+public class StripeConfigDto
+{
+    [JsonPropertyName("enabled")]
+    public bool Enabled { get; set; } = true;
+
+    [JsonPropertyName("publishableKey")]
+    public string PublishableKey { get; set; } = string.Empty;
+
+    [JsonPropertyName("isTestMode")]
+    public bool IsTestMode { get; set; } = true;
+}
+
+public class CodConfigDto
+{
+    [JsonPropertyName("enabled")]
+    public bool Enabled { get; set; } = true;
 }
 

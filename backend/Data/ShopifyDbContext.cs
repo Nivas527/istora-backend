@@ -24,6 +24,15 @@ public class DbStore
     public string ContactEmail { get; set; } = "support@example.com";
     public string Status { get; set; } = "active";
     public string CreatedAt { get; set; } = DateTime.UtcNow.ToString("o");
+
+    // Payment Gateway Configurations
+    public bool RazorpayEnabled { get; set; } = true;
+    public string RazorpayKeyId { get; set; } = string.Empty;
+    public string RazorpayKeySecret { get; set; } = string.Empty;
+    public bool StripeEnabled { get; set; } = true;
+    public string StripePublishableKey { get; set; } = string.Empty;
+    public string StripeSecretKey { get; set; } = string.Empty;
+    public bool CodEnabled { get; set; } = true;
 }
 
 public class DbStoreSetting
