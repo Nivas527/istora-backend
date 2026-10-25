@@ -7,26 +7,24 @@ namespace ShopifyEngine.Api.Services;
 
 public class StoreService
 {
-    private readonly IServiceScopeFactory _scopeFactory;
+    private readonly ShopifyDbContext _db;
+    private readonly ITenantProvider _tenantProvider;
     private readonly R2StorageService _r2Storage;
     private readonly object _lock = new();
 
-    public StoreService(IServiceScopeFactory scopeFactory, R2StorageService r2Storage)
+    public StoreService(ShopifyDbContext db, ITenantProvider tenantProvider, R2StorageService r2Storage)
     {
-        _scopeFactory = scopeFactory;
+        _db = db;
+        _tenantProvider = tenantProvider;
         _r2Storage = r2Storage;
-        InitializeDatabase();
     }
 
-    private void InitializeDatabase()
+    public void InitializeDatabase()
     {
         try
         {
-            using var scope = _scopeFactory.CreateScope();
-            var db = scope.ServiceProvider.GetRequiredService<ShopifyDbContext>();
-
             // 1. Ensure Stores table is seeded
-            if (!db.Stores.Any())
+            if (!_db.Stores.Any())
             {
                 var apexStore = new DbStore
                 {
@@ -68,27 +66,27 @@ public class StoreService
                     Status = "active"
                 };
 
-                db.Stores.AddRange(apexStore, auraStore);
-                db.SaveChanges();
+                _db.Stores.AddRange(apexStore, auraStore);
+                _db.SaveChanges();
             }
 
-            // 2. Ensure Categories seeded
-            if (!db.Categories.Any())
+            // 2. Ensure Categories seeded (bypassing query filter for seed verification)
+            if (!_db.Categories.IgnoreQueryFilters().Any())
             {
-                db.Categories.AddRange(
+                _db.Categories.AddRange(
                     new DbCategory { Id = "cat_1", StoreId = "store_apex", Name = "Apparel", Slug = "apparel" },
                     new DbCategory { Id = "cat_2", StoreId = "store_apex", Name = "Footwear", Slug = "footwear" },
                     new DbCategory { Id = "cat_3", StoreId = "store_apex", Name = "Gear", Slug = "gear" },
                     new DbCategory { Id = "cat_4", StoreId = "store_aura", Name = "Headphones", Slug = "headphones" },
                     new DbCategory { Id = "cat_5", StoreId = "store_aura", Name = "Speakers", Slug = "speakers" }
                 );
-                db.SaveChanges();
+                _db.SaveChanges();
             }
 
-            // 3. Ensure Products seeded with StoreId
-            if (!db.Products.Any())
+            // 3. Ensure Products seeded with StoreId (bypassing query filter for seed verification)
+            if (!_db.Products.IgnoreQueryFilters().Any())
             {
-                db.Products.AddRange(
+                _db.Products.AddRange(
                     new DbProduct
                     {
                         Id = "prod_1",
@@ -143,18 +141,18 @@ public class StoreService
                         })
                     }
                 );
-                db.SaveChanges();
+                _db.SaveChanges();
             }
 
-            // 4. Ensure Discounts seeded
-            if (!db.Discounts.Any())
+            // 4. Ensure Discounts seeded (bypassing query filter for seed verification)
+            if (!_db.Discounts.IgnoreQueryFilters().Any())
             {
-                db.Discounts.AddRange(
+                _db.Discounts.AddRange(
                     new DbDiscount { Id = "disc_1", StoreId = "store_apex", Code = "WELCOME20", Type = "percentage", Value = 20, Description = "20% off all orders" },
                     new DbDiscount { Id = "disc_2", StoreId = "store_apex", Code = "FREESHIP", Type = "shipping", Value = 100, Description = "Free Express Shipping" },
                     new DbDiscount { Id = "disc_3", StoreId = "store_aura", Code = "AURA10", Type = "percentage", Value = 10, Description = "10% off Audio Gear" }
                 );
-                db.SaveChanges();
+                _db.SaveChanges();
             }
         }
         catch (Exception ex)
@@ -164,13 +162,11 @@ public class StoreService
     }
 
     // =========================================================================
-    // 1. MULTI-TENANT STORES APIS
+    // 1. MULTI-TENANT STORES APIS (Registry)
     // =========================================================================
     public List<TenantStore> GetStores()
     {
-        using var scope = _scopeFactory.CreateScope();
-        var db = scope.ServiceProvider.GetRequiredService<ShopifyDbContext>();
-        return db.Stores.AsNoTracking().Select(s => new TenantStore
+        return _db.Stores.AsNoTracking().Select(s => new TenantStore
         {
             Id = s.Id,
             Name = s.Name,
@@ -194,9 +190,8 @@ public class StoreService
 
     public TenantStore? GetStoreById(string storeId)
     {
-        using var scope = _scopeFactory.CreateScope();
-        var db = scope.ServiceProvider.GetRequiredService<ShopifyDbContext>();
-        var s = db.Stores.AsNoTracking().FirstOrDefault(x => x.Id == storeId || x.Slug == storeId);
+        var target = HttpTenantProvider.NormalizeStoreId(storeId);
+        var s = _db.Stores.AsNoTracking().FirstOrDefault(x => x.Id == target || x.Id == storeId || x.Slug == storeId);
         if (s == null) return null;
         return new TenantStore
         {
@@ -236,9 +231,6 @@ public class StoreService
             store.Subdomain = $"{store.Slug}.istora.online";
         }
 
-        using var scope = _scopeFactory.CreateScope();
-        var db = scope.ServiceProvider.GetRequiredService<ShopifyDbContext>();
-
         var dbStore = new DbStore
         {
             Id = store.Id,
@@ -260,73 +252,66 @@ public class StoreService
             CreatedAt = DateTime.UtcNow.ToString("o")
         };
 
-        db.Stores.Add(dbStore);
-
-        // Seed default categories for the new store
-        db.Categories.AddRange(
-            new DbCategory { Id = $"cat_{store.Slug}_1", StoreId = store.Id, Name = "Featured", Slug = "featured" },
-            new DbCategory { Id = $"cat_{store.Slug}_2", StoreId = store.Id, Name = "New Arrivals", Slug = "new-arrivals" }
-        );
-
-        db.SaveChanges();
+        _db.Stores.Add(dbStore);
+        _db.SaveChanges();
         return store;
     }
 
     public TenantStore? UpdateStore(string storeId, TenantStore store)
     {
-        using var scope = _scopeFactory.CreateScope();
-        var db = scope.ServiceProvider.GetRequiredService<ShopifyDbContext>();
-        var existing = db.Stores.FirstOrDefault(s => s.Id == storeId);
+        var target = HttpTenantProvider.NormalizeStoreId(storeId);
+        var existing = _db.Stores.FirstOrDefault(s => s.Id == target || s.Id == storeId);
         if (existing == null) return null;
 
         existing.Name = store.Name;
+        existing.Slug = store.Slug;
+        existing.Subdomain = store.Subdomain;
+        existing.CustomDomain = store.CustomDomain;
         existing.Category = store.Category;
         existing.ThemeId = store.ThemeId;
         existing.AccentColor = store.AccentColor;
-        existing.CustomDomain = store.CustomDomain;
         existing.Currency = store.Currency;
         existing.CurrencySymbol = store.CurrencySymbol;
         existing.TaxRate = store.TaxRate;
         existing.FreeShippingThreshold = store.FreeShippingThreshold;
+        existing.StandardShippingRate = store.StandardShippingRate;
+        existing.ExpressShippingRate = store.ExpressShippingRate;
         existing.ContactEmail = store.ContactEmail;
         existing.Status = store.Status;
 
-        db.SaveChanges();
+        _db.SaveChanges();
         return store;
     }
 
     public bool DeleteStore(string storeId)
     {
-        using var scope = _scopeFactory.CreateScope();
-        var db = scope.ServiceProvider.GetRequiredService<ShopifyDbContext>();
-        var existing = db.Stores.FirstOrDefault(s => s.Id == storeId);
+        var target = HttpTenantProvider.NormalizeStoreId(storeId);
+        var existing = _db.Stores.FirstOrDefault(s => s.Id == target || s.Id == storeId);
         if (existing == null) return false;
 
-        // Cascade delete store's products, orders, categories, discounts
-        db.Products.RemoveRange(db.Products.Where(p => p.StoreId == storeId));
-        db.Orders.RemoveRange(db.Orders.Where(o => o.StoreId == storeId));
-        db.Categories.RemoveRange(db.Categories.Where(c => c.StoreId == storeId));
-        db.Discounts.RemoveRange(db.Discounts.Where(d => d.StoreId == storeId));
-        db.Customers.RemoveRange(db.Customers.Where(cu => cu.StoreId == storeId));
-        db.Stores.Remove(existing);
-
-        db.SaveChanges();
+        _db.Stores.Remove(existing);
+        _db.Products.IgnoreQueryFilters().Where(p => p.StoreId == target).ExecuteDelete();
+        _db.Orders.IgnoreQueryFilters().Where(o => o.StoreId == target).ExecuteDelete();
+        _db.Categories.IgnoreQueryFilters().Where(c => c.StoreId == target).ExecuteDelete();
+        _db.Discounts.IgnoreQueryFilters().Where(d => d.StoreId == target).ExecuteDelete();
+        _db.Customers.IgnoreQueryFilters().Where(cu => cu.StoreId == target).ExecuteDelete();
+        _db.SaveChanges();
         return true;
     }
 
     // =========================================================================
-    // 2. ISOLATED PRODUCTS APIS (Filtered by storeId)
+    // 2. ISOLATED PRODUCTS APIS
+    // If storeId is passed explicitly: query that specific store.
+    // If storeId is omitted: EF Core Global Query Filter enforces the tenant.
     // =========================================================================
     public List<Product> GetProducts(string? storeId = null, string? category = null)
     {
-        using var scope = _scopeFactory.CreateScope();
-        var db = scope.ServiceProvider.GetRequiredService<ShopifyDbContext>();
-
-        var query = db.Products.AsNoTracking().AsQueryable();
+        var query = _db.Products.AsNoTracking().AsQueryable();
 
         if (!string.IsNullOrWhiteSpace(storeId))
         {
-            query = query.Where(p => p.StoreId == storeId);
+            var target = HttpTenantProvider.NormalizeStoreId(storeId);
+            query = query.IgnoreQueryFilters().Where(p => p.StoreId == target);
         }
 
         if (!string.IsNullOrWhiteSpace(category) && !category.Equals("all", StringComparison.OrdinalIgnoreCase))
@@ -352,11 +337,12 @@ public class StoreService
 
     public Product? GetProductById(string id, string? storeId = null)
     {
-        using var scope = _scopeFactory.CreateScope();
-        var db = scope.ServiceProvider.GetRequiredService<ShopifyDbContext>();
-
-        var query = db.Products.AsNoTracking().AsQueryable();
-        if (!string.IsNullOrWhiteSpace(storeId)) query = query.Where(p => p.StoreId == storeId);
+        var query = _db.Products.AsNoTracking().AsQueryable();
+        if (!string.IsNullOrWhiteSpace(storeId))
+        {
+            var target = HttpTenantProvider.NormalizeStoreId(storeId);
+            query = query.IgnoreQueryFilters().Where(p => p.StoreId == target);
+        }
 
         var p = query.FirstOrDefault(x => x.Id == id);
         if (p == null) return null;
@@ -385,16 +371,15 @@ public class StoreService
         }
         if (string.IsNullOrWhiteSpace(product.StoreId))
         {
-            product.StoreId = "store_apex";
+            product.StoreId = !string.IsNullOrWhiteSpace(_tenantProvider.CurrentStoreId)
+                ? _tenantProvider.CurrentStoreId
+                : "store_apex";
         }
-
-        using var scope = _scopeFactory.CreateScope();
-        var db = scope.ServiceProvider.GetRequiredService<ShopifyDbContext>();
 
         var dbProd = new DbProduct
         {
             Id = product.Id,
-            StoreId = product.StoreId,
+            StoreId = HttpTenantProvider.NormalizeStoreId(product.StoreId),
             Title = product.Title,
             Category = product.Category,
             Price = product.Price,
@@ -406,17 +391,21 @@ public class StoreService
             VariantsJson = JsonSerializer.Serialize(product.Variants ?? new List<ProductVariant>())
         };
 
-        db.Products.Add(dbProd);
-        db.SaveChanges();
+        _db.Products.Add(dbProd);
+        _db.SaveChanges();
         return product;
     }
 
     public Product? UpdateProduct(string id, Product product)
     {
-        using var scope = _scopeFactory.CreateScope();
-        var db = scope.ServiceProvider.GetRequiredService<ShopifyDbContext>();
+        var query = _db.Products.AsQueryable();
+        if (!string.IsNullOrWhiteSpace(product.StoreId))
+        {
+            var target = HttpTenantProvider.NormalizeStoreId(product.StoreId);
+            query = query.IgnoreQueryFilters().Where(p => p.StoreId == target);
+        }
 
-        var existing = db.Products.FirstOrDefault(p => p.Id == id);
+        var existing = query.FirstOrDefault(p => p.Id == id);
         if (existing == null) return null;
 
         var oldImage = existing.Image;
@@ -441,25 +430,22 @@ public class StoreService
             _ = Task.Run(() => _r2Storage.DeleteFileAsync(oldImage));
         }
 
-        db.SaveChanges();
+        _db.SaveChanges();
         return product;
     }
 
     public async Task<bool> DeleteProductAsync(string id)
     {
-        using var scope = _scopeFactory.CreateScope();
-        var db = scope.ServiceProvider.GetRequiredService<ShopifyDbContext>();
-        var existing = db.Products.FirstOrDefault(p => p.Id == id);
+        var existing = await _db.Products.FirstOrDefaultAsync(p => p.Id == id);
         if (existing == null) return false;
 
-        // Automatically delete image from Cloudflare R2 / local uploads
         if (!string.IsNullOrWhiteSpace(existing.Image))
         {
             await _r2Storage.DeleteFileAsync(existing.Image);
         }
 
-        db.Products.Remove(existing);
-        await db.SaveChangesAsync();
+        _db.Products.Remove(existing);
+        await _db.SaveChangesAsync();
         return true;
     }
 
@@ -469,17 +455,19 @@ public class StoreService
     }
 
     // =========================================================================
-    // 3. ISOLATED ORDERS APIS (Filtered by storeId)
+    // 3. ISOLATED ORDERS APIS
+    // If storeId is passed explicitly: query that specific store.
+    // If storeId is omitted: EF Core Global Query Filter automatically scopes
+    // to the active tenant. Impossible to leak other stores' orders.
     // =========================================================================
     public List<Order> GetOrders(string? storeId = null)
     {
-        using var scope = _scopeFactory.CreateScope();
-        var db = scope.ServiceProvider.GetRequiredService<ShopifyDbContext>();
+        var query = _db.Orders.AsNoTracking().AsQueryable();
 
-        var query = db.Orders.AsNoTracking().AsQueryable();
         if (!string.IsNullOrWhiteSpace(storeId))
         {
-            query = query.Where(o => o.StoreId == storeId);
+            var target = HttpTenantProvider.NormalizeStoreId(storeId);
+            query = query.IgnoreQueryFilters().Where(o => o.StoreId == target);
         }
 
         return query.OrderByDescending(o => o.CreatedAt).Select(o => new Order
@@ -511,20 +499,21 @@ public class StoreService
         }
         if (string.IsNullOrWhiteSpace(order.StoreId))
         {
-            order.StoreId = "store_apex";
+            order.StoreId = !string.IsNullOrWhiteSpace(_tenantProvider.CurrentStoreId)
+                ? _tenantProvider.CurrentStoreId
+                : "store_apex";
         }
         if (string.IsNullOrWhiteSpace(order.CreatedAt))
         {
             order.CreatedAt = DateTime.UtcNow.ToString("o");
         }
 
-        using var scope = _scopeFactory.CreateScope();
-        var db = scope.ServiceProvider.GetRequiredService<ShopifyDbContext>();
+        var normalizedStore = HttpTenantProvider.NormalizeStoreId(order.StoreId);
 
         var dbOrder = new DbOrder
         {
             Id = order.Id,
-            StoreId = order.StoreId,
+            StoreId = normalizedStore,
             OrderNumber = order.OrderNumber,
             CustomerName = order.CustomerName,
             CustomerEmail = order.CustomerEmail,
@@ -537,10 +526,10 @@ public class StoreService
             ItemsJson = JsonSerializer.Serialize(order.Items ?? new List<CartItem>())
         };
 
-        db.Orders.Add(dbOrder);
+        _db.Orders.Add(dbOrder);
 
         // Update or add customer record automatically
-        var existingCust = db.Customers.FirstOrDefault(c => c.StoreId == order.StoreId && c.Email.ToLower() == order.CustomerEmail.ToLower());
+        var existingCust = _db.Customers.FirstOrDefault(c => c.StoreId == normalizedStore && c.Email.ToLower() == order.CustomerEmail.ToLower());
         if (existingCust != null)
         {
             existingCust.OrdersCount += 1;
@@ -548,10 +537,10 @@ public class StoreService
         }
         else
         {
-            db.Customers.Add(new DbCustomer
+            _db.Customers.Add(new DbCustomer
             {
                 Id = "cust_" + DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
-                StoreId = order.StoreId,
+                StoreId = normalizedStore,
                 Name = order.CustomerName,
                 Email = order.CustomerEmail,
                 OrdersCount = 1,
@@ -560,7 +549,7 @@ public class StoreService
             });
         }
 
-        db.SaveChanges();
+        _db.SaveChanges();
         return order;
     }
 
@@ -569,11 +558,12 @@ public class StoreService
     // =========================================================================
     public List<CategoryItem> GetCategories(string? storeId = null)
     {
-        using var scope = _scopeFactory.CreateScope();
-        var db = scope.ServiceProvider.GetRequiredService<ShopifyDbContext>();
-
-        var query = db.Categories.AsNoTracking().AsQueryable();
-        if (!string.IsNullOrWhiteSpace(storeId)) query = query.Where(c => c.StoreId == storeId);
+        var query = _db.Categories.AsNoTracking().AsQueryable();
+        if (!string.IsNullOrWhiteSpace(storeId))
+        {
+            var target = HttpTenantProvider.NormalizeStoreId(storeId);
+            query = query.IgnoreQueryFilters().Where(c => c.StoreId == target);
+        }
 
         return query.Select(c => new CategoryItem
         {
@@ -588,21 +578,27 @@ public class StoreService
     {
         if (string.IsNullOrWhiteSpace(category.Id)) category.Id = "cat_" + DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
         if (string.IsNullOrWhiteSpace(category.Slug)) category.Slug = category.Name.ToLower().Replace(" ", "-");
-        if (string.IsNullOrWhiteSpace(category.StoreId)) category.StoreId = "store_apex";
+        if (string.IsNullOrWhiteSpace(category.StoreId))
+        {
+            category.StoreId = !string.IsNullOrWhiteSpace(_tenantProvider.CurrentStoreId)
+                ? _tenantProvider.CurrentStoreId
+                : "store_apex";
+        }
 
-        using var scope = _scopeFactory.CreateScope();
-        var db = scope.ServiceProvider.GetRequiredService<ShopifyDbContext>();
-        db.Categories.Add(new DbCategory { Id = category.Id, StoreId = category.StoreId, Name = category.Name, Slug = category.Slug });
-        db.SaveChanges();
+        category.StoreId = HttpTenantProvider.NormalizeStoreId(category.StoreId);
+        _db.Categories.Add(new DbCategory { Id = category.Id, StoreId = category.StoreId, Name = category.Name, Slug = category.Slug });
+        _db.SaveChanges();
         return category;
     }
 
     public List<Customer> GetCustomers(string? storeId = null)
     {
-        using var scope = _scopeFactory.CreateScope();
-        var db = scope.ServiceProvider.GetRequiredService<ShopifyDbContext>();
-        var query = db.Customers.AsNoTracking().AsQueryable();
-        if (!string.IsNullOrWhiteSpace(storeId)) query = query.Where(c => c.StoreId == storeId);
+        var query = _db.Customers.AsNoTracking().AsQueryable();
+        if (!string.IsNullOrWhiteSpace(storeId))
+        {
+            var target = HttpTenantProvider.NormalizeStoreId(storeId);
+            query = query.IgnoreQueryFilters().Where(c => c.StoreId == target);
+        }
 
         return query.OrderByDescending(c => c.TotalSpent).Select(c => new Customer
         {
@@ -619,10 +615,12 @@ public class StoreService
 
     public List<Discount> GetDiscounts(string? storeId = null)
     {
-        using var scope = _scopeFactory.CreateScope();
-        var db = scope.ServiceProvider.GetRequiredService<ShopifyDbContext>();
-        var query = db.Discounts.AsNoTracking().AsQueryable();
-        if (!string.IsNullOrWhiteSpace(storeId)) query = query.Where(d => d.StoreId == storeId);
+        var query = _db.Discounts.AsNoTracking().AsQueryable();
+        if (!string.IsNullOrWhiteSpace(storeId))
+        {
+            var target = HttpTenantProvider.NormalizeStoreId(storeId);
+            query = query.IgnoreQueryFilters().Where(d => d.StoreId == target);
+        }
 
         return query.Select(d => new Discount
         {
@@ -639,11 +637,15 @@ public class StoreService
     public Discount CreateDiscount(Discount discount)
     {
         if (string.IsNullOrWhiteSpace(discount.Id)) discount.Id = "disc_" + DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-        if (string.IsNullOrWhiteSpace(discount.StoreId)) discount.StoreId = "store_apex";
+        if (string.IsNullOrWhiteSpace(discount.StoreId))
+        {
+            discount.StoreId = !string.IsNullOrWhiteSpace(_tenantProvider.CurrentStoreId)
+                ? _tenantProvider.CurrentStoreId
+                : "store_apex";
+        }
 
-        using var scope = _scopeFactory.CreateScope();
-        var db = scope.ServiceProvider.GetRequiredService<ShopifyDbContext>();
-        db.Discounts.Add(new DbDiscount
+        discount.StoreId = HttpTenantProvider.NormalizeStoreId(discount.StoreId);
+        _db.Discounts.Add(new DbDiscount
         {
             Id = discount.Id,
             StoreId = discount.StoreId,
@@ -653,17 +655,22 @@ public class StoreService
             MinSubtotal = discount.MinSubtotal,
             Description = discount.Description
         });
-        db.SaveChanges();
+        _db.SaveChanges();
         return discount;
     }
 
     public List<ProductReview> GetReviews(string? storeId = null, string? productId = null)
     {
-        using var scope = _scopeFactory.CreateScope();
-        var db = scope.ServiceProvider.GetRequiredService<ShopifyDbContext>();
-        var query = db.Reviews.AsNoTracking().AsQueryable();
-        if (!string.IsNullOrWhiteSpace(storeId)) query = query.Where(r => r.StoreId == storeId);
-        if (!string.IsNullOrWhiteSpace(productId)) query = query.Where(r => r.ProductId == productId);
+        var query = _db.Reviews.AsNoTracking().AsQueryable();
+        if (!string.IsNullOrWhiteSpace(storeId))
+        {
+            var target = HttpTenantProvider.NormalizeStoreId(storeId);
+            query = query.IgnoreQueryFilters().Where(r => r.StoreId == target);
+        }
+        if (!string.IsNullOrWhiteSpace(productId))
+        {
+            query = query.Where(r => r.ProductId == productId);
+        }
 
         return query.OrderByDescending(r => r.CreatedAt).Select(r => new ProductReview
         {
@@ -682,11 +689,15 @@ public class StoreService
     public ProductReview CreateReview(ProductReview review)
     {
         if (string.IsNullOrWhiteSpace(review.Id)) review.Id = "rev_" + DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-        if (string.IsNullOrWhiteSpace(review.StoreId)) review.StoreId = "store_apex";
+        if (string.IsNullOrWhiteSpace(review.StoreId))
+        {
+            review.StoreId = !string.IsNullOrWhiteSpace(_tenantProvider.CurrentStoreId)
+                ? _tenantProvider.CurrentStoreId
+                : "store_apex";
+        }
 
-        using var scope = _scopeFactory.CreateScope();
-        var db = scope.ServiceProvider.GetRequiredService<ShopifyDbContext>();
-        db.Reviews.Add(new DbReview
+        review.StoreId = HttpTenantProvider.NormalizeStoreId(review.StoreId);
+        _db.Reviews.Add(new DbReview
         {
             Id = review.Id,
             StoreId = review.StoreId,
@@ -698,15 +709,13 @@ public class StoreService
             VerifiedBuyer = review.VerifiedBuyer,
             CreatedAt = DateTime.UtcNow.ToString("o")
         });
-        db.SaveChanges();
+        _db.SaveChanges();
         return review;
     }
 
     public StoreSettings GetSettings()
     {
-        using var scope = _scopeFactory.CreateScope();
-        var db = scope.ServiceProvider.GetRequiredService<ShopifyDbContext>();
-        var s = db.StoreSettings.AsNoTracking().FirstOrDefault(x => x.Id == "default");
+        var s = _db.StoreSettings.AsNoTracking().FirstOrDefault(x => x.Id == "default");
         if (s == null) return new StoreSettings();
         return new StoreSettings
         {
@@ -721,9 +730,7 @@ public class StoreService
 
     public void UpdateSettings(StoreSettings settings)
     {
-        using var scope = _scopeFactory.CreateScope();
-        var db = scope.ServiceProvider.GetRequiredService<ShopifyDbContext>();
-        var existing = db.StoreSettings.FirstOrDefault(s => s.Id == "default");
+        var existing = _db.StoreSettings.FirstOrDefault(s => s.Id == "default");
         if (existing != null)
         {
             existing.StoreName = settings.StoreName;
@@ -735,7 +742,7 @@ public class StoreService
         }
         else
         {
-            db.StoreSettings.Add(new DbStoreSetting
+            _db.StoreSettings.Add(new DbStoreSetting
             {
                 Id = "default",
                 StoreName = settings.StoreName,
@@ -746,7 +753,20 @@ public class StoreService
                 Theme = settings.Theme
             });
         }
-        db.SaveChanges();
+        _db.SaveChanges();
+    }
+
+    // =========================================================================
+    // 5. MULTI-TENANT CACHING HELPER
+    // Guarantees all cache keys are strictly namespaced by StoreId.
+    // Format: tenant:{storeId}:{resource}:{identifier}
+    // =========================================================================
+    public static string GetTenantCacheKey(string storeId, string resource, string? identifier = null)
+    {
+        var cleanStore = HttpTenantProvider.NormalizeStoreId(storeId);
+        return string.IsNullOrWhiteSpace(identifier)
+            ? $"tenant:{cleanStore}:{resource}"
+            : $"tenant:{cleanStore}:{resource}:{identifier}";
     }
 
     private static List<ProductVariant> DeserializeVariants(string json)

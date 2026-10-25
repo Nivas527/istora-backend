@@ -38,7 +38,7 @@ public class DbStoreSetting
     public string Theme { get; set; } = "theme_apex_dark";
 }
 
-public class DbProduct
+public class DbProduct : IMultiTenantEntity
 {
     [Key]
     public string Id { get; set; } = string.Empty;
@@ -57,7 +57,7 @@ public class DbProduct
     public string VariantsJson { get; set; } = "[]";
 }
 
-public class DbOrder
+public class DbOrder : IMultiTenantEntity
 {
     [Key]
     public string Id { get; set; } = string.Empty;
@@ -78,7 +78,7 @@ public class DbOrder
     public string CreatedAt { get; set; } = DateTime.UtcNow.ToString("o");
 }
 
-public class DbCustomer
+public class DbCustomer : IMultiTenantEntity
 {
     [Key]
     public string Id { get; set; } = string.Empty;
@@ -92,7 +92,7 @@ public class DbCustomer
     public string CreatedAt { get; set; } = DateTime.UtcNow.ToString("o");
 }
 
-public class DbCategory
+public class DbCategory : IMultiTenantEntity
 {
     [Key]
     public string Id { get; set; } = string.Empty;
@@ -102,7 +102,7 @@ public class DbCategory
     public string Slug { get; set; } = string.Empty;
 }
 
-public class DbDiscount
+public class DbDiscount : IMultiTenantEntity
 {
     [Key]
     public string Id { get; set; } = string.Empty;
@@ -115,7 +115,7 @@ public class DbDiscount
     public string Description { get; set; } = string.Empty;
 }
 
-public class DbReview
+public class DbReview : IMultiTenantEntity
 {
     [Key]
     public string Id { get; set; } = string.Empty;
@@ -164,9 +164,14 @@ public class DbDeployment
 
 public class ShopifyDbContext : DbContext
 {
-    public ShopifyDbContext(DbContextOptions<ShopifyDbContext> options) : base(options)
+    private readonly ITenantProvider? _tenantProvider;
+
+    public ShopifyDbContext(DbContextOptions<ShopifyDbContext> options, ITenantProvider? tenantProvider = null) : base(options)
     {
+        _tenantProvider = tenantProvider;
     }
+
+    public string? CurrentTenantId => _tenantProvider?.CurrentStoreId;
 
     public DbSet<DbStore> Stores => Set<DbStore>();
     public DbSet<DbStoreSetting> StoreSettings => Set<DbStoreSetting>();
@@ -192,12 +197,66 @@ public class ShopifyDbContext : DbContext
         modelBuilder.Entity<DbReview>().ToTable("reviews");
         modelBuilder.Entity<DbDeployment>().ToTable("deployments");
 
-        // Indexes for multi-tenant query speed
+        // Multi-tenant Indexes for high-performance scoped lookups
         modelBuilder.Entity<DbProduct>().HasIndex(p => p.StoreId);
         modelBuilder.Entity<DbOrder>().HasIndex(o => o.StoreId);
         modelBuilder.Entity<DbCustomer>().HasIndex(c => c.StoreId);
         modelBuilder.Entity<DbCategory>().HasIndex(cat => cat.StoreId);
         modelBuilder.Entity<DbDiscount>().HasIndex(d => d.StoreId);
         modelBuilder.Entity<DbReview>().HasIndex(r => new { r.StoreId, r.ProductId });
+
+        // EF Core Global Query Filters:
+        // Automatically injects WHERE "StoreId" = @CurrentStoreId on EVERY query
+        // Prevents any tenant from ever reading another tenant's data even if a WHERE clause is omitted.
+        // Bypassed only when caller is verified as MasterPlatformAdmin or explicitly calls .IgnoreQueryFilters()
+        modelBuilder.Entity<DbProduct>()
+            .HasQueryFilter(p => (_tenantProvider != null && _tenantProvider.IsMasterPlatformAdmin) ||
+                                 p.StoreId == (_tenantProvider != null && !string.IsNullOrEmpty(_tenantProvider.CurrentStoreId) ? _tenantProvider.CurrentStoreId : "store_apex"));
+
+        modelBuilder.Entity<DbOrder>()
+            .HasQueryFilter(o => (_tenantProvider != null && _tenantProvider.IsMasterPlatformAdmin) ||
+                                 o.StoreId == (_tenantProvider != null && !string.IsNullOrEmpty(_tenantProvider.CurrentStoreId) ? _tenantProvider.CurrentStoreId : "store_apex"));
+
+        modelBuilder.Entity<DbCustomer>()
+            .HasQueryFilter(c => (_tenantProvider != null && _tenantProvider.IsMasterPlatformAdmin) ||
+                                 c.StoreId == (_tenantProvider != null && !string.IsNullOrEmpty(_tenantProvider.CurrentStoreId) ? _tenantProvider.CurrentStoreId : "store_apex"));
+
+        modelBuilder.Entity<DbCategory>()
+            .HasQueryFilter(cat => (_tenantProvider != null && _tenantProvider.IsMasterPlatformAdmin) ||
+                                   cat.StoreId == (_tenantProvider != null && !string.IsNullOrEmpty(_tenantProvider.CurrentStoreId) ? _tenantProvider.CurrentStoreId : "store_apex"));
+
+        modelBuilder.Entity<DbDiscount>()
+            .HasQueryFilter(d => (_tenantProvider != null && _tenantProvider.IsMasterPlatformAdmin) ||
+                                 d.StoreId == (_tenantProvider != null && !string.IsNullOrEmpty(_tenantProvider.CurrentStoreId) ? _tenantProvider.CurrentStoreId : "store_apex"));
+
+        modelBuilder.Entity<DbReview>()
+            .HasQueryFilter(r => (_tenantProvider != null && _tenantProvider.IsMasterPlatformAdmin) ||
+                                 r.StoreId == (_tenantProvider != null && !string.IsNullOrEmpty(_tenantProvider.CurrentStoreId) ? _tenantProvider.CurrentStoreId : "store_apex"));
+    }
+
+    public override int SaveChanges()
+    {
+        EnforceTenantId();
+        return base.SaveChanges();
+    }
+
+    public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
+    {
+        EnforceTenantId();
+        return base.SaveChangesAsync(cancellationToken);
+    }
+
+    private void EnforceTenantId()
+    {
+        var tenantId = _tenantProvider?.CurrentStoreId;
+        if (string.IsNullOrWhiteSpace(tenantId)) return;
+
+        foreach (var entry in ChangeTracker.Entries<IMultiTenantEntity>())
+        {
+            if (entry.State == EntityState.Added && string.IsNullOrWhiteSpace(entry.Entity.StoreId))
+            {
+                entry.Entity.StoreId = tenantId;
+            }
+        }
     }
 }

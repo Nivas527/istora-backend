@@ -27,10 +27,14 @@ builder.Services.Configure<FormOptions>(options =>
     options.MultipartBodyLengthLimit = 52428800; // 50MB
 });
 
+// Register Context & Tenant Services
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<ITenantProvider, HttpTenantProvider>();
+builder.Services.AddScoped<StoreService>();
+
 // Register Singleton Services
 builder.Services.AddSingleton<DeploymentService>();
 builder.Services.AddSingleton<R2StorageService>();
-builder.Services.AddSingleton<StoreService>();
 builder.Services.AddSingleton<JsxCompilerService>();
 
 // Add Swagger / OpenAPI documentation
@@ -143,7 +147,8 @@ using (var scope = app.Services.CreateScope())
         Console.WriteLine($"[Database Migration Notice] {ex.Message}");
     }
 
-    scope.ServiceProvider.GetRequiredService<StoreService>();
+    var storeService = scope.ServiceProvider.GetRequiredService<StoreService>();
+    storeService.InitializeDatabase();
 }
 
 // Enable Swagger UI
@@ -315,15 +320,15 @@ app.MapGet("/admin/api/2024-01/shop.json", (StoreService store) =>
 });
 
 // Products: /admin/api/2024-01/products.json
-app.MapGet("/admin/api/2024-01/products.json", (string? category, StoreService store) =>
+app.MapGet("/admin/api/2024-01/products.json", (string? category, string? storeId, StoreService store) =>
 {
-    var products = store.GetProducts(category);
+    var products = store.GetProducts(storeId, category);
     return Results.Ok(new { products });
 });
 
-app.MapGet("/admin/api/2024-01/products/{id}.json", (string id, StoreService store) =>
+app.MapGet("/admin/api/2024-01/products/{id}.json", (string id, string? storeId, StoreService store) =>
 {
-    var product = store.GetProductById(id);
+    var product = store.GetProductById(id, storeId);
     return product != null ? Results.Ok(new { product }) : Results.NotFound();
 });
 
@@ -364,9 +369,9 @@ app.MapDelete("/admin/api/2024-01/products/{id}.json", async (string id, StoreSe
 });
 
 // Orders: /admin/api/2024-01/orders.json
-app.MapGet("/admin/api/2024-01/orders.json", (StoreService store) =>
+app.MapGet("/admin/api/2024-01/orders.json", (string? storeId, StoreService store) =>
 {
-    var orders = store.GetOrders();
+    var orders = store.GetOrders(storeId);
     return Results.Ok(new { orders });
 });
 
@@ -487,12 +492,13 @@ app.MapGet("/uploads/{fileName}", (string fileName) =>
 
 
 // Public Order Tracking Endpoint
-app.MapGet("/api/orders/track/{orderNumber}", (string orderNumber, StoreService store) =>
+app.MapGet("/api/orders/track/{orderNumber}", (string orderNumber, string? storeId, StoreService store) =>
 {
     var clean = orderNumber.Trim().ToLowerInvariant();
-    var order = store.GetOrders().FirstOrDefault(o =>
+    var order = store.GetOrders(storeId).FirstOrDefault(o =>
         o.Id.ToLowerInvariant().Contains(clean) ||
-        (o.CustomerEmail != null && o.CustomerEmail.ToLowerInvariant().Contains(clean))
+        (o.CustomerEmail != null && o.CustomerEmail.ToLowerInvariant().Contains(clean)) ||
+        (o.OrderNumber != null && o.OrderNumber.ToLowerInvariant().Contains(clean))
     );
 
     if (order == null) return Results.NotFound(new { error = $"Order '{orderNumber}' not found" });

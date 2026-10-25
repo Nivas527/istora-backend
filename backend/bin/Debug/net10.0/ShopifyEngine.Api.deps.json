@@ -8,12 +8,32 @@
     ".NETCoreApp,Version=v10.0": {
       "ShopifyEngine.Api/1.0.0": {
         "dependencies": {
+          "AWSSDK.S3": "4.0.104.6",
           "Microsoft.AspNetCore.OpenApi": "10.0.1",
           "Npgsql.EntityFrameworkCore.PostgreSQL": "10.0.3",
           "Swashbuckle.AspNetCore": "10.3.1"
         },
         "runtime": {
           "ShopifyEngine.Api.dll": {}
+        }
+      },
+      "AWSSDK.Core/4.0.102.13": {
+        "runtime": {
+          "lib/net8.0/AWSSDK.Core.dll": {
+            "assemblyVersion": "4.0.0.0",
+            "fileVersion": "4.0.102.13"
+          }
+        }
+      },
+      "AWSSDK.S3/4.0.104.6": {
+        "dependencies": {
+          "AWSSDK.Core": "4.0.102.13"
+        },
+        "runtime": {
+          "lib/net8.0/AWSSDK.S3.dll": {
+            "assemblyVersion": "4.0.0.0",
+            "fileVersion": "4.0.104.6"
+          }
         }
       },
       "Microsoft.AspNetCore.OpenApi/10.0.1": {
@@ -130,6 +150,20 @@
       "type": "project",
       "serviceable": false,
       "sha512": ""
+    },
+    "AWSSDK.Core/4.0.102.13": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-vaYs/kwfB+Lv9PeVKYE4g2mQlzVtHImXLWgfTG8UgeCybUAPkew5kwb8GS6RhuzwvImbolyLHT+IM34WoM9lJg==",
+      "path": "awssdk.core/4.0.102.13",
+      "hashPath": "awssdk.core.4.0.102.13.nupkg.sha512"
+    },
+    "AWSSDK.S3/4.0.104.6": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-fSqAOkftU8jKemilzLGZDU0zLEJXHjAemU+8Nd29+sUwRxVK04w6/GY3O4f9S1+JIYwEnHDGcW66VK4AZ2kx6g==",
+      "path": "awssdk.s3/4.0.104.6",
+      "hashPath": "awssdk.s3.4.0.104.6.nupkg.sha512"
     },
     "Microsoft.AspNetCore.OpenApi/10.0.1": {
       "type": "package",

@@ -10,6 +10,27 @@ function getUrl(path) {
   return `${API_BASE_URL.replace(/\/+$/, '')}/${path.replace(/^\/+/, '')}`;
 }
 
+/**
+ * Injects X-Store-Id header for defense-in-depth tenant scoping
+ */
+function getHeaders(custom = {}, explicitStoreId = null) {
+  const headers = { ...custom };
+  let storeId = explicitStoreId;
+  if (!storeId && typeof window !== 'undefined') {
+    const host = window.location.host;
+    const parts = host.split('.');
+    if (parts.length > 2 && parts[0] !== 'www' && parts[0] !== 'admin' && parts[0] !== 'api') {
+      storeId = parts[0].startsWith('store_') ? parts[0] : `store_${parts[0]}`;
+    } else {
+      storeId = localStorage.getItem('active_store_id') || 'store_apex';
+    }
+  }
+  if (storeId) {
+    headers['X-Store-Id'] = storeId.startsWith('store_') ? storeId : `store_${storeId}`;
+  }
+  return headers;
+}
+
 export const apiClient = {
   baseUrl: API_BASE_URL,
 
@@ -92,7 +113,7 @@ export const apiClient = {
 
       const qs = query.toString();
       const url = getUrl(qs ? `/api/products?${qs}` : '/api/products');
-      const res = await fetch(url);
+      const res = await fetch(url, { headers: getHeaders({}, storeId) });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       return await res.json();
     } catch (err) {
@@ -103,9 +124,10 @@ export const apiClient = {
 
   async createProduct(productData) {
     try {
+      const storeId = productData?.storeId;
       const res = await fetch(getUrl('/api/products'), {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getHeaders({ 'Content-Type': 'application/json' }, storeId),
         body: JSON.stringify(productData)
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -118,9 +140,10 @@ export const apiClient = {
 
   async updateProduct(id, productData) {
     try {
+      const storeId = productData?.storeId;
       const res = await fetch(getUrl(`/api/products/${id}`), {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getHeaders({ 'Content-Type': 'application/json' }, storeId),
         body: JSON.stringify(productData)
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -131,10 +154,11 @@ export const apiClient = {
     }
   },
 
-  async deleteProduct(id) {
+  async deleteProduct(id, storeId = null) {
     try {
       const res = await fetch(getUrl(`/api/products/${id}`), {
-        method: 'DELETE'
+        method: 'DELETE',
+        headers: getHeaders({}, storeId)
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       return await res.json();
@@ -150,7 +174,7 @@ export const apiClient = {
   async getOrders(storeId = null) {
     try {
       const url = storeId ? getUrl(`/api/orders?storeId=${encodeURIComponent(storeId)}`) : getUrl('/api/orders');
-      const res = await fetch(url);
+      const res = await fetch(url, { headers: getHeaders({}, storeId) });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       return await res.json();
     } catch (err) {
@@ -161,9 +185,10 @@ export const apiClient = {
 
   async createOrder(orderData) {
     try {
+      const storeId = orderData?.storeId;
       const res = await fetch(getUrl('/api/orders'), {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getHeaders({ 'Content-Type': 'application/json' }, storeId),
         body: JSON.stringify(orderData)
       });
       return await res.json();
@@ -179,7 +204,7 @@ export const apiClient = {
   async getCategories(storeId = null) {
     try {
       const url = storeId ? getUrl(`/api/categories?storeId=${encodeURIComponent(storeId)}`) : getUrl('/api/categories');
-      const res = await fetch(url);
+      const res = await fetch(url, { headers: getHeaders({}, storeId) });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
       return Array.isArray(data) ? data : data.categories || [];
@@ -191,9 +216,10 @@ export const apiClient = {
 
   async createCategory(categoryData) {
     try {
+      const storeId = categoryData?.storeId;
       const res = await fetch(getUrl('/api/categories'), {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getHeaders({ 'Content-Type': 'application/json' }, storeId),
         body: JSON.stringify(categoryData)
       });
       return await res.json();
@@ -206,7 +232,7 @@ export const apiClient = {
   async getCustomers(storeId = null) {
     try {
       const url = storeId ? getUrl(`/api/customers?storeId=${encodeURIComponent(storeId)}`) : getUrl('/api/customers');
-      const res = await fetch(url);
+      const res = await fetch(url, { headers: getHeaders({}, storeId) });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       return await res.json();
     } catch (err) {
@@ -218,7 +244,7 @@ export const apiClient = {
   async getDiscounts(storeId = null) {
     try {
       const url = storeId ? getUrl(`/api/discounts?storeId=${encodeURIComponent(storeId)}`) : getUrl('/api/discounts');
-      const res = await fetch(url);
+      const res = await fetch(url, { headers: getHeaders({}, storeId) });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       return await res.json();
     } catch (err) {
@@ -229,9 +255,10 @@ export const apiClient = {
 
   async createDiscount(discountData) {
     try {
+      const storeId = discountData?.storeId;
       const res = await fetch(getUrl('/api/discounts'), {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getHeaders({ 'Content-Type': 'application/json' }, storeId),
         body: JSON.stringify(discountData)
       });
       return await res.json();

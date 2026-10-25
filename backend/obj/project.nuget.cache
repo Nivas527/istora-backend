@@ -1,9 +1,11 @@
 {
   "version": 2,
-  "dgSpecHash": "J+/QJriTdPs=",
+  "dgSpecHash": "7M5DxDJ6fJE=",
   "success": true,
   "projectFilePath": "/Users/nivas/.gemini/antigravity/scratch/shopify-engine/backend/ShopifyEngine.Api.csproj",
   "expectedPackageFiles": [
+    "/Users/nivas/.nuget/packages/awssdk.core/4.0.102.13/awssdk.core.4.0.102.13.nupkg.sha512",
+    "/Users/nivas/.nuget/packages/awssdk.s3/4.0.104.6/awssdk.s3.4.0.104.6.nupkg.sha512",
     "/Users/nivas/.nuget/packages/microsoft.aspnetcore.openapi/10.0.1/microsoft.aspnetcore.openapi.10.0.1.nupkg.sha512",
     "/Users/nivas/.nuget/packages/microsoft.entityframeworkcore/10.0.4/microsoft.entityframeworkcore.10.0.4.nupkg.sha512",
     "/Users/nivas/.nuget/packages/microsoft.entityframeworkcore.abstractions/10.0.4/microsoft.entityframeworkcore.abstractions.10.0.4.nupkg.sha512",
