@@ -1,12 +1,14 @@
 import React, { useState } from 'react';
 import { useStore } from '../../context/StoreContext';
 import ProductFormModal from './ProductFormModal';
-import { Plus, Search, Trash2, Layers, CheckCircle2, FolderPlus, X, Tag } from 'lucide-react';
+import ShopifyMigrationModal from './ShopifyMigrationModal';
+import { Plus, Search, Trash2, Layers, CheckCircle2, FolderPlus, X, Tag, Sparkles, Upload } from 'lucide-react';
 
 export default function ProductsView() {
   const { products, deleteProduct, collections, addCategory, deleteCategory } = useStore();
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isCategoriesModalOpen, setIsCategoriesModalOpen] = useState(false);
+  const [isMigrationModalOpen, setIsMigrationModalOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('ALL');
 
@@ -58,6 +60,16 @@ export default function ProductsView() {
         </div>
 
         <div className="flex items-center gap-2">
+          {/* Shopify Dual-Model Migrator Button */}
+          <button
+            onClick={() => setIsMigrationModalOpen(true)}
+            className="px-3.5 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-xs font-bold rounded-lg border border-emerald-200 flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+            title="Import existing data from Shopify CSV or live Admin API"
+          >
+            <Sparkles className="w-3.5 h-3.5 text-emerald-700" />
+            <span>Import from Shopify</span>
+          </button>
+
           <button
             onClick={() => setIsCategoriesModalOpen(true)}
             className="px-3.5 py-2 bg-zinc-100 hover:bg-zinc-200 text-zinc-700 text-xs font-semibold rounded-lg border border-zinc-300 flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
@@ -345,6 +357,12 @@ export default function ProductsView() {
           </div>
         </div>
       )}
+
+      {/* Shopify Dual-Model Migrator Modal */}
+      <ShopifyMigrationModal
+        isOpen={isMigrationModalOpen}
+        onClose={() => setIsMigrationModalOpen(false)}
+      />
     </div>
   );
 }

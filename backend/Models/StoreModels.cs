@@ -274,3 +274,25 @@ public class ProductReview
     [JsonPropertyName("createdAt")]
     public string CreatedAt { get; set; } = DateTime.UtcNow.ToString("o");
 }
+
+public class ShopifyApiImportRequest
+{
+    [JsonPropertyName("shopifyDomain")]
+    public string ShopifyDomain { get; set; } = string.Empty;
+
+    [JsonPropertyName("accessToken")]
+    public string AccessToken { get; set; } = string.Empty;
+
+    [JsonPropertyName("storeId")]
+    public string? StoreId { get; set; }
+
+    [JsonPropertyName("mirrorImages")]
+    public bool MirrorImages { get; set; } = true;
+
+    [JsonPropertyName("importProducts")]
+    public bool ImportProducts { get; set; } = true;
+
+    [JsonPropertyName("importCustomers")]
+    public bool ImportCustomers { get; set; } = true;
+}
+

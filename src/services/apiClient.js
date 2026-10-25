@@ -314,6 +314,55 @@ export const apiClient = {
   },
 
   // ==========================================
+  // SHOPIFY MIGRATION & IMPORT (CSV & 1-CLICK API)
+  // ==========================================
+  async importShopifyCsv(file, { mirrorImages = true, storeId = null } = {}) {
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('mirrorImages', mirrorImages ? 'true' : 'false');
+      if (storeId) formData.append('storeId', storeId);
+
+      const headers = getHeaders({}, storeId);
+      const res = await fetch(getUrl('/api/import/shopify-csv'), {
+        method: 'POST',
+        headers,
+        body: formData
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || (data.errors && data.errors[0]) || `HTTP ${res.status}`);
+      return data;
+    } catch (err) {
+      console.error('[C# API] importShopifyCsv failed:', err);
+      throw err;
+    }
+  },
+
+  async importShopifyApi({ shopifyDomain, accessToken, mirrorImages = true, importProducts = true, importCustomers = true, storeId = null }) {
+    try {
+      const headers = getHeaders({ 'Content-Type': 'application/json' }, storeId);
+      const res = await fetch(getUrl('/api/import/shopify-api'), {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          shopifyDomain,
+          accessToken,
+          mirrorImages,
+          importProducts,
+          importCustomers,
+          storeId
+        })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || (data.errors && data.errors[0]) || `HTTP ${res.status}`);
+      return data;
+    } catch (err) {
+      console.error('[C# API] importShopifyApi failed:', err);
+      throw err;
+    }
+  },
+
+  // ==========================================
   // 5. DEPLOYMENTS (Vercel React / dist.zip)
   // ==========================================
   async getDeployments() {

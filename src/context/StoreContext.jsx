@@ -1135,6 +1135,73 @@ export function StoreProvider({ children }) {
     }
   };
 
+  // Sync and reload products, categories, customers from backend
+  const refreshStoreData = async () => {
+    try {
+      const targetStoreId = activeStore?.id || dedicatedResolution.storeId || 'store_apex';
+      const [backendProducts, backendCategories, backendCustomers] = await Promise.all([
+        apiClient.getProducts('all', targetStoreId).catch(() => null),
+        apiClient.getCategories(targetStoreId).catch(() => null),
+        apiClient.getCustomers(targetStoreId).catch(() => null)
+      ]);
+
+      mutateActiveStore((store) => {
+        let updatedProducts = store.products;
+        if (Array.isArray(backendProducts) && backendProducts.length > 0) {
+          updatedProducts = backendProducts.map((p) => ({
+            id: p.id,
+            title: p.title,
+            price: p.price,
+            compareAtPrice: p.compareAtPrice,
+            badge: p.badge,
+            images: [p.image || 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=600&q=80'],
+            collectionId: (p.category || 'footwear').toLowerCase(),
+            productType: p.category,
+            description: p.description,
+            inventory: p.inventory || 50,
+            options: p.options || [{ name: 'Title', values: ['Default Title'] }],
+            variants: p.variants && p.variants.length > 0 ? p.variants : [
+              { id: `var_${p.id}_1`, title: 'Default', price: p.price, inventoryQuantity: p.inventory || 50 }
+            ]
+          }));
+        }
+
+        let updatedCollections = store.collections;
+        if (Array.isArray(backendCategories) && backendCategories.length > 0) {
+          updatedCollections = backendCategories.map((c) => ({
+            id: (c.slug || c.id || c.name).toLowerCase(),
+            title: c.name,
+            description: c.name
+          }));
+        }
+
+        let updatedCustomers = store.customers;
+        if (Array.isArray(backendCustomers) && backendCustomers.length > 0) {
+          updatedCustomers = backendCustomers.map((c) => ({
+            id: c.id,
+            name: c.name,
+            email: c.email,
+            phone: c.phone || '',
+            ordersCount: c.ordersCount || 0,
+            totalSpent: c.totalSpent || 0,
+            createdAt: c.createdAt || new Date().toISOString()
+          }));
+        }
+
+        return {
+          ...store,
+          products: updatedProducts,
+          collections: updatedCollections,
+          customers: updatedCustomers
+        };
+      });
+      return true;
+    } catch (err) {
+      console.warn('[StoreContext] refreshStoreData error:', err);
+      return false;
+    }
+  };
+
   // Factory reset
   const resetToDefaults = () => {
     try {
@@ -1266,6 +1333,7 @@ export function StoreProvider({ children }) {
         unfulfilledOrdersCount,
 
         // System
+        refreshStoreData,
         resetToDefaults
       }}
     >

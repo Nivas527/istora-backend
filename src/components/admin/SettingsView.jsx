@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
 import { useStore } from '../../context/StoreContext';
-import { Settings, Save, CheckCircle, RefreshCcw } from 'lucide-react';
+import ShopifyMigrationModal from './ShopifyMigrationModal';
+import { Settings, Save, CheckCircle, RefreshCcw, Sparkles, Upload, ArrowRight } from 'lucide-react';
 
 export default function SettingsView() {
-  const { settings, setSettings, resetToDefaults } = useStore();
+  const { settings, setSettings, resetToDefaults, activeStore } = useStore();
   const [formData, setFormData] = useState({ ...settings });
   const [saved, setSaved] = useState(false);
+  const [isMigrationModalOpen, setIsMigrationModalOpen] = useState(false);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -176,6 +178,33 @@ export default function SettingsView() {
         </div>
       </form>
 
+      {/* Shopify Data Migration Section */}
+      <div className="bg-gradient-to-br from-emerald-50/80 via-white to-zinc-50 p-6 rounded-2xl border border-emerald-200/80 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="space-y-1">
+          <div className="flex items-center gap-2">
+            <span className="p-1 rounded-md bg-emerald-600 text-white">
+              <Sparkles className="w-3.5 h-3.5" />
+            </span>
+            <h4 className="text-sm font-bold text-zinc-900">Shopify Store Migration</h4>
+            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
+              CSV & Live API
+            </span>
+          </div>
+          <p className="text-xs text-zinc-600 max-w-lg leading-relaxed">
+            Switching from Shopify? Import your complete catalog, variants, Cloudflare R2 media, and customer database in seconds with zero tech hurdles.
+          </p>
+        </div>
+
+        <button
+          type="button"
+          onClick={() => setIsMigrationModalOpen(true)}
+          className="px-4 py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-bold transition-all shadow-xs shrink-0 flex items-center justify-center gap-2 cursor-pointer"
+        >
+          <span>Open Migrator</span>
+          <ArrowRight className="w-3.5 h-3.5" />
+        </button>
+      </div>
+
       {/* Factory Reset */}
       <div className="bg-red-50/60 p-5 rounded-xl border border-red-200 flex items-center justify-between">
         <div>
@@ -197,6 +226,12 @@ export default function SettingsView() {
           <span>Reset All</span>
         </button>
       </div>
+
+      {/* Shopify Migration Modal */}
+      <ShopifyMigrationModal
+        isOpen={isMigrationModalOpen}
+        onClose={() => setIsMigrationModalOpen(false)}
+      />
     </div>
   );
 }

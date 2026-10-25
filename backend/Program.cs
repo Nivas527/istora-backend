@@ -31,6 +31,7 @@ builder.Services.Configure<FormOptions>(options =>
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ITenantProvider, HttpTenantProvider>();
 builder.Services.AddScoped<StoreService>();
+builder.Services.AddScoped<ShopifyMigrationService>();
 
 // Register Singleton Services
 builder.Services.AddSingleton<DeploymentService>();
@@ -465,6 +466,76 @@ app.MapPost("/api/upload", async (HttpRequest request, R2StorageService r2Storag
     catch (Exception ex)
     {
         return Results.Problem($"Image upload failed: {ex.Message}");
+    }
+});
+
+// ==========================================
+// SHOPIFY MIGRATION & DATA IMPORT APIS
+// ==========================================
+// 1. Shopify CSV Importer (Products & Customers)
+app.MapPost("/api/import/shopify-csv", async (HttpRequest request, ShopifyMigrationService migrationService) =>
+{
+    try
+    {
+        if (!request.HasFormContentType)
+        {
+            return Results.BadRequest(new { error = "Multipart form-data expected" });
+        }
+
+        var form = await request.ReadFormAsync();
+        var file = form.Files.FirstOrDefault();
+        if (file == null || file.Length == 0)
+        {
+            return Results.BadRequest(new { error = "No CSV file uploaded" });
+        }
+
+        var mirrorImages = true;
+        if (form.TryGetValue("mirrorImages", out var mirrorVal))
+        {
+            if (bool.TryParse(mirrorVal, out var parsedMirror)) mirrorImages = parsedMirror;
+        }
+
+        string? storeId = null;
+        if (form.TryGetValue("storeId", out var sIdVal) && !string.IsNullOrWhiteSpace(sIdVal))
+        {
+            storeId = sIdVal.ToString();
+        }
+
+        using var stream = file.OpenReadStream();
+        var result = await migrationService.ImportShopifyCsvAsync(stream, storeId, mirrorImages);
+
+        return result.Success ? Results.Ok(result) : Results.BadRequest(result);
+    }
+    catch (Exception ex)
+    {
+        return Results.Problem($"Shopify CSV import failed: {ex.Message}");
+    }
+});
+
+// 2. 1-Click Direct Shopify Admin API Migrator
+app.MapPost("/api/import/shopify-api", async (ShopifyApiImportRequest req, ShopifyMigrationService migrationService) =>
+{
+    try
+    {
+        if (string.IsNullOrWhiteSpace(req.ShopifyDomain) || string.IsNullOrWhiteSpace(req.AccessToken))
+        {
+            return Results.BadRequest(new { error = "Shopify domain and Admin API Access Token are required." });
+        }
+
+        var result = await migrationService.ImportFromShopifyApiAsync(
+            req.ShopifyDomain,
+            req.AccessToken,
+            req.StoreId,
+            req.MirrorImages,
+            req.ImportProducts,
+            req.ImportCustomers
+        );
+
+        return result.Success ? Results.Ok(result) : Results.BadRequest(result);
+    }
+    catch (Exception ex)
+    {
+        return Results.Problem($"Shopify API sync failed: {ex.Message}");
     }
 });
 
