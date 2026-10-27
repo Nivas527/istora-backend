@@ -1,0 +1,7 @@
+name = "istora-wildcard-router"
+main = "index.js"
+compatibility_date = "2026-10-24"
+
+routes = [
+  { pattern = "*.istora.online/*", zone_name = "istora.online" }
+]

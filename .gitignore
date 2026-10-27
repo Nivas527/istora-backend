@@ -1,0 +1,17 @@
+# Dependencies
+node_modules
+dist
+dist.zip
+
+# Cache & Build
+.deployments-cache.json
+.wrangler
+.DS_Store
+backend/bin/
+backend/obj/
+
+# Environment files
+.env
+.env.*
+!.env.example
+*.local
