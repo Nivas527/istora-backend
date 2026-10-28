@@ -674,11 +674,53 @@ export function StoreProvider({ children }) {
     } catch {}
   };
 
-  // Multi-Tenancy Store Creator with Developer Theme Binding
-  const createStore = ({ name, handle, category, templateId, themeId, contactEmail, emptyCatalog = false }) => {
+  // Multi-Tenancy Store Creator with Developer Theme Binding & Location Defaults
+  const createStore = ({ name, handle, category, location = 'United States', templateId, themeId, contactEmail, emptyCatalog = false }) => {
     const cleanSubdomain = (handle || name.toLowerCase().replace(/[^a-z0-9]+/g, '-')).replace(/(^-|-$)/g, '');
     const template = storeTemplates.find((t) => t.id === templateId) || storeTemplates[0];
     const selectedTheme = themes.find((t) => t.id === themeId) || themes[0];
+
+    // Location-based defaults
+    const locLower = (location || '').toLowerCase();
+    let currency = 'USD';
+    let currencySymbol = '$';
+    let taxRate = 0.08;
+    let freeShippingThreshold = 75.00;
+    let standardShippingRate = 6.99;
+    let expressShippingRate = 14.99;
+    let razorpayEnabled = true;
+    let stripeEnabled = true;
+
+    if (locLower.includes('india') || locLower === 'in') {
+      currency = 'INR';
+      currencySymbol = '₹';
+      taxRate = 0.18;
+      freeShippingThreshold = 999.00;
+      standardShippingRate = 49.00;
+      expressShippingRate = 149.00;
+      razorpayEnabled = true;
+    } else if (locLower.includes('united kingdom') || locLower.includes('uk') || locLower === 'gb') {
+      currency = 'GBP';
+      currencySymbol = '£';
+      taxRate = 0.20;
+      freeShippingThreshold = 50.00;
+      standardShippingRate = 3.99;
+      expressShippingRate = 8.99;
+    } else if (locLower.includes('uae') || locLower.includes('emirates') || locLower === 'ae') {
+      currency = 'AED';
+      currencySymbol = 'د.إ';
+      taxRate = 0.05;
+      freeShippingThreshold = 250.00;
+      standardShippingRate = 20.00;
+      expressShippingRate = 45.00;
+    } else if (locLower.includes('europe') || locLower === 'eu') {
+      currency = 'EUR';
+      currencySymbol = '€';
+      taxRate = 0.19;
+      freeShippingThreshold = 60.00;
+      standardShippingRate = 4.99;
+      expressShippingRate = 11.99;
+    }
 
     const newStoreId = `store_${cleanSubdomain}`;
     const newStore = {
@@ -688,17 +730,21 @@ export function StoreProvider({ children }) {
       subdomain: `${cleanSubdomain}.istora.online`,
       customDomain: `${cleanSubdomain}.istora.online`,
       category: category || template.category,
+      location: location,
       themeId: selectedTheme.id,
       customDeploymentId: selectedTheme.deploymentId || null,
       accentColor: selectedTheme.styles?.accentColor || template.accentColor || '#008060',
-      currency: 'USD',
-      currencySymbol: '$',
+      currency: currency,
+      currencySymbol: currencySymbol,
       status: 'active',
-      taxRate: 0.08,
-      freeShippingThreshold: 75.00,
-      standardShippingRate: 6.99,
-      expressShippingRate: 14.99,
+      taxRate: taxRate,
+      freeShippingThreshold: freeShippingThreshold,
+      standardShippingRate: standardShippingRate,
+      expressShippingRate: expressShippingRate,
       contactEmail: contactEmail || `owner@${cleanSubdomain}.com`,
+      razorpayEnabled,
+      stripeEnabled,
+      codEnabled: true,
       products: emptyCatalog ? [] : template.products.map((p) => ({
         ...p,
         id: `prod_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
@@ -726,6 +772,7 @@ export function StoreProvider({ children }) {
       subdomain: newStore.subdomain,
       customDomain: newStore.customDomain,
       category: newStore.category,
+      location: newStore.location,
       themeId: newStore.themeId,
       accentColor: newStore.accentColor,
       currency: newStore.currency,
