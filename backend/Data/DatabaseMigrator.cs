@@ -82,6 +82,7 @@ public static class DatabaseMigrator
                 ALTER TABLE orders ADD COLUMN IF NOT EXISTS ""TrackingNumber"" text;
                 ALTER TABLE orders ADD COLUMN IF NOT EXISTS ""Carrier"" text;
 
+                ALTER TABLE stores ADD COLUMN IF NOT EXISTS ""Location"" text NOT NULL DEFAULT 'United States';
                 ALTER TABLE stores ADD COLUMN IF NOT EXISTS ""RazorpayEnabled"" boolean NOT NULL DEFAULT true;
                 ALTER TABLE stores ADD COLUMN IF NOT EXISTS ""RazorpayKeyId"" text NOT NULL DEFAULT '';
                 ALTER TABLE stores ADD COLUMN IF NOT EXISTS ""RazorpayKeySecret"" text NOT NULL DEFAULT '';

@@ -22,6 +22,7 @@ public class DbStore
     public decimal StandardShippingRate { get; set; } = 6.99m;
     public decimal ExpressShippingRate { get; set; } = 14.99m;
     public string ContactEmail { get; set; } = "support@example.com";
+    public string Location { get; set; } = "United States";
     public string Status { get; set; } = "active";
     public string CreatedAt { get; set; } = DateTime.UtcNow.ToString("o");
 

@@ -183,6 +183,7 @@ public class StoreService
             StandardShippingRate = s.StandardShippingRate,
             ExpressShippingRate = s.ExpressShippingRate,
             ContactEmail = s.ContactEmail,
+            Location = s.Location,
             Status = s.Status,
             CreatedAt = s.CreatedAt,
             RazorpayEnabled = s.RazorpayEnabled,
@@ -217,6 +218,7 @@ public class StoreService
             StandardShippingRate = s.StandardShippingRate,
             ExpressShippingRate = s.ExpressShippingRate,
             ContactEmail = s.ContactEmail,
+            Location = s.Location,
             Status = s.Status,
             CreatedAt = s.CreatedAt,
             RazorpayEnabled = s.RazorpayEnabled,
@@ -231,18 +233,125 @@ public class StoreService
 
     public TenantStore CreateStore(TenantStore store)
     {
+        // 1. Slug & ID auto-generation
         if (string.IsNullOrWhiteSpace(store.Id))
         {
-            var slug = string.IsNullOrWhiteSpace(store.Slug)
-                ? store.Name.ToLower().Replace(" ", "-").Replace("&", "and")
-                : store.Slug.ToLower();
-            store.Id = "store_" + slug;
-            store.Slug = slug;
+            var rawSlug = string.IsNullOrWhiteSpace(store.Slug)
+                ? store.Name.ToLowerInvariant()
+                : store.Slug.ToLowerInvariant();
+
+            var cleanSlug = System.Text.RegularExpressions.Regex.Replace(rawSlug, @"[^a-z0-9]+", "-").Trim('-');
+            if (string.IsNullOrWhiteSpace(cleanSlug)) cleanSlug = "store-" + Random.Shared.Next(1000, 9999);
+
+            store.Id = "store_" + cleanSlug;
+            store.Slug = cleanSlug;
         }
 
         if (string.IsNullOrWhiteSpace(store.Subdomain))
         {
             store.Subdomain = $"{store.Slug}.istora.online";
+        }
+
+        // 2. Intelligent Location-based Defaults (Currency, Symbol, Tax, Shipping, Gateways)
+        var loc = (store.Location ?? "").Trim().ToLowerInvariant();
+        if (loc.Contains("india") || loc == "in")
+        {
+            store.Location = "India";
+            if (store.Currency == "USD" || string.IsNullOrWhiteSpace(store.Currency))
+            {
+                store.Currency = "INR";
+                store.CurrencySymbol = "₹";
+                store.TaxRate = 0.18m; // 18% GST
+                store.FreeShippingThreshold = 999.00m;
+                store.StandardShippingRate = 49.00m;
+                store.ExpressShippingRate = 149.00m;
+                store.RazorpayEnabled = true;
+                store.CodEnabled = true;
+            }
+        }
+        else if (loc.Contains("united kingdom") || loc.Contains("uk") || loc == "gb")
+        {
+            store.Location = "United Kingdom";
+            if (store.Currency == "USD" || string.IsNullOrWhiteSpace(store.Currency))
+            {
+                store.Currency = "GBP";
+                store.CurrencySymbol = "£";
+                store.TaxRate = 0.20m;
+                store.FreeShippingThreshold = 50.00m;
+                store.StandardShippingRate = 3.99m;
+                store.ExpressShippingRate = 8.99m;
+                store.StripeEnabled = true;
+                store.CodEnabled = true;
+            }
+        }
+        else if (loc.Contains("uae") || loc.Contains("dubai") || loc.Contains("emirates") || loc == "ae")
+        {
+            store.Location = "United Arab Emirates";
+            if (store.Currency == "USD" || string.IsNullOrWhiteSpace(store.Currency))
+            {
+                store.Currency = "AED";
+                store.CurrencySymbol = "د.إ";
+                store.TaxRate = 0.05m;
+                store.FreeShippingThreshold = 250.00m;
+                store.StandardShippingRate = 20.00m;
+                store.ExpressShippingRate = 45.00m;
+                store.StripeEnabled = true;
+                store.CodEnabled = true;
+            }
+        }
+        else if (loc.Contains("europe") || loc.Contains("germany") || loc.Contains("france") || loc == "eu")
+        {
+            store.Location = "European Union";
+            if (store.Currency == "USD" || string.IsNullOrWhiteSpace(store.Currency))
+            {
+                store.Currency = "EUR";
+                store.CurrencySymbol = "€";
+                store.TaxRate = 0.19m;
+                store.FreeShippingThreshold = 60.00m;
+                store.StandardShippingRate = 4.99m;
+                store.ExpressShippingRate = 11.99m;
+                store.StripeEnabled = true;
+                store.CodEnabled = true;
+            }
+        }
+        else if (loc.Contains("canada") || loc == "ca")
+        {
+            store.Location = "Canada";
+            if (store.Currency == "USD" || string.IsNullOrWhiteSpace(store.Currency))
+            {
+                store.Currency = "CAD";
+                store.CurrencySymbol = "C$";
+                store.TaxRate = 0.13m;
+                store.FreeShippingThreshold = 85.00m;
+                store.StandardShippingRate = 8.99m;
+                store.ExpressShippingRate = 16.99m;
+                store.StripeEnabled = true;
+            }
+        }
+        else if (loc.Contains("australia") || loc == "au")
+        {
+            store.Location = "Australia";
+            if (store.Currency == "USD" || string.IsNullOrWhiteSpace(store.Currency))
+            {
+                store.Currency = "AUD";
+                store.CurrencySymbol = "A$";
+                store.TaxRate = 0.10m;
+                store.FreeShippingThreshold = 100.00m;
+                store.StandardShippingRate = 9.99m;
+                store.ExpressShippingRate = 19.99m;
+                store.StripeEnabled = true;
+            }
+        }
+        else
+        {
+            store.Location = string.IsNullOrWhiteSpace(store.Location) ? "United States" : store.Location;
+            if (string.IsNullOrWhiteSpace(store.Currency)) store.Currency = "USD";
+            if (string.IsNullOrWhiteSpace(store.CurrencySymbol)) store.CurrencySymbol = "$";
+        }
+
+        if (string.IsNullOrWhiteSpace(store.Category))
+        {
+            store.Category = "General Merchandise";
         }
 
         var dbStore = new DbStore
@@ -253,27 +362,41 @@ public class StoreService
             Subdomain = store.Subdomain,
             CustomDomain = store.CustomDomain,
             Category = store.Category,
-            ThemeId = store.ThemeId,
-            AccentColor = store.AccentColor,
+            ThemeId = string.IsNullOrWhiteSpace(store.ThemeId) ? "theme_modern_clean" : store.ThemeId,
+            AccentColor = string.IsNullOrWhiteSpace(store.AccentColor) ? "#008060" : store.AccentColor,
             Currency = store.Currency,
             CurrencySymbol = store.CurrencySymbol,
             TaxRate = store.TaxRate,
             FreeShippingThreshold = store.FreeShippingThreshold,
             StandardShippingRate = store.StandardShippingRate,
             ExpressShippingRate = store.ExpressShippingRate,
-            ContactEmail = store.ContactEmail,
-            Status = store.Status,
+            ContactEmail = string.IsNullOrWhiteSpace(store.ContactEmail) ? "support@istora.online" : store.ContactEmail,
+            Location = store.Location,
+            Status = string.IsNullOrWhiteSpace(store.Status) ? "active" : store.Status,
             CreatedAt = DateTime.UtcNow.ToString("o"),
             RazorpayEnabled = store.RazorpayEnabled,
-            RazorpayKeyId = store.RazorpayKeyId,
-            RazorpayKeySecret = store.RazorpayKeySecret,
+            RazorpayKeyId = store.RazorpayKeyId ?? "",
+            RazorpayKeySecret = store.RazorpayKeySecret ?? "",
             StripeEnabled = store.StripeEnabled,
-            StripePublishableKey = store.StripePublishableKey,
-            StripeSecretKey = store.StripeSecretKey,
+            StripePublishableKey = store.StripePublishableKey ?? "",
+            StripeSecretKey = store.StripeSecretKey ?? "",
             CodEnabled = store.CodEnabled
         };
 
         _db.Stores.Add(dbStore);
+
+        // Ensure category table has initial starter category for this store
+        if (!_db.Categories.Any(c => c.StoreId == store.Id))
+        {
+            _db.Categories.Add(new DbCategory
+            {
+                Id = $"cat_{store.Slug}_1",
+                StoreId = store.Id,
+                Name = store.Category,
+                Slug = System.Text.RegularExpressions.Regex.Replace(store.Category.ToLowerInvariant(), @"[^a-z0-9]+", "-").Trim('-')
+            });
+        }
+
         _db.SaveChanges();
         return store;
     }
@@ -298,6 +421,7 @@ public class StoreService
         existing.StandardShippingRate = store.StandardShippingRate;
         existing.ExpressShippingRate = store.ExpressShippingRate;
         existing.ContactEmail = store.ContactEmail;
+        if (!string.IsNullOrWhiteSpace(store.Location)) existing.Location = store.Location;
         existing.Status = store.Status;
         existing.RazorpayEnabled = store.RazorpayEnabled;
         existing.RazorpayKeyId = store.RazorpayKeyId;
@@ -832,7 +956,8 @@ public class StoreService
                 FreeShippingThreshold = store?.FreeShippingThreshold ?? 75.00m,
                 StandardShippingRate = store?.StandardShippingRate ?? 6.99m,
                 ExpressShippingRate = store?.ExpressShippingRate ?? 14.99m,
-                ContactEmail = store?.ContactEmail ?? "support@istora.online"
+                ContactEmail = store?.ContactEmail ?? "support@istora.online",
+                Location = store?.Location ?? "United States"
             },
             Theme = new ThemeTokensDto
             {

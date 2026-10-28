@@ -49,6 +49,9 @@ public class TenantStore
     [JsonPropertyName("contactEmail")]
     public string ContactEmail { get; set; } = "support@example.com";
 
+    [JsonPropertyName("location")]
+    public string Location { get; set; } = "United States";
+
     [JsonPropertyName("status")]
     public string Status { get; set; } = "active";
 
@@ -553,6 +556,9 @@ public class StoreMetadataDto
 
     [JsonPropertyName("contactEmail")]
     public string ContactEmail { get; set; } = string.Empty;
+
+    [JsonPropertyName("location")]
+    public string Location { get; set; } = "United States";
 }
 
 public class ThemeTokensDto
