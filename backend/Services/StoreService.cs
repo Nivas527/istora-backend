@@ -785,6 +785,236 @@ public class StoreService
     }
 
     // =========================================================================
+    // 4B. ENTERPRISE STOREFRONT BOOTSTRAP, BATCH STOCK & ORDER VALIDATION
+    // =========================================================================
+    public StorefrontBootstrapResponse GetStorefrontBootstrap(string? storeId = null)
+    {
+        var tenantId = HttpTenantProvider.NormalizeStoreId(!string.IsNullOrWhiteSpace(storeId) ? storeId : (_tenantProvider.CurrentStoreId ?? "store_apex"));
+        var store = _db.Stores.FirstOrDefault(s => s.Id == tenantId) ?? _db.Stores.FirstOrDefault(s => s.Id == "store_apex");
+
+        var categories = _db.Categories.Where(c => c.StoreId == tenantId)
+            .Select(c => new CategoryItem { Id = c.Id, Name = c.Name, Slug = c.Slug })
+            .ToList();
+
+        var featuredDbProducts = _db.Products.Where(p => p.StoreId == tenantId)
+            .OrderByDescending(p => p.Id)
+            .Take(12)
+            .ToList();
+
+        var featured = featuredDbProducts.Select(p => new Product
+        {
+            Id = p.Id,
+            StoreId = p.StoreId,
+            Title = p.Title,
+            Category = p.Category,
+            Price = p.Price,
+            CompareAtPrice = p.CompareAtPrice,
+            Badge = p.Badge,
+            Image = p.Image,
+            Description = p.Description,
+            Inventory = p.Inventory,
+            Variants = DeserializeVariants(p.VariantsJson)
+        }).ToList();
+
+        return new StorefrontBootstrapResponse
+        {
+            Store = new StoreMetadataDto
+            {
+                Id = store?.Id ?? tenantId,
+                Name = store?.Name ?? "Store",
+                Slug = store?.Slug ?? "store",
+                Subdomain = store?.Subdomain ?? $"{tenantId}.istora.online",
+                CustomDomain = store?.CustomDomain,
+                Category = store?.Category ?? "Retail",
+                Currency = store?.Currency ?? "USD",
+                CurrencySymbol = store?.CurrencySymbol ?? "$",
+                TaxRate = store?.TaxRate ?? 0.08m,
+                FreeShippingThreshold = store?.FreeShippingThreshold ?? 75.00m,
+                StandardShippingRate = store?.StandardShippingRate ?? 6.99m,
+                ExpressShippingRate = store?.ExpressShippingRate ?? 14.99m,
+                ContactEmail = store?.ContactEmail ?? "support@istora.online"
+            },
+            Theme = new ThemeTokensDto
+            {
+                ThemeId = store?.ThemeId ?? "theme_modern",
+                AccentColor = store?.AccentColor ?? "#008060",
+                FontFamily = "Inter, -apple-system, BlinkMacSystemFont, sans-serif",
+                LogoUrl = null,
+                BannerUrl = null
+            },
+            Categories = categories,
+            FeaturedProducts = featured,
+            ServerTime = DateTime.UtcNow
+        };
+    }
+
+    public List<StockItemDto> GetBatchStock(List<string> productIds, string? storeId = null)
+    {
+        var tenantId = HttpTenantProvider.NormalizeStoreId(!string.IsNullOrWhiteSpace(storeId) ? storeId : (_tenantProvider.CurrentStoreId ?? "store_apex"));
+        if (productIds == null || !productIds.Any()) return new();
+
+        var products = _db.Products
+            .Where(p => p.StoreId == tenantId && productIds.Contains(p.Id))
+            .Select(p => new StockItemDto
+            {
+                ProductId = p.Id,
+                InventoryQuantity = p.Inventory,
+                InStock = p.Inventory > 0,
+                IsLowStock = p.Inventory > 0 && p.Inventory <= 5
+            })
+            .ToList();
+
+        return products;
+    }
+
+    public ValidatedOrderResponse ValidateAndCalculateOrder(ValidateOrderRequest req, string? storeId = null)
+    {
+        var tenantId = HttpTenantProvider.NormalizeStoreId(!string.IsNullOrWhiteSpace(storeId) ? storeId : (_tenantProvider.CurrentStoreId ?? "store_apex"));
+        var store = _db.Stores.FirstOrDefault(s => s.Id == tenantId) ?? _db.Stores.FirstOrDefault(s => s.Id == "store_apex");
+
+        var response = new ValidatedOrderResponse
+        {
+            Currency = store?.Currency ?? "USD",
+            CurrencySymbol = store?.CurrencySymbol ?? "$",
+            TaxRate = store?.TaxRate ?? 0.08m,
+            ShippingMethod = req.ShippingMethod ?? "standard"
+        };
+
+        if (req.Items == null || !req.Items.Any())
+        {
+            response.IsValid = false;
+            response.Errors.Add("Cart is empty. At least one line item is required.");
+            return response;
+        }
+
+        var productIds = req.Items.Select(i => i.ProductId).Distinct().ToList();
+        var dbProducts = _db.Products
+            .Where(p => p.StoreId == tenantId && productIds.Contains(p.Id))
+            .ToDictionary(p => p.Id);
+
+        decimal subtotal = 0m;
+
+        foreach (var item in req.Items)
+        {
+            if (!dbProducts.TryGetValue(item.ProductId, out var product))
+            {
+                response.IsValid = false;
+                response.Errors.Add($"Product '{item.ProductId}' is no longer available in the store catalog.");
+                continue;
+            }
+
+            if (item.Quantity <= 0)
+            {
+                response.IsValid = false;
+                response.Errors.Add($"Invalid quantity ({item.Quantity}) requested for '{product.Title}'.");
+                continue;
+            }
+
+            if (product.Inventory < item.Quantity)
+            {
+                response.IsValid = false;
+                response.Errors.Add($"Insufficient inventory for '{product.Title}'. Requested: {item.Quantity}, In Stock: {product.Inventory}.");
+            }
+
+            decimal unitPrice = product.Price;
+            string? variantName = null;
+
+            if (!string.IsNullOrWhiteSpace(item.VariantId))
+            {
+                var variants = DeserializeVariants(product.VariantsJson);
+                var variant = variants.FirstOrDefault(v => v.Id == item.VariantId);
+                if (variant != null)
+                {
+                    unitPrice = variant.Price;
+                    variantName = variant.Name;
+                }
+            }
+
+            decimal lineTotal = unitPrice * item.Quantity;
+            subtotal += lineTotal;
+
+            response.Items.Add(new ValidatedLineItemDto
+            {
+                ProductId = product.Id,
+                Title = product.Title,
+                VariantId = item.VariantId,
+                VariantName = variantName,
+                Quantity = item.Quantity,
+                UnitPrice = unitPrice,
+                LineTotal = lineTotal,
+                Image = product.Image,
+                InStock = product.Inventory >= item.Quantity
+            });
+        }
+
+        response.Subtotal = subtotal;
+
+        // Server-Side Coupon / Discount Validation
+        decimal discountAmount = 0m;
+        bool isFreeShippingDiscount = false;
+
+        if (!string.IsNullOrWhiteSpace(req.DiscountCode))
+        {
+            var cleanCode = req.DiscountCode.Trim().ToUpperInvariant();
+            var discount = _db.Discounts.FirstOrDefault(d => d.StoreId == tenantId && d.Code.ToUpper() == cleanCode);
+
+            if (discount == null)
+            {
+                response.Errors.Add($"Discount code '{req.DiscountCode}' is invalid or expired.");
+            }
+            else if (subtotal < discount.MinSubtotal)
+            {
+                response.Errors.Add($"Promo code '{discount.Code}' requires a minimum subtotal of {response.CurrencySymbol}{discount.MinSubtotal:N2}.");
+            }
+            else
+            {
+                response.DiscountCode = discount.Code;
+                response.DiscountDescription = discount.Description;
+
+                if (discount.Type.Equals("percentage", StringComparison.OrdinalIgnoreCase))
+                {
+                    discountAmount = Math.Round(subtotal * (discount.Value / 100m), 2);
+                }
+                else if (discount.Type.Equals("fixed", StringComparison.OrdinalIgnoreCase))
+                {
+                    discountAmount = Math.Min(discount.Value, subtotal);
+                }
+                else if (discount.Type.Equals("shipping", StringComparison.OrdinalIgnoreCase))
+                {
+                    isFreeShippingDiscount = true;
+                }
+            }
+        }
+
+        response.DiscountAmount = discountAmount;
+        decimal taxableSubtotal = Math.Max(0m, subtotal - discountAmount);
+        response.TaxAmount = Math.Round(taxableSubtotal * response.TaxRate, 2);
+
+        // Shipping Rate Calculation
+        decimal freeThreshold = store?.FreeShippingThreshold ?? 75.00m;
+        decimal standardRate = store?.StandardShippingRate ?? 6.99m;
+        decimal expressRate = store?.ExpressShippingRate ?? 14.99m;
+
+        if (isFreeShippingDiscount || subtotal >= freeThreshold)
+        {
+            response.ShippingAmount = 0.00m;
+        }
+        else if (req.ShippingMethod?.Equals("express", StringComparison.OrdinalIgnoreCase) == true)
+        {
+            response.ShippingAmount = expressRate;
+        }
+        else
+        {
+            response.ShippingAmount = standardRate;
+        }
+
+        response.Total = taxableSubtotal + response.TaxAmount + response.ShippingAmount;
+        response.IsValid = (response.Errors.Count == 0);
+
+        return response;
+    }
+
+    // =========================================================================
     // 5. MULTI-TENANT CACHING HELPER
     // Guarantees all cache keys are strictly namespaced by StoreId.
     // Format: tenant:{storeId}:{resource}:{identifier}

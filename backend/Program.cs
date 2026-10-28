@@ -46,6 +46,7 @@ app.MapStoreEndpoints()
    .MapShopifyCompatEndpoints()
    .MapDeploymentEndpoints()
    .MapUploadEndpoints()
+   .MapAuthEndpoints()
    .MapHealthEndpoints();
 
 // 8. Startup Telemetry Banner

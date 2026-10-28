@@ -15,6 +15,16 @@ public static class ProductEndpoints
             .WithName("GetProducts")
             .WithSummary("List products isolated by tenant store");
 
+        // Batch Stock Availability (Edge-Cached for 10s)
+        group.MapGet("/batch-stock", (string? ids, string? storeId, HttpContext ctx, StoreService store) =>
+        {
+            ctx.Response.Headers.CacheControl = "public, max-age=10, stale-while-revalidate=30";
+            var idList = (ids ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).ToList();
+            var stock = store.GetBatchStock(idList, storeId);
+            return Results.Ok(stock);
+        }).WithName("GetBatchStock")
+          .WithSummary("Query real-time stock levels for a batch of product IDs with 10s edge caching");
+
         group.MapGet("/{id}", (string id, string? storeId, StoreService store) =>
         {
             var product = store.GetProductById(id, storeId);

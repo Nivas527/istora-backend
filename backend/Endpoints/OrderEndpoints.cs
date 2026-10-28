@@ -23,6 +23,15 @@ public static class OrderEndpoints
         }).WithName("CreateOrder")
           .WithSummary("Submit a new order");
 
+        // Server-Side Order & Price Validation (Single Source of Truth)
+        app.MapPost("/api/checkout/validate-order", (ValidateOrderRequest req, string? storeId, StoreService store) =>
+        {
+            var validated = store.ValidateAndCalculateOrder(req, storeId);
+            return validated.IsValid ? Results.Ok(validated) : Results.UnprocessableEntity(validated);
+        }).WithTags("Orders & Fulfillment")
+          .WithName("ValidateOrder")
+          .WithSummary("Server authority for real-time inventory validation, DB price verification, and tax/shipping recalculation");
+
         // Public Order Tracking
         group.MapGet("/track/{orderNumber}", (string orderNumber, string? storeId, StoreService store) =>
         {

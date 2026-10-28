@@ -60,6 +60,10 @@ public class HttpTenantProvider : ITenantProvider
                 auth.ToString().StartsWith("Bearer shppa_sec_"))
                 return true;
 
+            if (ctx.Request.Cookies.TryGetValue("istora_merchant_token", out var cookieToken) &&
+                cookieToken.StartsWith("shppa_sec_"))
+                return true;
+
             return false;
         }
     }
@@ -81,6 +85,14 @@ public class HttpTenantProvider : ITenantProvider
             if (ctx.Request.Headers.TryGetValue("X-Shopify-Access-Token", out var adminToken) && !string.IsNullOrWhiteSpace(adminToken))
             {
                 var match = Regex.Match(adminToken.ToString(), @"^shppa_sec_([a-zA-Z0-9_-]+?)_[a-f0-9]+$");
+                if (match.Success)
+                    return NormalizeStoreId(match.Groups[1].Value);
+            }
+
+            // 2b. HttpOnly Merchant Cookie (istora_merchant_token)
+            if (ctx.Request.Cookies.TryGetValue("istora_merchant_token", out var cookieVal) && !string.IsNullOrWhiteSpace(cookieVal))
+            {
+                var match = Regex.Match(cookieVal, @"^shppa_sec_([a-zA-Z0-9_-]+?)_[a-f0-9]+$");
                 if (match.Success)
                     return NormalizeStoreId(match.Groups[1].Value);
             }

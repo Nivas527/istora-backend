@@ -54,6 +54,25 @@ public static class StoreEndpoints
         }).WithName("UpdateActiveStoreSettings")
           .WithSummary("Update settings for the currently active tenant");
 
+        // Combined Storefront Bootstrap Endpoint (Zero-Flicker, 1 Roundtrip)
+        group.MapGet("/storefront/bootstrap", (string? storeId, HttpContext ctx, StoreService store) =>
+        {
+            var data = store.GetStorefrontBootstrap(storeId);
+            
+            // Edge Caching & ETag Generation
+            var etag = $"\"{data.Store.Id}_{Math.Abs(data.Store.Name.GetHashCode()):x}_{data.FeaturedProducts.Count}\"";
+            ctx.Response.Headers.ETag = etag;
+            ctx.Response.Headers.CacheControl = "public, max-age=60, stale-while-revalidate=300";
+
+            if (ctx.Request.Headers.IfNoneMatch == etag)
+            {
+                return Results.StatusCode(StatusCodes.Status304NotModified);
+            }
+
+            return Results.Ok(data);
+        }).WithName("GetStorefrontBootstrap")
+          .WithSummary("Single roundtrip bootstrap endpoint for storefront: theme, categories, and top products (without exposing coupon codes)");
+
         return app;
     }
 }

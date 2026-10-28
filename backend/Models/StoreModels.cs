@@ -492,3 +492,246 @@ public class CodConfigDto
     public bool Enabled { get; set; } = true;
 }
 
+// ==========================================
+// STOREFRONT BOOTSTRAP DTOs
+// ==========================================
+public class StorefrontBootstrapResponse
+{
+    [JsonPropertyName("store")]
+    public StoreMetadataDto Store { get; set; } = new();
+
+    [JsonPropertyName("theme")]
+    public ThemeTokensDto Theme { get; set; } = new();
+
+    [JsonPropertyName("categories")]
+    public List<CategoryItem> Categories { get; set; } = new();
+
+    [JsonPropertyName("featuredProducts")]
+    public List<Product> FeaturedProducts { get; set; } = new();
+
+    [JsonPropertyName("serverTime")]
+    public DateTime ServerTime { get; set; } = DateTime.UtcNow;
+}
+
+public class StoreMetadataDto
+{
+    [JsonPropertyName("id")]
+    public string Id { get; set; } = string.Empty;
+
+    [JsonPropertyName("name")]
+    public string Name { get; set; } = string.Empty;
+
+    [JsonPropertyName("slug")]
+    public string Slug { get; set; } = string.Empty;
+
+    [JsonPropertyName("subdomain")]
+    public string Subdomain { get; set; } = string.Empty;
+
+    [JsonPropertyName("customDomain")]
+    public string? CustomDomain { get; set; }
+
+    [JsonPropertyName("category")]
+    public string Category { get; set; } = string.Empty;
+
+    [JsonPropertyName("currency")]
+    public string Currency { get; set; } = "USD";
+
+    [JsonPropertyName("currencySymbol")]
+    public string CurrencySymbol { get; set; } = "$";
+
+    [JsonPropertyName("taxRate")]
+    public decimal TaxRate { get; set; }
+
+    [JsonPropertyName("freeShippingThreshold")]
+    public decimal FreeShippingThreshold { get; set; }
+
+    [JsonPropertyName("standardShippingRate")]
+    public decimal StandardShippingRate { get; set; }
+
+    [JsonPropertyName("expressShippingRate")]
+    public decimal ExpressShippingRate { get; set; }
+
+    [JsonPropertyName("contactEmail")]
+    public string ContactEmail { get; set; } = string.Empty;
+}
+
+public class ThemeTokensDto
+{
+    [JsonPropertyName("themeId")]
+    public string ThemeId { get; set; } = "theme_modern";
+
+    [JsonPropertyName("accentColor")]
+    public string AccentColor { get; set; } = "#008060";
+
+    [JsonPropertyName("fontFamily")]
+    public string FontFamily { get; set; } = "Inter, sans-serif";
+
+    [JsonPropertyName("logoUrl")]
+    public string? LogoUrl { get; set; }
+
+    [JsonPropertyName("bannerUrl")]
+    public string? BannerUrl { get; set; }
+}
+
+// ==========================================
+// BATCH STOCK DTOs
+// ==========================================
+public class StockItemDto
+{
+    [JsonPropertyName("productId")]
+    public string ProductId { get; set; } = string.Empty;
+
+    [JsonPropertyName("inStock")]
+    public bool InStock { get; set; }
+
+    [JsonPropertyName("inventoryQuantity")]
+    public int InventoryQuantity { get; set; }
+
+    [JsonPropertyName("isLowStock")]
+    public bool IsLowStock { get; set; }
+}
+
+// ==========================================
+// SERVER-SIDE ORDER & CHECKOUT VALIDATION DTOs
+// ==========================================
+public class ValidateOrderRequest
+{
+    [JsonPropertyName("items")]
+    public List<ValidateOrderItemDto> Items { get; set; } = new();
+
+    [JsonPropertyName("discountCode")]
+    public string? DiscountCode { get; set; }
+
+    [JsonPropertyName("shippingMethod")]
+    public string ShippingMethod { get; set; } = "standard"; // standard | express
+}
+
+public class ValidateOrderItemDto
+{
+    [JsonPropertyName("productId")]
+    public string ProductId { get; set; } = string.Empty;
+
+    [JsonPropertyName("variantId")]
+    public string? VariantId { get; set; }
+
+    [JsonPropertyName("quantity")]
+    public int Quantity { get; set; } = 1;
+}
+
+public class ValidatedOrderResponse
+{
+    [JsonPropertyName("isValid")]
+    public bool IsValid { get; set; } = true;
+
+    [JsonPropertyName("errors")]
+    public List<string> Errors { get; set; } = new();
+
+    [JsonPropertyName("currency")]
+    public string Currency { get; set; } = "USD";
+
+    [JsonPropertyName("currencySymbol")]
+    public string CurrencySymbol { get; set; } = "$";
+
+    [JsonPropertyName("items")]
+    public List<ValidatedLineItemDto> Items { get; set; } = new();
+
+    [JsonPropertyName("subtotal")]
+    public decimal Subtotal { get; set; }
+
+    [JsonPropertyName("discountAmount")]
+    public decimal DiscountAmount { get; set; }
+
+    [JsonPropertyName("discountCode")]
+    public string? DiscountCode { get; set; }
+
+    [JsonPropertyName("discountDescription")]
+    public string? DiscountDescription { get; set; }
+
+    [JsonPropertyName("taxAmount")]
+    public decimal TaxAmount { get; set; }
+
+    [JsonPropertyName("taxRate")]
+    public decimal TaxRate { get; set; }
+
+    [JsonPropertyName("shippingAmount")]
+    public decimal ShippingAmount { get; set; }
+
+    [JsonPropertyName("shippingMethod")]
+    public string ShippingMethod { get; set; } = "standard";
+
+    [JsonPropertyName("total")]
+    public decimal Total { get; set; }
+
+    [JsonPropertyName("verifiedAt")]
+    public DateTime VerifiedAt { get; set; } = DateTime.UtcNow;
+}
+
+public class ValidatedLineItemDto
+{
+    [JsonPropertyName("productId")]
+    public string ProductId { get; set; } = string.Empty;
+
+    [JsonPropertyName("title")]
+    public string Title { get; set; } = string.Empty;
+
+    [JsonPropertyName("variantId")]
+    public string? VariantId { get; set; }
+
+    [JsonPropertyName("variantName")]
+    public string? VariantName { get; set; }
+
+    [JsonPropertyName("quantity")]
+    public int Quantity { get; set; }
+
+    [JsonPropertyName("unitPrice")]
+    public decimal UnitPrice { get; set; }
+
+    [JsonPropertyName("lineTotal")]
+    public decimal LineTotal { get; set; }
+
+    [JsonPropertyName("image")]
+    public string Image { get; set; } = string.Empty;
+
+    [JsonPropertyName("inStock")]
+    public bool InStock { get; set; }
+}
+
+// ==========================================
+// MERCHANT AUTH DTOs
+// ==========================================
+public class MerchantLoginRequest
+{
+    [JsonPropertyName("email")]
+    public string? Email { get; set; }
+
+    [JsonPropertyName("password")]
+    public string? Password { get; set; }
+
+    [JsonPropertyName("token")]
+    public string? Token { get; set; }
+
+    [JsonPropertyName("storeId")]
+    public string? StoreId { get; set; }
+}
+
+public class MerchantAuthResponse
+{
+    [JsonPropertyName("authenticated")]
+    public bool Authenticated { get; set; }
+
+    [JsonPropertyName("storeId")]
+    public string StoreId { get; set; } = string.Empty;
+
+    [JsonPropertyName("storeName")]
+    public string StoreName { get; set; } = string.Empty;
+
+    [JsonPropertyName("token")]
+    public string Token { get; set; } = string.Empty;
+
+    [JsonPropertyName("role")]
+    public string Role { get; set; } = "MerchantAdmin";
+
+    [JsonPropertyName("email")]
+    public string Email { get; set; } = string.Empty;
+}
+
