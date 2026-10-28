@@ -39,6 +39,7 @@ app.UseMiddleware<HostedAssetFallbackMiddleware>();
 
 // 7. Map Clean Modular Endpoint Groups
 app.MapStoreEndpoints()
+   .MapDomainEndpoints()
    .MapProductEndpoints()
    .MapOrderEndpoints()
    .MapMarketingEndpoints()
