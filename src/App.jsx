@@ -1,5 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { StoreProvider, useStore } from './context/StoreContext';
+import { FitProvider } from './context/FitContext';
+import ShopperFitScanModal from './components/fit/ShopperFitScanModal';
 import LauncherHub from './components/hub/LauncherHub';
 import GlobalHeader from './components/common/GlobalHeader';
 import Navigation from './components/Navigation';
@@ -318,6 +320,9 @@ function MainApp() {
       {isThemeMarketplaceOpen && (
         <ThemeMarketplaceModal onClose={() => setIsThemeMarketplaceOpen(false)} />
       )}
+
+      {/* Zero-Friction Shopper Body Scan Modal */}
+      <ShopperFitScanModal />
     </>
   );
 }
@@ -325,7 +330,9 @@ function MainApp() {
 export default function App() {
   return (
     <StoreProvider>
-      <MainApp />
+      <FitProvider>
+        <MainApp />
+      </FitProvider>
     </StoreProvider>
   );
 }

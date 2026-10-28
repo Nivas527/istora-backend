@@ -75,6 +75,9 @@ public class DbProduct : IMultiTenantEntity
     public string VariantsJson { get; set; } = "[]";
 
     public string? PreviewVideoUrl { get; set; }
+
+    [Column(TypeName = "jsonb")]
+    public string? GarmentSpecJson { get; set; }
 }
 
 public class DbOrder : IMultiTenantEntity

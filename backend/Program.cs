@@ -47,6 +47,7 @@ app.MapStoreEndpoints()
    .MapShopifyCompatEndpoints()
    .MapDeploymentEndpoints()
    .MapUploadEndpoints()
+   .MapFitEndpoints()
    .MapAuthEndpoints()
    .MapHealthEndpoints();
 

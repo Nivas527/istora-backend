@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useStore } from '../../context/StoreContext';
+import AntiBracketingBanner from '../fit/AntiBracketingBanner';
 import {
   X,
   Trash2,
@@ -95,6 +96,11 @@ export default function CartDrawer({ onProceedToCheckout }) {
               style={{ width: `${progressPercent}%` }}
             />
           </div>
+        </div>
+
+        {/* Anti-Bracketing Multi-Size Order Guard */}
+        <div className="px-4 pt-2">
+          <AntiBracketingBanner />
         </div>
 
         {/* Line Items List */}

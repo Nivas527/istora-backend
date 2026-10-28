@@ -1,5 +1,6 @@
 import React from 'react';
 import { useStore } from '../context/StoreContext';
+import { useFit } from '../context/FitContext';
 import GlobalHeader from './common/GlobalHeader';
 import StoreSelectorDropdown from './StoreSelectorDropdown';
 import {
@@ -7,7 +8,8 @@ import {
   Search,
   Plus,
   Sliders,
-  Truck
+  Truck,
+  Sparkles
 } from 'lucide-react';
 
 export default function Navigation({ onSearchClick, onTrackClick }) {
@@ -20,6 +22,7 @@ export default function Navigation({ onSearchClick, onTrackClick }) {
     setIsCreateStoreModalOpen,
     isDedicatedStore
   } = useStore();
+  const { profile, openScanModal } = useFit();
 
   const themeStyles = activeTheme?.styles || {};
   const isDark = themeStyles.isDark || false;
@@ -122,6 +125,21 @@ export default function Navigation({ onSearchClick, onTrackClick }) {
                 <span>Merchant Admin</span>
               </button>
             )}
+
+            {/* Shopper Body Fit Scan Indicator Button */}
+            <button
+              onClick={openScanModal}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all cursor-pointer ${
+                isDark
+                  ? 'bg-emerald-950/40 hover:bg-emerald-900/50 text-emerald-300 border-emerald-800/60 shadow-xs'
+                  : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border-emerald-200 shadow-xs'
+              }`}
+              title="Calibrate your body measurements for zero-return fit verification"
+            >
+              <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
+              <span className="hidden sm:inline">My Fit:</span>
+              <span className="font-mono font-bold">{profile.chestCm}cm / {profile.waistCm}cm</span>
+            </button>
 
             {/* Cart Trigger Button */}
             <button

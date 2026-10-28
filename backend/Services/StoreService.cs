@@ -707,7 +707,9 @@ public class StoreService
             Image = p.Image,
             Description = p.Description,
             Inventory = p.Inventory,
-            Variants = DeserializeVariants(p.VariantsJson)
+            Variants = DeserializeVariants(p.VariantsJson),
+            PreviewVideoUrl = p.PreviewVideoUrl,
+            GarmentSpec = DeserializeGarmentSpec(p.GarmentSpecJson)
         }).ToList();
     }
 
@@ -735,7 +737,9 @@ public class StoreService
             Image = p.Image,
             Description = p.Description,
             Inventory = p.Inventory,
-            Variants = DeserializeVariants(p.VariantsJson)
+            Variants = DeserializeVariants(p.VariantsJson),
+            PreviewVideoUrl = p.PreviewVideoUrl,
+            GarmentSpec = DeserializeGarmentSpec(p.GarmentSpecJson)
         };
     }
 
@@ -764,7 +768,9 @@ public class StoreService
             Image = product.Image,
             Description = product.Description,
             Inventory = product.Inventory,
-            VariantsJson = JsonSerializer.Serialize(product.Variants ?? new List<ProductVariant>())
+            VariantsJson = JsonSerializer.Serialize(product.Variants ?? new List<ProductVariant>()),
+            PreviewVideoUrl = product.PreviewVideoUrl,
+            GarmentSpecJson = product.GarmentSpec != null ? JsonSerializer.Serialize(product.GarmentSpec) : null
         };
 
         _db.Products.Add(dbProd);
@@ -793,6 +799,11 @@ public class StoreService
         existing.Image = product.Image;
         existing.Description = product.Description;
         existing.Inventory = product.Inventory;
+        existing.PreviewVideoUrl = product.PreviewVideoUrl;
+        if (product.GarmentSpec != null)
+        {
+            existing.GarmentSpecJson = JsonSerializer.Serialize(product.GarmentSpec);
+        }
         if (product.Variants != null)
         {
             existing.VariantsJson = JsonSerializer.Serialize(product.Variants);
@@ -1171,7 +1182,9 @@ public class StoreService
             Image = p.Image,
             Description = p.Description,
             Inventory = p.Inventory,
-            Variants = DeserializeVariants(p.VariantsJson)
+            Variants = DeserializeVariants(p.VariantsJson),
+            PreviewVideoUrl = p.PreviewVideoUrl,
+            GarmentSpec = DeserializeGarmentSpec(p.GarmentSpecJson)
         }).ToList();
 
         return new StorefrontBootstrapResponse
@@ -1410,6 +1423,19 @@ public class StoreService
         catch
         {
             return new();
+        }
+    }
+
+    private static GarmentSpec? DeserializeGarmentSpec(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json)) return null;
+        try
+        {
+            return JsonSerializer.Deserialize<GarmentSpec>(json);
+        }
+        catch
+        {
+            return null;
         }
     }
 }

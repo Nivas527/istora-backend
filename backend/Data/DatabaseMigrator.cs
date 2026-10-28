@@ -95,6 +95,7 @@ public static class DatabaseMigrator
                 ALTER TABLE stores ADD COLUMN IF NOT EXISTS ""BannerVideoUrl"" text;
                 ALTER TABLE stores ADD COLUMN IF NOT EXISTS ""PreviewVideosJson"" text NOT NULL DEFAULT '[]';
                 ALTER TABLE products ADD COLUMN IF NOT EXISTS ""PreviewVideoUrl"" text;
+                ALTER TABLE products ADD COLUMN IF NOT EXISTS ""GarmentSpecJson"" text;
             ");
             logger.LogInformation("Database tables and multi-tenant schema partitions verified successfully.");
         }

@@ -2,13 +2,15 @@ import React, { useState } from 'react';
 import { useStore } from '../../context/StoreContext';
 import ProductFormModal from './ProductFormModal';
 import ShopifyMigrationModal from './ShopifyMigrationModal';
-import { Plus, Search, Trash2, Layers, CheckCircle2, FolderPlus, X, Tag, Sparkles, Upload } from 'lucide-react';
+import TechPackIngestionModal from './TechPackIngestionModal';
+import { Plus, Search, Trash2, Layers, CheckCircle2, FolderPlus, X, Tag, Sparkles, Upload, FileSpreadsheet } from 'lucide-react';
 
 export default function ProductsView() {
   const { products, deleteProduct, collections, addCategory, deleteCategory } = useStore();
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isCategoriesModalOpen, setIsCategoriesModalOpen] = useState(false);
   const [isMigrationModalOpen, setIsMigrationModalOpen] = useState(false);
+  const [isTechPackModalOpen, setIsTechPackModalOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('ALL');
 
@@ -68,6 +70,16 @@ export default function ProductsView() {
           >
             <Sparkles className="w-3.5 h-3.5 text-emerald-700" />
             <span>Import from Shopify</span>
+          </button>
+
+          {/* Tech Pack Spec Ingestion Button */}
+          <button
+            onClick={() => setIsTechPackModalOpen(true)}
+            className="px-3.5 py-2 bg-purple-50 hover:bg-purple-100 text-purple-800 text-xs font-bold rounded-lg border border-purple-200 flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+            title="Import factory tech pack spec sheets and Point of Measure charts"
+          >
+            <FileSpreadsheet className="w-3.5 h-3.5 text-purple-700" />
+            <span>Tech Pack Spec Ingestion</span>
           </button>
 
           <button
@@ -362,6 +374,12 @@ export default function ProductsView() {
       <ShopifyMigrationModal
         isOpen={isMigrationModalOpen}
         onClose={() => setIsMigrationModalOpen(false)}
+      />
+
+      {/* Brand Tech Pack Parser Modal */}
+      <TechPackIngestionModal
+        isOpen={isTechPackModalOpen}
+        onClose={() => setIsTechPackModalOpen(false)}
       />
     </div>
   );

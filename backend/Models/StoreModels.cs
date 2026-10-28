@@ -185,6 +185,9 @@ public class Product
 
     [JsonPropertyName("previewVideoUrl")]
     public string? PreviewVideoUrl { get; set; }
+
+    [JsonPropertyName("garmentSpec")]
+    public GarmentSpec? GarmentSpec { get; set; }
 }
 
 public class ProductVariant

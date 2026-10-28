@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useStore } from '../../context/StoreContext';
 import ProductReviews from './ProductReviews';
+import FitVerificationWidget from '../fit/FitVerificationWidget';
 import {
   X,
   ShoppingBag,
@@ -237,8 +238,20 @@ export default function ProductDetailModal({ product, onClose }) {
                 ))}
               </div>
 
+              {/* Zero-Friction Geometric Fit Verification & Tension Heatmap */}
+              <div className="mt-5">
+                <FitVerificationWidget
+                  product={product}
+                  selectedSize={selectedOptions['Size'] || Object.values(selectedOptions)[0]}
+                  onSelectSize={(newSize) => {
+                    const sizeKey = Object.keys(selectedOptions).find(k => k.toLowerCase().includes('size')) || 'Size';
+                    handleOptionChange(sizeKey, newSize);
+                  }}
+                />
+              </div>
+
               {/* Quantity Stepper & Add to Cart */}
-              <div className="mt-6 pt-4 border-t border-zinc-100 flex items-center gap-3">
+              <div className="mt-5 pt-4 border-t border-zinc-100 flex items-center gap-3">
                 {/* Quantity Controls */}
                 <div className="flex items-center border border-zinc-300 rounded-lg bg-zinc-50 overflow-hidden">
                   <button
