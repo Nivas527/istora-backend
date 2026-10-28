@@ -880,7 +880,9 @@ export function StoreProvider({ children }) {
     stripeEnabled: activeStore?.stripeEnabled ?? true,
     stripePublishableKey: activeStore?.stripePublishableKey || '',
     stripeSecretKey: activeStore?.stripeSecretKey || '',
-    codEnabled: activeStore?.codEnabled ?? true
+    codEnabled: activeStore?.codEnabled ?? true,
+    bannerVideoUrl: activeStore?.bannerVideoUrl || null,
+    previewVideos: activeStore?.previewVideos || []
   };
 
   const appliedDiscount = discounts.find(
@@ -1252,6 +1254,7 @@ export function StoreProvider({ children }) {
         ...store,
         name: newSettings.storeName || store.name,
         customDomain: newSettings.customDomain !== undefined ? newSettings.customDomain : store.customDomain,
+        bannerVideoUrl: newSettings.bannerVideoUrl !== undefined ? newSettings.bannerVideoUrl : store.bannerVideoUrl,
         taxRate: typeof newSettings.taxRate === 'number' ? newSettings.taxRate : store.taxRate,
         freeShippingThreshold: typeof newSettings.freeShippingThreshold === 'number' ? newSettings.freeShippingThreshold : store.freeShippingThreshold,
         standardShippingRate: typeof newSettings.standardShippingRate === 'number' ? newSettings.standardShippingRate : store.standardShippingRate,
@@ -1274,6 +1277,7 @@ export function StoreProvider({ children }) {
         slug: updatedStore.slug || updatedStore.id.replace(/^store_/, ''),
         subdomain: updatedStore.subdomain,
         customDomain: updatedStore.customDomain,
+        bannerVideoUrl: updatedStore.bannerVideoUrl,
         category: updatedStore.category,
         themeId: updatedStore.themeId,
         accentColor: updatedStore.accentColor,
@@ -1293,6 +1297,70 @@ export function StoreProvider({ children }) {
         stripeSecretKey: updatedStore.stripeSecretKey,
         codEnabled: updatedStore.codEnabled
       }).catch(err => console.warn('[StoreContext] Backend updateStore error:', err));
+    }
+  };
+
+  // Video Management Methods
+  const uploadVideo = async (file, type = 'banner') => {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('type', type);
+    const res = await fetch('/api/upload/video', {
+      method: 'POST',
+      body: formData
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: 'Video upload failed' }));
+      throw new Error(err.error || 'Video upload failed');
+    }
+    return await res.json();
+  };
+
+  const setBannerVideo = async (videoUrl) => {
+    mutateActiveStore((store) => ({ ...store, bannerVideoUrl: videoUrl }));
+    if (activeStore?.id) {
+      await fetch(`/api/stores/${activeStore.id}/banner-video`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ videoUrl })
+      }).catch(err => console.warn('Banner video sync error:', err));
+    }
+  };
+
+  const addPreviewVideo = async (item) => {
+    if ((activeStore?.previewVideos || []).length >= 5) {
+      throw new Error('Maximum limit of 5 preview videos reached. Please delete an existing video to upload a new one.');
+    }
+    let addedItem = item;
+    if (activeStore?.id) {
+      const res = await fetch(`/api/stores/${activeStore.id}/preview-videos`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(item)
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: 'Failed to add preview video' }));
+        throw new Error(err.error || 'Failed to add preview video');
+      }
+      const data = await res.json();
+      addedItem = data.added || item;
+    }
+    mutateActiveStore((store) => {
+      const current = store.previewVideos || [];
+      return { ...store, previewVideos: [...current.filter(v => v.id !== addedItem.id), addedItem] };
+    });
+    return addedItem;
+  };
+
+  const deletePreviewVideo = async (videoId) => {
+    mutateActiveStore((store) => {
+      const current = store.previewVideos || [];
+      return { ...store, previewVideos: current.filter(v => v.id !== videoId) };
+    });
+    if (activeStore?.id) {
+      await fetch(`/api/stores/${activeStore.id}/preview-videos/${videoId}`, {
+        method: 'DELETE'
+      }).catch(err => console.warn('Delete preview video sync error:', err));
     }
   };
 
@@ -1500,6 +1568,12 @@ export function StoreProvider({ children }) {
         merchantSession,
         loginMerchant,
         logoutMerchant,
+
+        // Video Management
+        uploadVideo,
+        setBannerVideo,
+        addPreviewVideo,
+        deletePreviewVideo,
 
         // System
         refreshStoreData,

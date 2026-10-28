@@ -227,7 +227,9 @@ public class StoreService
             StripeEnabled = s.StripeEnabled,
             StripePublishableKey = s.StripePublishableKey,
             StripeSecretKey = s.StripeSecretKey,
-            CodEnabled = s.CodEnabled
+            CodEnabled = s.CodEnabled,
+            BannerVideoUrl = s.BannerVideoUrl,
+            PreviewVideos = DeserializePreviewVideos(s.PreviewVideosJson)
         }).ToList();
     }
 
@@ -278,8 +280,90 @@ public class StoreService
             StripeEnabled = s.StripeEnabled,
             StripePublishableKey = s.StripePublishableKey,
             StripeSecretKey = s.StripeSecretKey,
-            CodEnabled = s.CodEnabled
+            CodEnabled = s.CodEnabled,
+            BannerVideoUrl = s.BannerVideoUrl,
+            PreviewVideos = DeserializePreviewVideos(s.PreviewVideosJson)
         };
+    }
+
+    public const int MaxPreviewVideosPerStore = 5;
+
+    public static List<PreviewVideoItem> DeserializePreviewVideos(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json)) return new List<PreviewVideoItem>();
+        try
+        {
+            return JsonSerializer.Deserialize<List<PreviewVideoItem>>(json) ?? new List<PreviewVideoItem>();
+        }
+        catch
+        {
+            return new List<PreviewVideoItem>();
+        }
+    }
+
+    public List<PreviewVideoItem> GetPreviewVideos(string storeId)
+    {
+        var target = HttpTenantProvider.NormalizeStoreId(storeId);
+        var store = _db.Stores.AsNoTracking().FirstOrDefault(s => s.Id == target || s.Id == storeId || s.Slug == storeId);
+        if (store == null) return new List<PreviewVideoItem>();
+        return DeserializePreviewVideos(store.PreviewVideosJson);
+    }
+
+    public (bool success, string message, PreviewVideoItem? item) AddPreviewVideo(string storeId, PreviewVideoItem item)
+    {
+        var target = HttpTenantProvider.NormalizeStoreId(storeId);
+        var store = _db.Stores.FirstOrDefault(s => s.Id == target || s.Id == storeId || s.Slug == storeId);
+        if (store == null) return (false, "Store not found", null);
+
+        var existing = DeserializePreviewVideos(store.PreviewVideosJson);
+        if (existing.Count >= MaxPreviewVideosPerStore)
+        {
+            return (false, $"Preview video quota reached. Maximum allowed is {MaxPreviewVideosPerStore} preview videos per store.", null);
+        }
+
+        if (string.IsNullOrWhiteSpace(item.Id))
+        {
+            item.Id = $"vid_{DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}_{Random.Shared.Next(100, 999)}";
+        }
+        if (string.IsNullOrWhiteSpace(item.CreatedAt))
+        {
+            item.CreatedAt = DateTime.UtcNow.ToString("o");
+        }
+
+        existing.Add(item);
+        store.PreviewVideosJson = JsonSerializer.Serialize(existing);
+        _db.SaveChanges();
+
+        return (true, "Preview video added successfully", item);
+    }
+
+    public bool DeletePreviewVideo(string storeId, string videoId)
+    {
+        var target = HttpTenantProvider.NormalizeStoreId(storeId);
+        var store = _db.Stores.FirstOrDefault(s => s.Id == target || s.Id == storeId || s.Slug == storeId);
+        if (store == null) return false;
+
+        var existing = DeserializePreviewVideos(store.PreviewVideosJson);
+        var removed = existing.RemoveAll(v => v.Id == videoId);
+        if (removed > 0)
+        {
+            store.PreviewVideosJson = JsonSerializer.Serialize(existing);
+            _db.SaveChanges();
+            return true;
+        }
+
+        return false;
+    }
+
+    public bool SetBannerVideo(string storeId, string? videoUrl)
+    {
+        var target = HttpTenantProvider.NormalizeStoreId(storeId);
+        var store = _db.Stores.FirstOrDefault(s => s.Id == target || s.Id == storeId || s.Slug == storeId);
+        if (store == null) return false;
+
+        store.BannerVideoUrl = string.IsNullOrWhiteSpace(videoUrl) ? null : videoUrl.Trim();
+        _db.SaveChanges();
+        return true;
     }
 
     public TenantStore CreateStore(TenantStore store)
@@ -465,7 +549,9 @@ public class StoreService
             StripeEnabled = store.StripeEnabled,
             StripePublishableKey = store.StripePublishableKey ?? "",
             StripeSecretKey = store.StripeSecretKey ?? "",
-            CodEnabled = store.CodEnabled
+            CodEnabled = store.CodEnabled,
+            BannerVideoUrl = store.BannerVideoUrl,
+            PreviewVideosJson = JsonSerializer.Serialize(store.PreviewVideos ?? new())
         };
 
         _db.Stores.Add(dbStore);
@@ -535,6 +621,16 @@ public class StoreService
         existing.StripePublishableKey = store.StripePublishableKey;
         existing.StripeSecretKey = store.StripeSecretKey;
         existing.CodEnabled = store.CodEnabled;
+
+        if (store.BannerVideoUrl != null)
+        {
+            existing.BannerVideoUrl = string.IsNullOrWhiteSpace(store.BannerVideoUrl) ? null : store.BannerVideoUrl.Trim();
+        }
+
+        if (store.PreviewVideos != null && store.PreviewVideos.Count > 0)
+        {
+            existing.PreviewVideosJson = JsonSerializer.Serialize(store.PreviewVideos.Take(MaxPreviewVideosPerStore).ToList());
+        }
 
         _db.SaveChanges();
 
@@ -1095,7 +1191,9 @@ public class StoreService
                 StandardShippingRate = store?.StandardShippingRate ?? 6.99m,
                 ExpressShippingRate = store?.ExpressShippingRate ?? 14.99m,
                 ContactEmail = store?.ContactEmail ?? "support@istora.online",
-                Location = store?.Location ?? "United States"
+                Location = store?.Location ?? "United States",
+                BannerVideoUrl = store?.BannerVideoUrl,
+                PreviewVideos = store?.PreviewVideos ?? new()
             },
             Theme = new ThemeTokensDto
             {
@@ -1103,7 +1201,8 @@ public class StoreService
                 AccentColor = store?.AccentColor ?? "#008060",
                 FontFamily = "Inter, -apple-system, BlinkMacSystemFont, sans-serif",
                 LogoUrl = null,
-                BannerUrl = null
+                BannerUrl = null,
+                BannerVideoUrl = store?.BannerVideoUrl
             },
             Categories = categories,
             FeaturedProducts = featured,

@@ -36,6 +36,12 @@ public class DbStore
     public string StripePublishableKey { get; set; } = string.Empty;
     public string StripeSecretKey { get; set; } = string.Empty;
     public bool CodEnabled { get; set; } = true;
+
+    // Media & Video Configurations
+    public string? BannerVideoUrl { get; set; }
+
+    [Column(TypeName = "jsonb")]
+    public string PreviewVideosJson { get; set; } = "[]";
 }
 
 public class DbStoreSetting
@@ -67,6 +73,8 @@ public class DbProduct : IMultiTenantEntity
 
     [Column(TypeName = "jsonb")]
     public string VariantsJson { get; set; } = "[]";
+
+    public string? PreviewVideoUrl { get; set; }
 }
 
 public class DbOrder : IMultiTenantEntity

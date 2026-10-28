@@ -91,6 +91,40 @@ public class TenantStore
 
     [JsonPropertyName("codEnabled")]
     public bool CodEnabled { get; set; } = true;
+
+    // Media & Video Configurations
+    [JsonPropertyName("bannerVideoUrl")]
+    public string? BannerVideoUrl { get; set; }
+
+    [JsonPropertyName("previewVideos")]
+    public List<PreviewVideoItem> PreviewVideos { get; set; } = new();
+}
+
+public class PreviewVideoItem
+{
+    [JsonPropertyName("id")]
+    public string Id { get; set; } = string.Empty;
+
+    [JsonPropertyName("title")]
+    public string Title { get; set; } = string.Empty;
+
+    [JsonPropertyName("videoUrl")]
+    public string VideoUrl { get; set; } = string.Empty;
+
+    [JsonPropertyName("thumbnailUrl")]
+    public string? ThumbnailUrl { get; set; }
+
+    [JsonPropertyName("productId")]
+    public string? ProductId { get; set; }
+
+    [JsonPropertyName("productTitle")]
+    public string? ProductTitle { get; set; }
+
+    [JsonPropertyName("durationSeconds")]
+    public int? DurationSeconds { get; set; }
+
+    [JsonPropertyName("createdAt")]
+    public string CreatedAt { get; set; } = DateTime.UtcNow.ToString("o");
 }
 
 public class StoreSettings
@@ -148,6 +182,9 @@ public class Product
 
     [JsonPropertyName("variants")]
     public List<ProductVariant> Variants { get; set; } = new();
+
+    [JsonPropertyName("previewVideoUrl")]
+    public string? PreviewVideoUrl { get; set; }
 }
 
 public class ProductVariant
@@ -571,6 +608,12 @@ public class StoreMetadataDto
 
     [JsonPropertyName("location")]
     public string Location { get; set; } = "United States";
+
+    [JsonPropertyName("bannerVideoUrl")]
+    public string? BannerVideoUrl { get; set; }
+
+    [JsonPropertyName("previewVideos")]
+    public List<PreviewVideoItem> PreviewVideos { get; set; } = new();
 }
 
 public class ThemeTokensDto
@@ -589,6 +632,9 @@ public class ThemeTokensDto
 
     [JsonPropertyName("bannerUrl")]
     public string? BannerUrl { get; set; }
+
+    [JsonPropertyName("bannerVideoUrl")]
+    public string? BannerVideoUrl { get; set; }
 }
 
 // ==========================================

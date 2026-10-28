@@ -4,6 +4,7 @@ import LauncherHub from './components/hub/LauncherHub';
 import GlobalHeader from './components/common/GlobalHeader';
 import Navigation from './components/Navigation';
 import HeroBanner from './components/storefront/HeroBanner';
+import PreviewVideosSection from './components/storefront/PreviewVideosSection';
 import ProductGrid from './components/storefront/ProductGrid';
 import ProductDetailModal from './components/storefront/ProductDetailModal';
 import CartDrawer from './components/storefront/CartDrawer';
@@ -166,6 +167,7 @@ function MainApp() {
                         }}
                       />
                       <HeroBanner onExploreClick={scrollToCatalog} />
+                      <PreviewVideosSection />
                       <ProductGrid
                         onSelectProduct={(p) => setSelectedProductForQuickView(p)}
                         searchQuery={searchQuery}
@@ -188,6 +190,7 @@ function MainApp() {
                     }}
                   />
                   <HeroBanner onExploreClick={scrollToCatalog} />
+                  <PreviewVideosSection />
                   <ProductGrid
                     onSelectProduct={(p) => setSelectedProductForQuickView(p)}
                     searchQuery={searchQuery}

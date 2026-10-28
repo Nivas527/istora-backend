@@ -3,13 +3,26 @@ import { ArrowRight, ShieldCheck, Zap, Layers, Cpu, Palette } from 'lucide-react
 import { useStore } from '../../context/StoreContext';
 
 export default function HeroBanner({ onExploreClick }) {
-  const { activeTheme, settings, setIsThemeMarketplaceOpen } = useStore();
+  const { activeTheme, activeStore, settings, setIsThemeMarketplaceOpen } = useStore();
   const styles = activeTheme?.styles || {};
+  const bannerVideo = activeStore?.bannerVideoUrl || settings?.bannerVideoUrl;
 
   return (
     <div
       className={`relative overflow-hidden ${styles.heroBg || 'bg-zinc-950'} text-white rounded-2xl mx-4 sm:mx-6 lg:mx-8 my-6 border border-zinc-800 shadow-2xl transition-all duration-500`}
     >
+      {/* Background Video if configured */}
+      {bannerVideo && (
+        <video
+          autoPlay
+          loop
+          muted
+          playsInline
+          className="absolute inset-0 w-full h-full object-cover opacity-30 pointer-events-none transition-opacity duration-1000"
+          src={bannerVideo}
+        />
+      )}
+
       {/* Background ambient lighting styled with theme accent */}
       <div
         className="absolute inset-0 opacity-20 pointer-events-none"
