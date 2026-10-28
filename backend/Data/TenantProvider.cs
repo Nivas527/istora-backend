@@ -121,8 +121,17 @@ public class HttpTenantProvider : ITenantProvider
                 return NormalizeStoreId(queryVal.ToString());
             }
 
-            // 6. Hostname / Subdomain extraction (e.g. mouse.istora.online -> store_mouse)
+            // 6. Hostname / Custom Domain / Subdomain resolution
             var host = ctx.Request.Host.Host.ToLowerInvariant();
+
+            // 6a. Check domain registry (covers custom domains like mousegear.com or connected brand domains)
+            var resolvedByDomain = TenantDomainRegistry.ResolveStoreId(host);
+            if (!string.IsNullOrWhiteSpace(resolvedByDomain))
+            {
+                return NormalizeStoreId(resolvedByDomain);
+            }
+
+            // 6b. Platform subdomain extraction (e.g. apexcommerce1001.istora.online -> store_apexcommerce1001)
             var parts = host.Split('.');
             if (parts.Length > 2 && parts[0] != "www" && parts[0] != "admin" && parts[0] != "api")
             {

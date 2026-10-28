@@ -81,7 +81,7 @@ export default function StoreSelectorDropdown({ isCompact = false }) {
                     />
                     <div className="min-w-0">
                       <p className="truncate text-zinc-900 leading-tight">{st.name}</p>
-                      <p className="text-[10px] text-zinc-400 font-mono truncate">{st.subdomain}</p>
+                      <p className="text-[10px] text-zinc-400 font-mono truncate">{st.customDomain ? `🌐 ${st.customDomain}` : st.subdomain}</p>
                     </div>
                   </div>
 

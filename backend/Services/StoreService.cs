@@ -154,10 +154,43 @@ public class StoreService
                 );
                 _db.SaveChanges();
             }
+
+            // 5. Populate TenantDomainRegistry with all known subdomains and custom domains
+            foreach (var st in _db.Stores.AsNoTracking().ToList())
+            {
+                if (!string.IsNullOrWhiteSpace(st.Subdomain))
+                    TenantDomainRegistry.Register(st.Subdomain, st.Id);
+                if (!string.IsNullOrWhiteSpace(st.Slug))
+                    TenantDomainRegistry.Register(st.Slug, st.Id);
+                if (!string.IsNullOrWhiteSpace(st.CustomDomain))
+                    TenantDomainRegistry.Register(st.CustomDomain, st.Id);
+            }
         }
         catch (Exception ex)
         {
             Console.WriteLine($"[PostgreSQL] InitializeDatabase notice: {ex.Message}");
+        }
+    }
+
+    public string GenerateNextStoreSlug()
+    {
+        lock (_lock)
+        {
+            var existingSlugs = _db.Stores.AsNoTracking().Select(s => s.Slug).ToList();
+            var maxNum = 1000;
+            var regex = new System.Text.RegularExpressions.Regex(@"^apexcommerce(\d+)$", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+
+            foreach (var slug in existingSlugs)
+            {
+                if (string.IsNullOrWhiteSpace(slug)) continue;
+                var match = regex.Match(slug);
+                if (match.Success && int.TryParse(match.Groups[1].Value, out var num))
+                {
+                    if (num > maxNum) maxNum = num;
+                }
+            }
+
+            return $"apexcommerce{maxNum + 1}";
         }
     }
 
@@ -184,6 +217,8 @@ public class StoreService
             ExpressShippingRate = s.ExpressShippingRate,
             ContactEmail = s.ContactEmail,
             Location = s.Location,
+            Plan = s.Plan,
+            Environment = s.Environment,
             Status = s.Status,
             CreatedAt = s.CreatedAt,
             RazorpayEnabled = s.RazorpayEnabled,
@@ -198,8 +233,22 @@ public class StoreService
 
     public TenantStore? GetStoreById(string storeId)
     {
-        var target = HttpTenantProvider.NormalizeStoreId(storeId);
-        var s = _db.Stores.AsNoTracking().FirstOrDefault(x => x.Id == target || x.Id == storeId || x.Slug == storeId);
+        if (string.IsNullOrWhiteSpace(storeId)) return null;
+        var clean = storeId.Trim();
+        var cleanLower = clean.ToLowerInvariant();
+        var target = HttpTenantProvider.NormalizeStoreId(cleanLower);
+        var cleanedDomain = TenantDomainRegistry.CleanDomain(clean);
+
+        var s = _db.Stores.AsNoTracking().FirstOrDefault(x =>
+            x.Id == target ||
+            x.Id == cleanLower ||
+            x.Slug.ToLower() == cleanLower ||
+            x.Subdomain.ToLower() == cleanLower ||
+            x.Subdomain.ToLower() == cleanedDomain ||
+            (x.CustomDomain != null && x.CustomDomain.ToLower() == cleanLower) ||
+            (x.CustomDomain != null && x.CustomDomain.ToLower() == cleanedDomain)
+        );
+
         if (s == null) return null;
         return new TenantStore
         {
@@ -219,6 +268,8 @@ public class StoreService
             ExpressShippingRate = s.ExpressShippingRate,
             ContactEmail = s.ContactEmail,
             Location = s.Location,
+            Plan = s.Plan,
+            Environment = s.Environment,
             Status = s.Status,
             CreatedAt = s.CreatedAt,
             RazorpayEnabled = s.RazorpayEnabled,
@@ -233,23 +284,33 @@ public class StoreService
 
     public TenantStore CreateStore(TenantStore store)
     {
-        // 1. Slug & ID auto-generation
-        if (string.IsNullOrWhiteSpace(store.Id))
+        // 1. Custom Platform StoreID generation (e.g. apexcommerce1001, apexcommerce1002)
+        // Store name is kept for merchant branding, but platform handle is clean & sequential.
+        if (string.IsNullOrWhiteSpace(store.Slug) ||
+            store.Slug.StartsWith("store-") ||
+            store.Slug.Equals(store.Name, StringComparison.OrdinalIgnoreCase))
         {
-            var rawSlug = string.IsNullOrWhiteSpace(store.Slug)
-                ? store.Name.ToLowerInvariant()
-                : store.Slug.ToLowerInvariant();
-
-            var cleanSlug = System.Text.RegularExpressions.Regex.Replace(rawSlug, @"[^a-z0-9]+", "-").Trim('-');
-            if (string.IsNullOrWhiteSpace(cleanSlug)) cleanSlug = "store-" + Random.Shared.Next(1000, 9999);
-
-            store.Id = "store_" + cleanSlug;
-            store.Slug = cleanSlug;
+            var nextSlug = GenerateNextStoreSlug();
+            store.Slug = nextSlug;
+            store.Id = $"store_{nextSlug}";
+        }
+        else if (string.IsNullOrWhiteSpace(store.Id))
+        {
+            store.Id = HttpTenantProvider.NormalizeStoreId(store.Slug);
         }
 
         if (string.IsNullOrWhiteSpace(store.Subdomain))
         {
             store.Subdomain = $"{store.Slug}.istora.online";
+        }
+
+        if (!string.IsNullOrWhiteSpace(store.CustomDomain))
+        {
+            store.CustomDomain = TenantDomainRegistry.CleanDomain(store.CustomDomain);
+        }
+        else
+        {
+            store.CustomDomain = null;
         }
 
         // 2. Intelligent Location-based Defaults (Currency, Symbol, Tax, Shipping, Gateways)
@@ -422,6 +483,15 @@ public class StoreService
         }
 
         _db.SaveChanges();
+
+        // Register new domains in TenantDomainRegistry for routing
+        TenantDomainRegistry.Register(store.Subdomain, store.Id);
+        TenantDomainRegistry.Register(store.Slug, store.Id);
+        if (!string.IsNullOrWhiteSpace(store.CustomDomain))
+        {
+            TenantDomainRegistry.Register(store.CustomDomain, store.Id);
+        }
+
         return store;
     }
 
@@ -431,10 +501,21 @@ public class StoreService
         var existing = _db.Stores.FirstOrDefault(s => s.Id == target || s.Id == storeId);
         if (existing == null) return null;
 
+        var oldCustomDomain = existing.CustomDomain;
+
         existing.Name = store.Name;
-        existing.Slug = store.Slug;
-        existing.Subdomain = store.Subdomain;
-        existing.CustomDomain = store.CustomDomain;
+        if (!string.IsNullOrWhiteSpace(store.Slug)) existing.Slug = store.Slug;
+        if (!string.IsNullOrWhiteSpace(store.Subdomain)) existing.Subdomain = store.Subdomain;
+
+        if (!string.IsNullOrWhiteSpace(store.CustomDomain))
+        {
+            existing.CustomDomain = TenantDomainRegistry.CleanDomain(store.CustomDomain);
+        }
+        else
+        {
+            existing.CustomDomain = null;
+        }
+
         existing.Category = store.Category;
         existing.ThemeId = store.ThemeId;
         existing.AccentColor = store.AccentColor;
@@ -456,6 +537,22 @@ public class StoreService
         existing.CodEnabled = store.CodEnabled;
 
         _db.SaveChanges();
+
+        // Sync TenantDomainRegistry
+        if (!string.IsNullOrWhiteSpace(oldCustomDomain) && oldCustomDomain != existing.CustomDomain)
+        {
+            TenantDomainRegistry.Unregister(oldCustomDomain);
+        }
+        if (!string.IsNullOrWhiteSpace(existing.CustomDomain))
+        {
+            TenantDomainRegistry.Register(existing.CustomDomain, existing.Id);
+        }
+        if (!string.IsNullOrWhiteSpace(existing.Subdomain))
+        {
+            TenantDomainRegistry.Register(existing.Subdomain, existing.Id);
+        }
+
+        store.CustomDomain = existing.CustomDomain;
         return store;
     }
 
@@ -464,6 +561,13 @@ public class StoreService
         var target = HttpTenantProvider.NormalizeStoreId(storeId);
         var existing = _db.Stores.FirstOrDefault(s => s.Id == target || s.Id == storeId);
         if (existing == null) return false;
+
+        TenantDomainRegistry.Unregister(existing.Subdomain);
+        TenantDomainRegistry.Unregister(existing.Slug);
+        if (!string.IsNullOrWhiteSpace(existing.CustomDomain))
+        {
+            TenantDomainRegistry.Unregister(existing.CustomDomain);
+        }
 
         _db.Stores.Remove(existing);
         _db.Products.IgnoreQueryFilters().Where(p => p.StoreId == target).ExecuteDelete();
@@ -937,8 +1041,18 @@ public class StoreService
     // =========================================================================
     public StorefrontBootstrapResponse GetStorefrontBootstrap(string? storeId = null)
     {
-        var tenantId = HttpTenantProvider.NormalizeStoreId(!string.IsNullOrWhiteSpace(storeId) ? storeId : (_tenantProvider.CurrentStoreId ?? "store_apex"));
-        var store = _db.Stores.FirstOrDefault(s => s.Id == tenantId) ?? _db.Stores.FirstOrDefault(s => s.Id == "store_apex");
+        TenantStore? resolvedStore = null;
+        if (!string.IsNullOrWhiteSpace(storeId))
+        {
+            resolvedStore = GetStoreById(storeId);
+        }
+        else if (!string.IsNullOrWhiteSpace(_tenantProvider.CurrentStoreId))
+        {
+            resolvedStore = GetStoreById(_tenantProvider.CurrentStoreId);
+        }
+
+        var store = resolvedStore ?? GetStoreById("store_apex") ?? GetStores().FirstOrDefault();
+        var tenantId = store?.Id ?? "store_apex";
 
         var categories = _db.Categories.Where(c => c.StoreId == tenantId)
             .Select(c => new CategoryItem { Id = c.Id, Name = c.Name, Slug = c.Slug })

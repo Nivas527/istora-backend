@@ -21,8 +21,7 @@ export default function CreateStoreModal({ onClose }) {
 
   // 1. Basic Details
   const [name, setName] = useState('');
-  const [handle, setHandle] = useState('');
-  const [isHandleCustom, setIsHandleCustom] = useState(false);
+  const [customDomain, setCustomDomain] = useState('');
   const [email, setEmail] = useState('');
 
   // 2. Subscription Plan: 'monthly' | 'yearly'
@@ -36,21 +35,6 @@ export default function CreateStoreModal({ onClose }) {
   const [statusMessage, setStatusMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
 
-  const handleNameChange = (val) => {
-    setName(val);
-    if (!isHandleCustom) {
-      const generated = val
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, '-')
-        .replace(/(^-|-$)/g, '');
-      setHandle(generated);
-    }
-    if (!email && val.trim()) {
-      const slug = val.toLowerCase().replace(/[^a-z0-9]+/g, '');
-      setEmail(`owner@${slug || 'store'}.com`);
-    }
-  };
-
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!name.trim()) {
@@ -58,20 +42,19 @@ export default function CreateStoreModal({ onClose }) {
       return;
     }
 
-    const cleanHandle = (handle.trim() || name.toLowerCase().replace(/[^a-z0-9]+/g, '-')).replace(/(^-|-$)/g, '');
     setIsSubmitting(true);
     setErrorMessage('');
-    setStatusMessage('Provisioning store database & generating merchant admin access...');
+    setStatusMessage('Provisioning custom store ID & merchant admin access...');
 
     try {
       // Create store, obtain merchant access token, and auto-navigate to admin panel
       await createStore({
         name: name.trim(),
-        handle: cleanHandle,
+        customDomain: customDomain.trim(),
         location: 'India',
         plan: plan,
         purpose: purpose,
-        contactEmail: email.trim() || `owner@${cleanHandle}.com`,
+        contactEmail: email.trim(),
         emptyCatalog: false // starter products pre-loaded for easy testing
       });
 
@@ -135,45 +118,48 @@ export default function CreateStoreModal({ onClose }) {
               autoFocus
               type="text"
               value={name}
-              onChange={(e) => handleNameChange(e.target.value)}
+              onChange={(e) => {
+                setName(e.target.value);
+                if (!email && e.target.value.trim()) {
+                  const slug = e.target.value.toLowerCase().replace(/[^a-z0-9]+/g, '');
+                  setEmail(`owner@${slug || 'store'}.com`);
+                }
+              }}
               placeholder="e.g. Mouse Store, Aura Audio, Bharat Crafts"
               className="w-full px-3.5 py-2.5 border border-zinc-300 rounded-xl text-sm text-zinc-900 focus:outline-none focus:ring-2 focus:ring-[#008060] font-medium"
             />
           </div>
 
-          {/* 2. Subdomain URL */}
-          <div>
-            <label className="block text-xs font-semibold text-zinc-800 mb-1 flex items-center justify-between">
-              <span className="flex items-center gap-1.5">
-                <Globe className="w-3.5 h-3.5 text-zinc-500" />
-                <span>Store Domain (Subdomain)</span>
+          {/* 2. Platform StoreID & Custom Domain */}
+          <div className="p-3 bg-zinc-50 border border-zinc-200/80 rounded-xl space-y-2.5">
+            <div className="flex items-center justify-between text-xs">
+              <span className="font-semibold text-zinc-700 flex items-center gap-1.5">
+                <Globe className="w-3.5 h-3.5 text-[#008060]" />
+                <span>Platform Store ID</span>
               </span>
-              <button
-                type="button"
-                onClick={() => setIsHandleCustom(!isHandleCustom)}
-                className="text-[11px] text-[#008060] hover:underline font-medium cursor-pointer"
-              >
-                {isHandleCustom ? 'Auto-slug' : 'Customize URL'}
-              </button>
-            </label>
-            <div className="flex items-center rounded-xl border border-zinc-300 overflow-hidden bg-zinc-50 focus-within:ring-2 focus-within:ring-[#008060]">
-              <span className="pl-3 pr-1 text-xs text-zinc-400 font-mono select-none">https://</span>
-              <input
-                type="text"
-                value={handle}
-                readOnly={!isHandleCustom}
-                onChange={(e) => {
-                  setIsHandleCustom(true);
-                  setHandle(e.target.value.toLowerCase().replace(/[^a-z0-9-]+/g, ''));
-                }}
-                placeholder="store-name"
-                className={`flex-1 py-2 text-xs font-mono text-zinc-900 focus:outline-none ${
-                  isHandleCustom ? 'bg-white' : 'bg-transparent text-zinc-700'
-                }`}
-              />
-              <span className="px-3 py-2 text-xs font-mono font-semibold text-zinc-600 bg-zinc-100 border-l border-zinc-200 select-none">
-                .istora.online
+              <span className="font-mono text-[11px] text-[#008060] font-bold bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                apexcommerce[auto].istora.online
               </span>
+            </div>
+            <p className="text-[11px] text-zinc-500 leading-relaxed">
+              Every store receives a unique, isolated platform identifier. When you connect a custom domain, traffic routes seamlessly to your store.
+            </p>
+
+            <div>
+              <label className="block text-[11px] font-semibold text-zinc-700 mb-1 flex items-center justify-between">
+                <span>Connect Custom Domain (Optional)</span>
+                <span className="text-zinc-400 font-normal">e.g. mousegear.com</span>
+              </label>
+              <div className="flex items-center rounded-lg border border-zinc-300 overflow-hidden bg-white focus-within:ring-2 focus-within:ring-[#008060]">
+                <span className="pl-2.5 pr-1 text-xs text-zinc-400 font-mono select-none">https://</span>
+                <input
+                  type="text"
+                  value={customDomain}
+                  onChange={(e) => setCustomDomain(e.target.value.toLowerCase().replace(/^(https?:\/\/)?/, '').replace(/\/$/, ''))}
+                  placeholder="yourbrand.com (optional)"
+                  className="flex-1 py-1.5 text-xs font-mono text-zinc-900 focus:outline-none"
+                />
+              </div>
             </div>
           </div>
 

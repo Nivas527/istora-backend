@@ -31,9 +31,12 @@ function resolveDedicatedStore(storeList) {
       return storeList.find(s =>
         s.id.toLowerCase() === clean ||
         s.id.toLowerCase().replace(/^store_/, '') === clean ||
-        s.name.toLowerCase().includes(clean) ||
+        (s.slug && s.slug.toLowerCase() === clean) ||
+        (s.subdomain && s.subdomain.toLowerCase() === clean) ||
         (s.subdomain && s.subdomain.toLowerCase().includes(clean)) ||
-        (s.customDomain && s.customDomain.toLowerCase().includes(clean))
+        (s.customDomain && s.customDomain.toLowerCase() === clean) ||
+        (s.name && s.name.toLowerCase() === clean) ||
+        (s.name && s.name.toLowerCase().includes(clean))
       );
     };
 
@@ -723,13 +726,42 @@ export function StoreProvider({ children }) {
       }
     }
 
-    const newStoreId = `store_${cleanSubdomain}`;
+    // Provision store with custom platform StoreID (e.g. apexcommerce1001) and optional customDomain
+    let createdRes = null;
+    try {
+      createdRes = await apiClient.createStore({
+        name: name.trim(),
+        location: location || 'India',
+        plan: plan || 'monthly',
+        environment: purpose || 'production',
+        category: category || template.category || 'General Merchandise',
+        customDomain: customDomain ? customDomain.trim().toLowerCase() : null,
+        themeId: selectedTheme.id,
+        accentColor: selectedTheme.styles?.accentColor || template.accentColor || '#008060',
+        currency: currency,
+        currencySymbol: currencySymbol,
+        taxRate: taxRate,
+        freeShippingThreshold: freeShippingThreshold,
+        standardShippingRate: standardShippingRate,
+        expressShippingRate: expressShippingRate,
+        contactEmail: contactEmail || (email ? email.trim() : `owner@istora.online`),
+        status: 'active'
+      });
+    } catch (err) {
+      console.warn('[StoreContext] Backend createStore sync notice:', err);
+    }
+
+    const assignedId = createdRes?.id || `store_apexcommerce${Date.now().toString().slice(-4)}`;
+    const assignedSlug = createdRes?.slug || assignedId.replace(/^store_/, '');
+    const assignedSubdomain = createdRes?.subdomain || `${assignedSlug}.istora.online`;
+    const assignedCustomDomain = createdRes?.customDomain || (customDomain ? customDomain.trim().toLowerCase() : null);
+
     const newStore = {
-      id: newStoreId,
+      id: assignedId,
       name: name.trim(),
-      slug: cleanSubdomain,
-      subdomain: `${cleanSubdomain}.istora.online`,
-      customDomain: `${cleanSubdomain}.istora.online`,
+      slug: assignedSlug,
+      subdomain: assignedSubdomain,
+      customDomain: assignedCustomDomain,
       category: category || template.category || 'General Merchandise',
       location: location || 'India',
       plan: plan || 'monthly',
@@ -744,64 +776,32 @@ export function StoreProvider({ children }) {
       freeShippingThreshold: freeShippingThreshold,
       standardShippingRate: standardShippingRate,
       expressShippingRate: expressShippingRate,
-      contactEmail: contactEmail || `owner@${cleanSubdomain}.com`,
+      contactEmail: contactEmail || (email ? email.trim() : `owner@${assignedSlug}.com`),
       razorpayEnabled,
       stripeEnabled,
       codEnabled: true,
+      adminToken: createdRes?.adminToken || `shppa_sec_${assignedSlug}_demo`,
+      publicToken: createdRes?.publicToken || `shpat_pub_${assignedSlug}_demo`,
       products: emptyCatalog ? [] : template.products.map((p) => ({
         ...p,
         id: `prod_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
-        storeId: newStoreId
+        storeId: assignedId
       })),
       orders: [],
       customers: [],
       discounts: [
-        { code: 'WELCOME10', type: 'percentage', value: 10, description: '10% off your first purchase', minSubtotal: 0, storeId: newStoreId },
-        { code: 'FREESHIP', type: 'shipping', value: 100, description: 'Free express courier shipping', minSubtotal: 0, storeId: newStoreId }
+        { code: 'WELCOME10', type: 'percentage', value: 10, description: '10% off your first purchase', minSubtotal: 0, storeId: assignedId },
+        { code: 'FREESHIP', type: 'shipping', value: 100, description: 'Free express courier shipping', minSubtotal: 0, storeId: assignedId }
       ],
       cart: { items: [], discountCode: null },
       createdAt: new Date().toISOString()
     };
 
-    setStores((prev) => [newStore, ...prev.filter(s => s.id !== newStoreId)]);
-    setActiveStoreId(newStoreId);
+    setStores((prev) => [newStore, ...prev.filter(s => s.id !== assignedId)]);
+    setActiveStoreId(assignedId);
 
-    // Sync to PostgreSQL backend and obtain created store with adminToken
-    try {
-      const createdRes = await apiClient.createStore({
-        id: newStore.id,
-        name: newStore.name,
-        slug: newStore.slug,
-        subdomain: newStore.subdomain,
-        customDomain: newStore.customDomain,
-        category: newStore.category,
-        location: newStore.location,
-        plan: newStore.plan,
-        environment: newStore.environment,
-        themeId: newStore.themeId,
-        accentColor: newStore.accentColor,
-        currency: newStore.currency,
-        currencySymbol: newStore.currencySymbol,
-        taxRate: newStore.taxRate,
-        freeShippingThreshold: newStore.freeShippingThreshold,
-        standardShippingRate: newStore.standardShippingRate,
-        expressShippingRate: newStore.expressShippingRate,
-        contactEmail: newStore.contactEmail,
-        status: newStore.status
-      });
-
-      // Automatically authenticate the merchant admin session with the private token
-      const adminToken = createdRes?.adminToken || `shppa_sec_${cleanSubdomain}_demo`;
-      newStore.adminToken = adminToken;
-      newStore.publicToken = createdRes?.publicToken || `shpat_pub_${cleanSubdomain}_demo`;
-
-      loginMerchant(newStore.contactEmail, adminToken);
-    } catch (err) {
-      console.warn('[StoreContext] Backend createStore sync notice:', err);
-      // Fallback local authentication
-      const demoToken = `shppa_sec_${cleanSubdomain}_demo`;
-      loginMerchant(newStore.contactEmail, demoToken);
-    }
+    // Automatically authenticate the merchant admin session with the private token
+    loginMerchant(newStore.contactEmail, newStore.adminToken);
 
     // Navigate immediately to the Admin Panel so the merchant can start customising
     setActiveMode('admin');
