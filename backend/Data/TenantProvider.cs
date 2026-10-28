@@ -12,6 +12,7 @@ public interface ITenantProvider
 {
     string? CurrentStoreId { get; }
     bool IsMasterPlatformAdmin { get; }
+    bool IsMerchantAdmin { get; }
     IDisposable SetCurrentTenant(string storeId);
 }
 
@@ -42,6 +43,27 @@ public class HttpTenantProvider : ITenantProvider
         }
     }
 
+    public bool IsMerchantAdmin
+    {
+        get
+        {
+            if (IsMasterPlatformAdmin) return true;
+
+            var ctx = _httpContextAccessor.HttpContext;
+            if (ctx == null) return false;
+
+            if (ctx.Request.Headers.TryGetValue("X-Shopify-Access-Token", out var token) &&
+                token.ToString().StartsWith("shppa_sec_"))
+                return true;
+
+            if (ctx.Request.Headers.TryGetValue("Authorization", out var auth) &&
+                auth.ToString().StartsWith("Bearer shppa_sec_"))
+                return true;
+
+            return false;
+        }
+    }
+
     public string? CurrentStoreId
     {
         get
@@ -55,7 +77,23 @@ public class HttpTenantProvider : ITenantProvider
             var ctx = _httpContextAccessor.HttpContext;
             if (ctx == null) return null;
 
-            // 2. Explicit HTTP Header: X-Store-Id or X-Tenant-Id
+            // 2. Private Merchant Admin Token (e.g. shppa_sec_mouse_8f9c2d1e)
+            if (ctx.Request.Headers.TryGetValue("X-Shopify-Access-Token", out var adminToken) && !string.IsNullOrWhiteSpace(adminToken))
+            {
+                var match = Regex.Match(adminToken.ToString(), @"^shppa_sec_([a-zA-Z0-9_-]+?)_[a-f0-9]+$");
+                if (match.Success)
+                    return NormalizeStoreId(match.Groups[1].Value);
+            }
+
+            // 3. Public Storefront Access Token (e.g. shpat_pub_mouse_8f9c2d1e)
+            if (ctx.Request.Headers.TryGetValue("X-Shopify-Storefront-Access-Token", out var pubToken) && !string.IsNullOrWhiteSpace(pubToken))
+            {
+                var match = Regex.Match(pubToken.ToString(), @"^shpat_pub_([a-zA-Z0-9_-]+?)_[a-f0-9]+$");
+                if (match.Success)
+                    return NormalizeStoreId(match.Groups[1].Value);
+            }
+
+            // 4. Explicit HTTP Header: X-Store-Id or X-Tenant-Id
             if (ctx.Request.Headers.TryGetValue("X-Store-Id", out var storeHeader) && !string.IsNullOrWhiteSpace(storeHeader))
             {
                 return NormalizeStoreId(storeHeader.ToString());
@@ -65,13 +103,13 @@ public class HttpTenantProvider : ITenantProvider
                 return NormalizeStoreId(tenantHeader.ToString());
             }
 
-            // 3. Query string: ?storeId=...
+            // 5. Query string: ?storeId=...
             if (ctx.Request.Query.TryGetValue("storeId", out var queryVal) && !string.IsNullOrWhiteSpace(queryVal))
             {
                 return NormalizeStoreId(queryVal.ToString());
             }
 
-            // 4. Hostname / Subdomain extraction (e.g. mouse.istora.online -> store_mouse)
+            // 6. Hostname / Subdomain extraction (e.g. mouse.istora.online -> store_mouse)
             var host = ctx.Request.Host.Host.ToLowerInvariant();
             var parts = host.Split('.');
             if (parts.Length > 2 && parts[0] != "www" && parts[0] != "admin" && parts[0] != "api")

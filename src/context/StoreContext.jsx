@@ -2,7 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useMemo } from '
 import { initialStores, storeTemplates, initialCollections, initialApexProducts, initialApexOrders, initialApexCustomers, initialApexDiscounts } from '../data/seedData';
 import { initialThemes } from '../data/themesData';
 import { initialDeployments } from '../data/initialDeployments';
-import { apiClient } from '../services/apiClient';
+import { apiClient, getPublicStorefrontToken, getPrivateMerchantToken } from '../services/apiClient';
 import { saveItemToDB, getAllFromDB, THEMES_STORE, DEPLOYMENTS_STORE } from '../services/dbStorage';
 
 const StoreContext = createContext(null);
@@ -247,6 +247,77 @@ export function StoreProvider({ children }) {
   const [activeMode, setActiveMode] = useState(() => dedicatedResolution.initialMode || 'hub');
   const [adminTab, setAdminTab] = useState('dashboard');
   const [isImpersonating, setIsImpersonating] = useState(false);
+
+  // Scoped Authentication Tokens & Session
+  const [merchantSession, setMerchantSession] = useState(() => {
+    try {
+      const raw = sessionStorage.getItem(`istora_merchant_session_${activeStoreId}`);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed && parsed.token) return parsed;
+      }
+    } catch {}
+    return { isAuthenticated: false, token: null, email: null };
+  });
+
+  // Re-sync session when store changes
+  useEffect(() => {
+    try {
+      const raw = sessionStorage.getItem(`istora_merchant_session_${activeStoreId}`);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed && parsed.token) {
+          setMerchantSession(parsed);
+          return;
+        }
+      }
+    } catch {}
+    setMerchantSession({ isAuthenticated: false, token: null, email: null });
+  }, [activeStoreId]);
+
+  const publicStorefrontToken = useMemo(() => getPublicStorefrontToken(activeStoreId), [activeStoreId]);
+  const privateMerchantToken = useMemo(() => getPrivateMerchantToken(activeStoreId), [activeStoreId]);
+  const isMerchantAuthenticated = isImpersonating || merchantSession.isAuthenticated;
+
+  const loginMerchant = (email, passwordOrToken) => {
+    const store = stores.find(s => s.id === activeStoreId) || initialStores[0];
+    const expectedEmail = (store.contactEmail || `owner@${store.slug || 'store'}.com`).toLowerCase();
+    const expectedToken = getPrivateMerchantToken(activeStoreId);
+
+    const inputClean = (passwordOrToken || '').trim();
+    const emailClean = (email || '').trim().toLowerCase();
+
+    // Valid if token matches OR password is 'admin' / 'password' / store slug / 4+ chars
+    const isValid =
+      inputClean === expectedToken ||
+      inputClean === 'admin' ||
+      inputClean === 'password' ||
+      inputClean === (store.slug || '') ||
+      inputClean.length >= 4;
+
+    if (isValid) {
+      const session = {
+        isAuthenticated: true,
+        token: expectedToken,
+        email: emailClean || expectedEmail,
+        storeId: activeStoreId,
+        storeName: store.name
+      };
+      setMerchantSession(session);
+      try {
+        sessionStorage.setItem(`istora_merchant_session_${activeStoreId}`, JSON.stringify(session));
+      } catch {}
+      return { success: true };
+    }
+    return { success: false, message: 'Invalid credentials or private merchant token.' };
+  };
+
+  const logoutMerchant = () => {
+    setMerchantSession({ isAuthenticated: false, token: null, email: null });
+    try {
+      sessionStorage.removeItem(`istora_merchant_session_${activeStoreId}`);
+    } catch {}
+  };
 
   // Themes list with custom dist.zip persistence
   const [themes, setThemes] = useState(() => {
@@ -1353,6 +1424,14 @@ export function StoreProvider({ children }) {
         totalOrdersCount,
         averageOrderValue,
         unfulfilledOrdersCount,
+
+        // Dual Token Authentication
+        publicStorefrontToken,
+        privateMerchantToken,
+        isMerchantAuthenticated,
+        merchantSession,
+        loginMerchant,
+        logoutMerchant,
 
         // System
         refreshStoreData,

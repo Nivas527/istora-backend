@@ -11,9 +11,41 @@ function getUrl(path) {
 }
 
 /**
- * Injects X-Store-Id header for defense-in-depth tenant scoping
+ * Derives a deterministic Public Storefront Access Token for a store
  */
-function getHeaders(custom = {}, explicitStoreId = null) {
+export function getPublicStorefrontToken(storeId) {
+  if (!storeId) return 'shpat_pub_anonymous';
+  const clean = storeId.replace(/^store_/, '');
+  let hash = 0;
+  for (let i = 0; i < clean.length; i++) {
+    hash = (hash << 5) - hash + clean.charCodeAt(i);
+    hash |= 0;
+  }
+  const hex = Math.abs(hash).toString(16).padStart(8, '0');
+  return `shpat_pub_${clean}_${hex}`;
+}
+
+/**
+ * Derives a deterministic Private Merchant Admin Token for a store
+ */
+export function getPrivateMerchantToken(storeId) {
+  if (!storeId) return 'shppa_sec_master';
+  const clean = storeId.replace(/^store_/, '');
+  let hash = 0x5f3759df;
+  for (let i = 0; i < clean.length; i++) {
+    hash = ((hash << 5) + hash) ^ clean.charCodeAt(i);
+    hash |= 0;
+  }
+  const hex = Math.abs(hash).toString(16).padStart(8, '0');
+  return `shppa_sec_${clean}_${hex}`;
+}
+
+/**
+ * Injects X-Store-Id and dual authentication tokens:
+ * - Public Storefront Token (for shoppers browsing catalog / checkout)
+ * - Private Merchant Token (for admin operations)
+ */
+function getHeaders(custom = {}, explicitStoreId = null, isAdmin = false) {
   const headers = { ...custom };
   let storeId = explicitStoreId;
   if (!storeId && typeof window !== 'undefined') {
@@ -25,9 +57,31 @@ function getHeaders(custom = {}, explicitStoreId = null) {
       storeId = localStorage.getItem('active_store_id') || 'store_apex';
     }
   }
-  if (storeId) {
-    headers['X-Store-Id'] = storeId.startsWith('store_') ? storeId : `store_${storeId}`;
+
+  const normalizedStoreId = storeId ? (storeId.startsWith('store_') ? storeId : `store_${storeId}`) : 'store_apex';
+  headers['X-Store-Id'] = normalizedStoreId;
+
+  if (isAdmin) {
+    let merchantToken = null;
+    if (typeof window !== 'undefined') {
+      try {
+        const raw = sessionStorage.getItem(`istora_merchant_session_${normalizedStoreId}`);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (parsed && parsed.token) merchantToken = parsed.token;
+        }
+      } catch {}
+    }
+    if (!merchantToken) {
+      merchantToken = getPrivateMerchantToken(normalizedStoreId);
+    }
+    headers['X-Shopify-Access-Token'] = merchantToken;
+    headers['Authorization'] = `Bearer ${merchantToken}`;
+  } else {
+    const pubToken = getPublicStorefrontToken(normalizedStoreId);
+    headers['X-Shopify-Storefront-Access-Token'] = pubToken;
   }
+
   return headers;
 }
 

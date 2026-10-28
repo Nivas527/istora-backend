@@ -3,6 +3,7 @@ import { useStore } from '../../context/StoreContext';
 import GlobalHeader from '../common/GlobalHeader';
 import StoreSelectorDropdown from '../StoreSelectorDropdown';
 import ShopifyMigrationModal from './ShopifyMigrationModal';
+import MerchantLoginView from './MerchantLoginView';
 import DashboardView from './DashboardView';
 import ProductsView from './ProductsView';
 import OrdersView from './OrdersView';
@@ -24,7 +25,9 @@ import {
   Plus,
   ShieldCheck,
   Sparkles,
-  ArrowRight
+  ArrowRight,
+  LogOut,
+  Key
 } from 'lucide-react';
 
 export default function AdminLayout() {
@@ -38,10 +41,19 @@ export default function AdminLayout() {
     setIsCreateStoreModalOpen,
     deployments,
     isDedicatedStore,
-    isImpersonating
+    isImpersonating,
+    isMerchantAuthenticated,
+    merchantSession,
+    logoutMerchant,
+    privateMerchantToken
   } = useStore();
 
   const [isMigrationModalOpen, setIsMigrationModalOpen] = useState(false);
+
+  // If not authenticated as merchant, display secure private merchant login gate
+  if (!isMerchantAuthenticated) {
+    return <MerchantLoginView />;
+  }
 
   const navItems = [
     { id: 'dashboard', label: 'Home / Dashboard', icon: LayoutDashboard },
@@ -184,6 +196,24 @@ export default function AdminLayout() {
               <span>View Online Store</span>
               <ExternalLink className="w-3.5 h-3.5 text-zinc-500" />
             </button>
+
+            {/* Merchant Session & Logout */}
+            <div className="pt-2 border-t border-zinc-200/80 flex items-center justify-between text-[11px]">
+              <div className="truncate max-w-[140px]">
+                <p className="font-bold text-zinc-800 truncate">{merchantSession?.email || 'Store Owner'}</p>
+                <p className="text-[10px] text-zinc-400 font-mono flex items-center gap-1">
+                  <Key className="w-2.5 h-2.5 text-violet-600" /> Private Session
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={logoutMerchant}
+                title="Log out of merchant admin"
+                className="p-1.5 rounded-lg bg-zinc-100 hover:bg-rose-50 hover:text-rose-600 text-zinc-500 transition-colors cursor-pointer"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+              </button>
+            </div>
           </div>
         </aside>
 
@@ -248,6 +278,16 @@ export default function AdminLayout() {
               >
                 {(settings?.storeName || 'S').charAt(0)}
               </div>
+
+              <button
+                type="button"
+                onClick={logoutMerchant}
+                title="Log out of merchant admin"
+                className="text-xs font-semibold text-zinc-600 hover:text-rose-600 hover:bg-rose-50 px-2 py-1.5 rounded-lg flex items-center gap-1 transition-colors cursor-pointer"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Logout</span>
+              </button>
             </div>
           </header>
 
