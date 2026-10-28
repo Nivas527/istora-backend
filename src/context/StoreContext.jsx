@@ -674,52 +674,53 @@ export function StoreProvider({ children }) {
     } catch {}
   };
 
-  // Multi-Tenancy Store Creator with Developer Theme Binding & Location Defaults
-  const createStore = ({ name, handle, category, location = 'United States', templateId, themeId, contactEmail, emptyCatalog = false }) => {
+  // Multi-Tenancy Store Creator with Developer Theme Binding, Plan & Location Defaults
+  const createStore = async ({ name, handle, category, location = 'India', plan = 'monthly', purpose = 'production', templateId, themeId, contactEmail, emptyCatalog = false }) => {
     const cleanSubdomain = (handle || name.toLowerCase().replace(/[^a-z0-9]+/g, '-')).replace(/(^-|-$)/g, '');
     const template = storeTemplates.find((t) => t.id === templateId) || storeTemplates[0];
     const selectedTheme = themes.find((t) => t.id === themeId) || themes[0];
 
-    // Location-based defaults
-    const locLower = (location || '').toLowerCase();
-    let currency = 'USD';
-    let currencySymbol = '$';
-    let taxRate = 0.08;
-    let freeShippingThreshold = 75.00;
-    let standardShippingRate = 6.99;
-    let expressShippingRate = 14.99;
+    // Defaults strictly to India (INR ₹) unless explicitly changed
+    const locLower = (location || 'india').toLowerCase();
+    let currency = 'INR';
+    let currencySymbol = '₹';
+    let taxRate = 0.18;
+    let freeShippingThreshold = 999.00;
+    let standardShippingRate = 49.00;
+    let expressShippingRate = 149.00;
     let razorpayEnabled = true;
     let stripeEnabled = true;
 
-    if (locLower.includes('india') || locLower === 'in') {
-      currency = 'INR';
-      currencySymbol = '₹';
-      taxRate = 0.18;
-      freeShippingThreshold = 999.00;
-      standardShippingRate = 49.00;
-      expressShippingRate = 149.00;
-      razorpayEnabled = true;
-    } else if (locLower.includes('united kingdom') || locLower.includes('uk') || locLower === 'gb') {
-      currency = 'GBP';
-      currencySymbol = '£';
-      taxRate = 0.20;
-      freeShippingThreshold = 50.00;
-      standardShippingRate = 3.99;
-      expressShippingRate = 8.99;
-    } else if (locLower.includes('uae') || locLower.includes('emirates') || locLower === 'ae') {
-      currency = 'AED';
-      currencySymbol = 'د.إ';
-      taxRate = 0.05;
-      freeShippingThreshold = 250.00;
-      standardShippingRate = 20.00;
-      expressShippingRate = 45.00;
-    } else if (locLower.includes('europe') || locLower === 'eu') {
-      currency = 'EUR';
-      currencySymbol = '€';
-      taxRate = 0.19;
-      freeShippingThreshold = 60.00;
-      standardShippingRate = 4.99;
-      expressShippingRate = 11.99;
+    if (!locLower.includes('india') && locLower !== 'in') {
+      if (locLower.includes('united kingdom') || locLower.includes('uk') || locLower === 'gb') {
+        currency = 'GBP';
+        currencySymbol = '£';
+        taxRate = 0.20;
+        freeShippingThreshold = 50.00;
+        standardShippingRate = 3.99;
+        expressShippingRate = 8.99;
+      } else if (locLower.includes('uae') || locLower.includes('emirates') || locLower === 'ae') {
+        currency = 'AED';
+        currencySymbol = 'د.إ';
+        taxRate = 0.05;
+        freeShippingThreshold = 250.00;
+        standardShippingRate = 20.00;
+        expressShippingRate = 45.00;
+      } else if (locLower.includes('europe') || locLower === 'eu') {
+        currency = 'EUR';
+        currencySymbol = '€';
+        taxRate = 0.19;
+        freeShippingThreshold = 60.00;
+        standardShippingRate = 4.99;
+        expressShippingRate = 11.99;
+      } else {
+        currency = 'USD';
+        currencySymbol = '$';
+        taxRate = 0.08;
+        freeShippingThreshold = 75.00;
+        standardShippingRate = 6.99;
+        expressShippingRate = 14.99;
+      }
     }
 
     const newStoreId = `store_${cleanSubdomain}`;
@@ -729,8 +730,10 @@ export function StoreProvider({ children }) {
       slug: cleanSubdomain,
       subdomain: `${cleanSubdomain}.istora.online`,
       customDomain: `${cleanSubdomain}.istora.online`,
-      category: category || template.category,
-      location: location,
+      category: category || template.category || 'General Merchandise',
+      location: location || 'India',
+      plan: plan || 'monthly',
+      environment: purpose || 'production',
       themeId: selectedTheme.id,
       customDeploymentId: selectedTheme.deploymentId || null,
       accentColor: selectedTheme.styles?.accentColor || template.accentColor || '#008060',
@@ -762,28 +765,46 @@ export function StoreProvider({ children }) {
 
     setStores((prev) => [newStore, ...prev.filter(s => s.id !== newStoreId)]);
     setActiveStoreId(newStoreId);
-    setActiveMode('storefront');
 
-    // Sync to PostgreSQL backend
-    apiClient.createStore({
-      id: newStore.id,
-      name: newStore.name,
-      slug: newStore.slug,
-      subdomain: newStore.subdomain,
-      customDomain: newStore.customDomain,
-      category: newStore.category,
-      location: newStore.location,
-      themeId: newStore.themeId,
-      accentColor: newStore.accentColor,
-      currency: newStore.currency,
-      currencySymbol: newStore.currencySymbol,
-      taxRate: newStore.taxRate,
-      freeShippingThreshold: newStore.freeShippingThreshold,
-      standardShippingRate: newStore.standardShippingRate,
-      expressShippingRate: newStore.expressShippingRate,
-      contactEmail: newStore.contactEmail,
-      status: newStore.status
-    }).catch(err => console.warn('[StoreContext] Backend createStore sync notice:', err));
+    // Sync to PostgreSQL backend and obtain created store with adminToken
+    try {
+      const createdRes = await apiClient.createStore({
+        id: newStore.id,
+        name: newStore.name,
+        slug: newStore.slug,
+        subdomain: newStore.subdomain,
+        customDomain: newStore.customDomain,
+        category: newStore.category,
+        location: newStore.location,
+        plan: newStore.plan,
+        environment: newStore.environment,
+        themeId: newStore.themeId,
+        accentColor: newStore.accentColor,
+        currency: newStore.currency,
+        currencySymbol: newStore.currencySymbol,
+        taxRate: newStore.taxRate,
+        freeShippingThreshold: newStore.freeShippingThreshold,
+        standardShippingRate: newStore.standardShippingRate,
+        expressShippingRate: newStore.expressShippingRate,
+        contactEmail: newStore.contactEmail,
+        status: newStore.status
+      });
+
+      // Automatically authenticate the merchant admin session with the private token
+      const adminToken = createdRes?.adminToken || `shppa_sec_${cleanSubdomain}_demo`;
+      newStore.adminToken = adminToken;
+      newStore.publicToken = createdRes?.publicToken || `shpat_pub_${cleanSubdomain}_demo`;
+
+      loginMerchant(newStore.contactEmail, adminToken);
+    } catch (err) {
+      console.warn('[StoreContext] Backend createStore sync notice:', err);
+      // Fallback local authentication
+      const demoToken = `shppa_sec_${cleanSubdomain}_demo`;
+      loginMerchant(newStore.contactEmail, demoToken);
+    }
+
+    // Navigate immediately to the Admin Panel so the merchant can start customising
+    setActiveMode('admin');
 
     return newStore;
   };

@@ -344,15 +344,37 @@ public class StoreService
         }
         else
         {
-            store.Location = string.IsNullOrWhiteSpace(store.Location) ? "United States" : store.Location;
-            if (string.IsNullOrWhiteSpace(store.Currency)) store.Currency = "USD";
-            if (string.IsNullOrWhiteSpace(store.CurrencySymbol)) store.CurrencySymbol = "$";
+            store.Location = string.IsNullOrWhiteSpace(store.Location) ? "India" : store.Location;
+            if (store.Location.Equals("India", StringComparison.OrdinalIgnoreCase))
+            {
+                store.Location = "India";
+                store.Currency = "INR";
+                store.CurrencySymbol = "₹";
+                store.TaxRate = 0.18m;
+                store.FreeShippingThreshold = 999.00m;
+                store.StandardShippingRate = 49.00m;
+                store.ExpressShippingRate = 149.00m;
+                store.RazorpayEnabled = true;
+                store.CodEnabled = true;
+            }
+            else
+            {
+                if (string.IsNullOrWhiteSpace(store.Currency)) store.Currency = "USD";
+                if (string.IsNullOrWhiteSpace(store.CurrencySymbol)) store.CurrencySymbol = "$";
+            }
         }
 
         if (string.IsNullOrWhiteSpace(store.Category))
         {
             store.Category = "General Merchandise";
         }
+
+        store.Plan = string.IsNullOrWhiteSpace(store.Plan) ? "monthly" : store.Plan.ToLowerInvariant();
+        store.Environment = string.IsNullOrWhiteSpace(store.Environment) ? "production" : store.Environment.ToLowerInvariant();
+
+        var hash = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes($"{store.Id}_secret_istora")))[..8].ToLowerInvariant();
+        store.AdminToken = $"shppa_sec_{store.Slug}_{hash}";
+        store.PublicToken = $"shpat_pub_{store.Slug}_{hash}";
 
         var dbStore = new DbStore
         {
@@ -372,6 +394,8 @@ public class StoreService
             ExpressShippingRate = store.ExpressShippingRate,
             ContactEmail = string.IsNullOrWhiteSpace(store.ContactEmail) ? "support@istora.online" : store.ContactEmail,
             Location = store.Location,
+            Plan = store.Plan,
+            Environment = store.Environment,
             Status = string.IsNullOrWhiteSpace(store.Status) ? "active" : store.Status,
             CreatedAt = DateTime.UtcNow.ToString("o"),
             RazorpayEnabled = store.RazorpayEnabled,

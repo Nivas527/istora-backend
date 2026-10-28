@@ -50,7 +50,19 @@ public class TenantStore
     public string ContactEmail { get; set; } = "support@example.com";
 
     [JsonPropertyName("location")]
-    public string Location { get; set; } = "United States";
+    public string Location { get; set; } = "India";
+
+    [JsonPropertyName("plan")]
+    public string Plan { get; set; } = "monthly"; // monthly | yearly
+
+    [JsonPropertyName("environment")]
+    public string Environment { get; set; } = "production"; // testing | production
+
+    [JsonPropertyName("adminToken")]
+    public string? AdminToken { get; set; }
+
+    [JsonPropertyName("publicToken")]
+    public string? PublicToken { get; set; }
 
     [JsonPropertyName("status")]
     public string Status { get; set; } = "active";

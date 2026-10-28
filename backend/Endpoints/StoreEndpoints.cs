@@ -21,12 +21,26 @@ public static class StoreEndpoints
         }).WithName("GetStoreById")
           .WithSummary("Get a specific store profile by ID");
 
-        group.MapPost("/stores", (TenantStore newStore, StoreService store) =>
+        group.MapPost("/stores", (TenantStore newStore, HttpContext ctx, StoreService store) =>
         {
             var created = store.CreateStore(newStore);
+
+            // Set HttpOnly merchant session cookie so the client is automatically authenticated into /admin
+            if (!string.IsNullOrWhiteSpace(created.AdminToken))
+            {
+                ctx.Response.Cookies.Append("istora_merchant_token", created.AdminToken, new CookieOptions
+                {
+                    HttpOnly = true,
+                    Secure = true,
+                    SameSite = SameSiteMode.Lax,
+                    Expires = DateTimeOffset.UtcNow.AddDays(14),
+                    Path = "/"
+                });
+            }
+
             return Results.Created($"/api/stores/{created.Id}", created);
         }).WithName("CreateStore")
-          .WithSummary("Register a new tenant store");
+          .WithSummary("Register a new tenant store with auto-configured tokens, regional currency, and admin session");
 
         group.MapPut("/stores/{id}", (string id, TenantStore updated, StoreService store) =>
         {

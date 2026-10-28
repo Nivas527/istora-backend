@@ -22,7 +22,9 @@ public class DbStore
     public decimal StandardShippingRate { get; set; } = 6.99m;
     public decimal ExpressShippingRate { get; set; } = 14.99m;
     public string ContactEmail { get; set; } = "support@example.com";
-    public string Location { get; set; } = "United States";
+    public string Location { get; set; } = "India";
+    public string Plan { get; set; } = "monthly"; // monthly | yearly
+    public string Environment { get; set; } = "production"; // testing | production
     public string Status { get; set; } = "active";
     public string CreatedAt { get; set; } = DateTime.UtcNow.ToString("o");
 
