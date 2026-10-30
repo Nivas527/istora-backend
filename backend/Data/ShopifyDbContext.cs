@@ -42,6 +42,17 @@ public class DbStore
 
     [Column(TypeName = "jsonb")]
     public string PreviewVideosJson { get; set; } = "[]";
+
+    // GST Invoicing
+    public bool GstEnabled { get; set; } = true;
+    public string Gstin { get; set; } = "29AABCU9603R1ZM";
+    public string LegalBusinessName { get; set; } = "Apex Commerce India Pvt. Ltd.";
+    public string StateCode { get; set; } = "29";
+    public string StateName { get; set; } = "Karnataka";
+    public string DefaultHsnCode { get; set; } = "6109";
+    public decimal GstRatePercent { get; set; } = 18m;
+    public bool PricesIncludeGst { get; set; } = false;
+    public string InvoicePrefix { get; set; } = "INV-2026/";
 }
 
 public class DbStoreSetting
@@ -99,6 +110,18 @@ public class DbOrder : IMultiTenantEntity
     public string? TrackingNumber { get; set; }
     public string? Carrier { get; set; }
     public string CreatedAt { get; set; } = DateTime.UtcNow.ToString("o");
+
+    // GST Fields
+    public string? InvoiceNumber { get; set; }
+    public bool IsB2B { get; set; }
+    public string? CustomerGstin { get; set; }
+    public string? CustomerCompanyName { get; set; }
+    public string? BuyerStateCode { get; set; }
+    public decimal TaxableAmount { get; set; }
+    public decimal CgstAmount { get; set; }
+    public decimal SgstAmount { get; set; }
+    public decimal IgstAmount { get; set; }
+    public decimal TotalGst { get; set; }
 }
 
 public class DbCustomer : IMultiTenantEntity

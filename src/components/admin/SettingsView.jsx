@@ -4,8 +4,9 @@ import ShopifyMigrationModal from './ShopifyMigrationModal';
 import { 
   Settings, Save, CheckCircle, RefreshCcw, Sparkles, Upload, ArrowRight, 
   CreditCard, ShieldCheck, Eye, EyeOff, Film, Video, Play, Trash2, Plus, 
-  AlertCircle, Link2, Clock, CheckCircle2 
+  AlertCircle, Link2, Clock, CheckCircle2, FileText, Building2 
 } from 'lucide-react';
+import { INDIAN_GST_STATES, GST_RATE_SLABS, isValidGSTIN, getStateFromGSTIN } from '../../utils/gstUtils';
 
 export default function SettingsView() {
   const { 
@@ -578,6 +579,182 @@ export default function SettingsView() {
               />
               <div className="w-9 h-5 bg-zinc-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-zinc-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#008060]"></div>
             </label>
+          </div>
+
+          {/* Indian GST Invoicing & Compliance Card */}
+          <div className="p-5 rounded-xl border border-indigo-200 bg-linear-to-br from-indigo-50/50 via-white to-indigo-50/30 space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-indigo-100">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-indigo-600 text-white flex items-center justify-center font-bold text-xs shadow-xs">
+                  <FileText className="w-4 h-4" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-bold text-zinc-900">Indian GST Invoicing & Compliance</span>
+                    <span className="text-[10px] font-semibold text-indigo-700 bg-indigo-100 px-2 py-0.5 rounded-full">
+                      Rule 46 CGST
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-zinc-500">Automated B2B/B2C Tax Invoices, CGST/SGST/IGST split, HSN summary & PDF generation</p>
+                </div>
+              </div>
+
+              <label className="relative inline-flex items-center cursor-pointer">
+                <input
+                  type="checkbox"
+                  name="gstEnabled"
+                  checked={formData.gstEnabled !== false}
+                  onChange={(e) => setFormData(p => ({ ...p, gstEnabled: e.target.checked }))}
+                  className="sr-only peer"
+                />
+                <div className="w-9 h-5 bg-zinc-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-zinc-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-indigo-600"></div>
+              </label>
+            </div>
+
+            {formData.gstEnabled !== false && (
+              <div className="space-y-4 pt-1">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-[11px] font-semibold text-zinc-700 mb-1">
+                      Merchant GSTIN (15 Digits)
+                    </label>
+                    <input
+                      type="text"
+                      name="gstin"
+                      maxLength={15}
+                      value={formData.gstin || ''}
+                      onChange={(e) => {
+                        const val = e.target.value.toUpperCase();
+                        const stateObj = getStateFromGSTIN(val);
+                        setFormData(p => ({
+                          ...p,
+                          gstin: val,
+                          ...(stateObj ? { stateCode: stateObj.code, stateName: stateObj.name } : {})
+                        }));
+                      }}
+                      placeholder="e.g. 29AABCU9603R1ZM"
+                      className="w-full px-3 py-2 bg-white border border-zinc-300 rounded-lg text-xs font-mono font-medium text-zinc-900 focus:outline-none focus:ring-1 focus:ring-indigo-500 uppercase"
+                    />
+                    <div className="flex items-center gap-1.5 mt-1">
+                      {isValidGSTIN(formData.gstin) ? (
+                        <span className="text-[10px] text-emerald-600 font-medium flex items-center gap-1">
+                          <CheckCircle2 className="w-3 h-3" /> Valid GSTIN ({getStateFromGSTIN(formData.gstin)?.name})
+                        </span>
+                      ) : (
+                        <span className="text-[10px] text-amber-600">
+                          Format: 2 state digits + 10 PAN chars + 1 entity + 1 Z + 1 check digit
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-semibold text-zinc-700 mb-1">
+                      Legal Registered Entity Name
+                    </label>
+                    <input
+                      type="text"
+                      name="legalBusinessName"
+                      value={formData.legalBusinessName || ''}
+                      onChange={handleChange}
+                      placeholder="e.g. Apex Commerce India Pvt. Ltd."
+                      className="w-full px-3 py-2 bg-white border border-zinc-300 rounded-lg text-xs text-zinc-900 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                    />
+                    <span className="text-[10px] text-zinc-400">Printed on legal tax invoices and tax returns</span>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div>
+                    <label className="block text-[11px] font-semibold text-zinc-700 mb-1">
+                      Supplier State (Place of Supply)
+                    </label>
+                    <select
+                      name="stateCode"
+                      value={formData.stateCode || '29'}
+                      onChange={(e) => {
+                        const code = e.target.value;
+                        const match = INDIAN_GST_STATES.find(s => s.code === code);
+                        setFormData(p => ({ ...p, stateCode: code, stateName: match?.name || '' }));
+                      }}
+                      className="w-full px-2.5 py-2 bg-white border border-zinc-300 rounded-lg text-xs text-zinc-900 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                    >
+                      {INDIAN_GST_STATES.map(s => (
+                        <option key={s.code} value={s.code}>
+                          [{s.code}] {s.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-semibold text-zinc-700 mb-1">
+                      Default GST Tax Rate Slab
+                    </label>
+                    <select
+                      name="gstRatePercent"
+                      value={formData.gstRatePercent ?? 18}
+                      onChange={(e) => setFormData(p => ({ ...p, gstRatePercent: parseFloat(e.target.value) || 0 }))}
+                      className="w-full px-2.5 py-2 bg-white border border-zinc-300 rounded-lg text-xs text-zinc-900 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                    >
+                      {GST_RATE_SLABS.map(s => (
+                        <option key={s.rate} value={s.rate}>
+                          {s.label} ({s.rate}%)
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-semibold text-zinc-700 mb-1">
+                      Default HSN Code
+                    </label>
+                    <input
+                      type="text"
+                      name="defaultHsnCode"
+                      value={formData.defaultHsnCode || '6109'}
+                      onChange={handleChange}
+                      placeholder="e.g. 6109"
+                      className="w-full px-3 py-2 bg-white border border-zinc-300 rounded-lg text-xs font-mono text-zinc-900 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+                  <div>
+                    <label className="block text-[11px] font-semibold text-zinc-700 mb-1">
+                      Invoice Prefix Format
+                    </label>
+                    <input
+                      type="text"
+                      name="invoicePrefix"
+                      value={formData.invoicePrefix || 'INV-2026/'}
+                      onChange={handleChange}
+                      placeholder="e.g. INV-2026/"
+                      className="w-full px-3 py-2 bg-white border border-zinc-300 rounded-lg text-xs font-mono text-zinc-900 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                    />
+                    <span className="text-[10px] text-zinc-400">Generated invoices will be numbered e.g. {formData.invoicePrefix || 'INV-2026/'}10042</span>
+                  </div>
+
+                  <div className="flex items-center justify-between p-3 bg-white rounded-lg border border-zinc-200 mt-auto">
+                    <div>
+                      <span className="text-xs font-semibold text-zinc-800 block">Catalog Prices Include GST</span>
+                      <span className="text-[10px] text-zinc-500 block">Tax is back-calculated from product retail price</span>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input
+                        type="checkbox"
+                        name="pricesIncludeGst"
+                        checked={!!formData.pricesIncludeGst}
+                        onChange={(e) => setFormData(p => ({ ...p, pricesIncludeGst: e.target.checked }))}
+                        className="sr-only peer"
+                      />
+                      <div className="w-8 h-4 bg-zinc-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-zinc-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-indigo-600"></div>
+                    </label>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 

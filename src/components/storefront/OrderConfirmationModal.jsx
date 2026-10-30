@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useStore } from '../../context/StoreContext';
 import {
   CheckCircle2,
@@ -7,10 +7,13 @@ import {
   MapPin,
   ArrowRight,
   Sliders,
-  Sparkles
+  Sparkles,
+  FileText
 } from 'lucide-react';
+import GstInvoiceModal from '../admin/GstInvoiceModal';
 
 export default function OrderConfirmationModal({ order, onClose, onGoToAdmin, onTrackOrder }) {
+  const [showInvoiceModal, setShowInvoiceModal] = useState(false);
   if (!order) return null;
 
   return (
@@ -81,6 +84,14 @@ export default function OrderConfirmationModal({ order, onClose, onGoToAdmin, on
 
         {/* Action Buttons */}
         <div className="flex flex-col sm:flex-row gap-2.5">
+          <button
+            onClick={() => setShowInvoiceModal(true)}
+            className="py-3 px-4 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold text-xs rounded-xl border border-indigo-200 transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+          >
+            <FileText className="w-4 h-4 text-indigo-600" />
+            <span>GST Tax Invoice</span>
+          </button>
+
           {onTrackOrder && (
             <button
               onClick={() => onTrackOrder(order.orderNumber)}
@@ -106,6 +117,14 @@ export default function OrderConfirmationModal({ order, onClose, onGoToAdmin, on
             <span>Merchant Admin</span>
           </button>
         </div>
+
+        {/* GST Tax Invoice Modal */}
+        {showInvoiceModal && (
+          <GstInvoiceModal
+            order={order}
+            onClose={() => setShowInvoiceModal(false)}
+          />
+        )}
       </div>
     </div>
   );

@@ -229,7 +229,16 @@ public class StoreService
             StripeSecretKey = s.StripeSecretKey,
             CodEnabled = s.CodEnabled,
             BannerVideoUrl = s.BannerVideoUrl,
-            PreviewVideos = DeserializePreviewVideos(s.PreviewVideosJson)
+            PreviewVideos = DeserializePreviewVideos(s.PreviewVideosJson),
+            GstEnabled = s.GstEnabled,
+            Gstin = s.Gstin,
+            LegalBusinessName = s.LegalBusinessName,
+            StateCode = s.StateCode,
+            StateName = s.StateName,
+            DefaultHsnCode = s.DefaultHsnCode,
+            GstRatePercent = s.GstRatePercent,
+            PricesIncludeGst = s.PricesIncludeGst,
+            InvoicePrefix = s.InvoicePrefix
         }).ToList();
     }
 
@@ -282,7 +291,16 @@ public class StoreService
             StripeSecretKey = s.StripeSecretKey,
             CodEnabled = s.CodEnabled,
             BannerVideoUrl = s.BannerVideoUrl,
-            PreviewVideos = DeserializePreviewVideos(s.PreviewVideosJson)
+            PreviewVideos = DeserializePreviewVideos(s.PreviewVideosJson),
+            GstEnabled = s.GstEnabled,
+            Gstin = s.Gstin,
+            LegalBusinessName = s.LegalBusinessName,
+            StateCode = s.StateCode,
+            StateName = s.StateName,
+            DefaultHsnCode = s.DefaultHsnCode,
+            GstRatePercent = s.GstRatePercent,
+            PricesIncludeGst = s.PricesIncludeGst,
+            InvoicePrefix = s.InvoicePrefix
         };
     }
 
@@ -551,7 +569,16 @@ public class StoreService
             StripeSecretKey = store.StripeSecretKey ?? "",
             CodEnabled = store.CodEnabled,
             BannerVideoUrl = store.BannerVideoUrl,
-            PreviewVideosJson = JsonSerializer.Serialize(store.PreviewVideos ?? new())
+            PreviewVideosJson = JsonSerializer.Serialize(store.PreviewVideos ?? new()),
+            GstEnabled = store.GstEnabled,
+            Gstin = string.IsNullOrWhiteSpace(store.Gstin) ? "29AABCU9603R1ZM" : store.Gstin,
+            LegalBusinessName = string.IsNullOrWhiteSpace(store.LegalBusinessName) ? store.Name : store.LegalBusinessName,
+            StateCode = string.IsNullOrWhiteSpace(store.StateCode) ? "29" : store.StateCode,
+            StateName = string.IsNullOrWhiteSpace(store.StateName) ? "Karnataka" : store.StateName,
+            DefaultHsnCode = string.IsNullOrWhiteSpace(store.DefaultHsnCode) ? "6109" : store.DefaultHsnCode,
+            GstRatePercent = store.GstRatePercent > 0 ? store.GstRatePercent : 18m,
+            PricesIncludeGst = store.PricesIncludeGst,
+            InvoicePrefix = string.IsNullOrWhiteSpace(store.InvoicePrefix) ? "INV-2026/" : store.InvoicePrefix
         };
 
         _db.Stores.Add(dbStore);
@@ -621,6 +648,15 @@ public class StoreService
         existing.StripePublishableKey = store.StripePublishableKey;
         existing.StripeSecretKey = store.StripeSecretKey;
         existing.CodEnabled = store.CodEnabled;
+        existing.GstEnabled = store.GstEnabled;
+        if (!string.IsNullOrWhiteSpace(store.Gstin)) existing.Gstin = store.Gstin;
+        if (!string.IsNullOrWhiteSpace(store.LegalBusinessName)) existing.LegalBusinessName = store.LegalBusinessName;
+        if (!string.IsNullOrWhiteSpace(store.StateCode)) existing.StateCode = store.StateCode;
+        if (!string.IsNullOrWhiteSpace(store.StateName)) existing.StateName = store.StateName;
+        if (!string.IsNullOrWhiteSpace(store.DefaultHsnCode)) existing.DefaultHsnCode = store.DefaultHsnCode;
+        if (store.GstRatePercent >= 0) existing.GstRatePercent = store.GstRatePercent;
+        existing.PricesIncludeGst = store.PricesIncludeGst;
+        if (!string.IsNullOrWhiteSpace(store.InvoicePrefix)) existing.InvoicePrefix = store.InvoicePrefix;
 
         if (store.BannerVideoUrl != null)
         {
@@ -870,6 +906,16 @@ public class StoreService
             TrackingNumber = o.TrackingNumber,
             Carrier = o.Carrier,
             CreatedAt = o.CreatedAt,
+            InvoiceNumber = o.InvoiceNumber,
+            IsB2B = o.IsB2B,
+            CustomerGstin = o.CustomerGstin,
+            CustomerCompanyName = o.CustomerCompanyName,
+            BuyerStateCode = o.BuyerStateCode,
+            TaxableAmount = o.TaxableAmount,
+            CgstAmount = o.CgstAmount,
+            SgstAmount = o.SgstAmount,
+            IgstAmount = o.IgstAmount,
+            TotalGst = o.TotalGst,
             Items = DeserializeCartItems(o.ItemsJson)
         }).ToList();
     }
@@ -896,6 +942,41 @@ public class StoreService
         }
 
         var normalizedStore = HttpTenantProvider.NormalizeStoreId(order.StoreId);
+        var storeObj = _db.Stores.FirstOrDefault(s => s.Id == normalizedStore);
+
+        if (string.IsNullOrWhiteSpace(order.InvoiceNumber))
+        {
+            var prefix = !string.IsNullOrWhiteSpace(storeObj?.InvoicePrefix) ? storeObj.InvoicePrefix : "INV-2026/";
+            var seq = Random.Shared.Next(10001, 99999);
+            order.InvoiceNumber = $"{prefix}{seq}";
+        }
+
+        if (order.TotalGst == 0 && order.Total > 0)
+        {
+            decimal gstRate = storeObj?.GstRatePercent ?? 18m;
+            string merchantStateCode = storeObj?.StateCode ?? "29";
+            string buyerState = !string.IsNullOrWhiteSpace(order.BuyerStateCode) ? order.BuyerStateCode : merchantStateCode;
+
+            decimal gross = order.Total;
+            decimal taxable = Math.Round(gross / (1m + (gstRate / 100m)), 2);
+            decimal tax = gross - taxable;
+
+            order.TaxableAmount = taxable;
+            order.TotalGst = tax;
+
+            if (buyerState == merchantStateCode)
+            {
+                order.CgstAmount = Math.Round(tax / 2m, 2);
+                order.SgstAmount = tax - order.CgstAmount;
+                order.IgstAmount = 0m;
+            }
+            else
+            {
+                order.CgstAmount = 0m;
+                order.SgstAmount = 0m;
+                order.IgstAmount = tax;
+            }
+        }
 
         var dbOrder = new DbOrder
         {
@@ -910,6 +991,16 @@ public class StoreService
             TrackingNumber = order.TrackingNumber,
             Carrier = order.Carrier,
             CreatedAt = order.CreatedAt,
+            InvoiceNumber = order.InvoiceNumber,
+            IsB2B = order.IsB2B,
+            CustomerGstin = order.CustomerGstin,
+            CustomerCompanyName = order.CustomerCompanyName,
+            BuyerStateCode = order.BuyerStateCode,
+            TaxableAmount = order.TaxableAmount,
+            CgstAmount = order.CgstAmount,
+            SgstAmount = order.SgstAmount,
+            IgstAmount = order.IgstAmount,
+            TotalGst = order.TotalGst,
             ItemsJson = JsonSerializer.Serialize(order.Items ?? new List<CartItem>())
         };
 

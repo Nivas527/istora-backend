@@ -98,6 +98,34 @@ public class TenantStore
 
     [JsonPropertyName("previewVideos")]
     public List<PreviewVideoItem> PreviewVideos { get; set; } = new();
+
+    // GST Invoicing & Indian Tax Compliance
+    [JsonPropertyName("gstEnabled")]
+    public bool GstEnabled { get; set; } = true;
+
+    [JsonPropertyName("gstin")]
+    public string Gstin { get; set; } = "29AABCU9603R1ZM";
+
+    [JsonPropertyName("legalBusinessName")]
+    public string LegalBusinessName { get; set; } = "Apex Commerce India Pvt. Ltd.";
+
+    [JsonPropertyName("stateCode")]
+    public string StateCode { get; set; } = "29";
+
+    [JsonPropertyName("stateName")]
+    public string StateName { get; set; } = "Karnataka";
+
+    [JsonPropertyName("defaultHsnCode")]
+    public string DefaultHsnCode { get; set; } = "6109";
+
+    [JsonPropertyName("gstRatePercent")]
+    public decimal GstRatePercent { get; set; } = 18m;
+
+    [JsonPropertyName("pricesIncludeGst")]
+    public bool PricesIncludeGst { get; set; } = false;
+
+    [JsonPropertyName("invoicePrefix")]
+    public string InvoicePrefix { get; set; } = "INV-2026/";
 }
 
 public class PreviewVideoItem
@@ -254,6 +282,37 @@ public class Order
 
     [JsonPropertyName("createdAt")]
     public string CreatedAt { get; set; } = DateTime.UtcNow.ToString("o");
+
+    // GST Tax Invoicing Fields
+    [JsonPropertyName("invoiceNumber")]
+    public string? InvoiceNumber { get; set; }
+
+    [JsonPropertyName("isB2B")]
+    public bool IsB2B { get; set; }
+
+    [JsonPropertyName("customerGstin")]
+    public string? CustomerGstin { get; set; }
+
+    [JsonPropertyName("customerCompanyName")]
+    public string? CustomerCompanyName { get; set; }
+
+    [JsonPropertyName("buyerStateCode")]
+    public string? BuyerStateCode { get; set; }
+
+    [JsonPropertyName("taxableAmount")]
+    public decimal TaxableAmount { get; set; }
+
+    [JsonPropertyName("cgstAmount")]
+    public decimal CgstAmount { get; set; }
+
+    [JsonPropertyName("sgstAmount")]
+    public decimal SgstAmount { get; set; }
+
+    [JsonPropertyName("igstAmount")]
+    public decimal IgstAmount { get; set; }
+
+    [JsonPropertyName("totalGst")]
+    public decimal TotalGst { get; set; }
 }
 
 public class Customer
@@ -617,6 +676,34 @@ public class StoreMetadataDto
 
     [JsonPropertyName("previewVideos")]
     public List<PreviewVideoItem> PreviewVideos { get; set; } = new();
+
+    // GST Invoicing & Indian Tax Compliance
+    [JsonPropertyName("gstEnabled")]
+    public bool GstEnabled { get; set; } = true;
+
+    [JsonPropertyName("gstin")]
+    public string Gstin { get; set; } = "29AABCU9603R1ZM";
+
+    [JsonPropertyName("legalBusinessName")]
+    public string LegalBusinessName { get; set; } = "Apex Commerce India Pvt. Ltd.";
+
+    [JsonPropertyName("stateCode")]
+    public string StateCode { get; set; } = "29";
+
+    [JsonPropertyName("stateName")]
+    public string StateName { get; set; } = "Karnataka";
+
+    [JsonPropertyName("defaultHsnCode")]
+    public string DefaultHsnCode { get; set; } = "6109";
+
+    [JsonPropertyName("gstRatePercent")]
+    public decimal GstRatePercent { get; set; } = 18m;
+
+    [JsonPropertyName("pricesIncludeGst")]
+    public bool PricesIncludeGst { get; set; } = false;
+
+    [JsonPropertyName("invoicePrefix")]
+    public string InvoicePrefix { get; set; } = "INV-2026/";
 }
 
 public class ThemeTokensDto

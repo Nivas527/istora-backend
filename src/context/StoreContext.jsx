@@ -4,6 +4,7 @@ import { initialThemes } from '../data/themesData';
 import { initialDeployments } from '../data/initialDeployments';
 import { apiClient, getPublicStorefrontToken, getPrivateMerchantToken } from '../services/apiClient';
 import { saveItemToDB, getAllFromDB, THEMES_STORE, DEPLOYMENTS_STORE } from '../services/dbStorage';
+import { resolveStateCode } from '../utils/gstUtils';
 
 const StoreContext = createContext(null);
 
@@ -882,7 +883,17 @@ export function StoreProvider({ children }) {
     stripeSecretKey: activeStore?.stripeSecretKey || '',
     codEnabled: activeStore?.codEnabled ?? true,
     bannerVideoUrl: activeStore?.bannerVideoUrl || null,
-    previewVideos: activeStore?.previewVideos || []
+    previewVideos: activeStore?.previewVideos || [],
+    // GST Invoicing & Compliance
+    gstEnabled: activeStore?.gstEnabled ?? true,
+    gstin: activeStore?.gstin || '29AABCU9603R1ZM',
+    legalBusinessName: activeStore?.legalBusinessName || 'Apex Commerce India Pvt. Ltd.',
+    stateCode: activeStore?.stateCode || '29',
+    stateName: activeStore?.stateName || 'Karnataka',
+    defaultHsnCode: activeStore?.defaultHsnCode || '6109',
+    gstRatePercent: typeof activeStore?.gstRatePercent === 'number' ? activeStore.gstRatePercent : 18,
+    pricesIncludeGst: activeStore?.pricesIncludeGst ?? false,
+    invoicePrefix: activeStore?.invoicePrefix || 'INV-2026/'
   };
 
   const appliedDiscount = discounts.find(
@@ -1039,7 +1050,34 @@ export function StoreProvider({ children }) {
         return { ...p, variants: updatedVariants };
       });
 
-      // 2. Materialize order
+      // 2. Calculate GST breakdown
+      const isB2B = !!checkoutDetails.isB2B;
+      const customerGstin = checkoutDetails.customerGstin || null;
+      const customerCompanyName = checkoutDetails.customerCompanyName || null;
+      const buyerState = checkoutDetails.state || store.stateName || 'Karnataka';
+      const merchantStateCode = store.stateCode || '29';
+      const buyerStateCode = checkoutDetails.buyerStateCode || resolveStateCode(buyerState) || merchantStateCode;
+
+      const gstRatePercent = store.gstRatePercent ?? 18;
+      const grossAmount = taxableAmount + (checkoutDetails.shippingMethod === 'express' ? store.expressShippingRate : cartShippingCost);
+      const isTaxInclusive = !!store.pricesIncludeGst;
+
+      let netTaxable = grossAmount;
+      let totalGst = Math.round((grossAmount * (gstRatePercent / 100)) * 100) / 100;
+
+      if (isTaxInclusive) {
+        netTaxable = Math.round((grossAmount / (1 + (gstRatePercent / 100))) * 100) / 100;
+        totalGst = Math.round((grossAmount - netTaxable) * 100) / 100;
+      }
+
+      const isIntraState = buyerStateCode === merchantStateCode;
+      const cgstAmount = isIntraState ? Math.round((totalGst / 2) * 100) / 100 : 0;
+      const sgstAmount = isIntraState ? Math.round((totalGst - cgstAmount) * 100) / 100 : 0;
+      const igstAmount = isIntraState ? 0 : totalGst;
+      const prefix = store.invoicePrefix || 'INV-2026/';
+      const invoiceNumber = `${prefix}${Math.floor(10000 + Math.random() * 90000)}`;
+
+      // 3. Materialize order
       createdOrder = {
         id: newOrderId,
         orderNumber: orderNum,
@@ -1066,7 +1104,18 @@ export function StoreProvider({ children }) {
           taxableAmount +
           (checkoutDetails.shippingMethod === 'express' ? store.expressShippingRate : cartShippingCost) +
           cartTax,
-        createdAt: new Date().toISOString()
+        createdAt: new Date().toISOString(),
+        // GST attributes
+        invoiceNumber,
+        isB2B,
+        customerGstin,
+        customerCompanyName,
+        buyerStateCode,
+        taxableAmount: netTaxable,
+        cgstAmount,
+        sgstAmount,
+        igstAmount,
+        totalGst
       };
 
       // 3. Update customer CRM
@@ -1111,6 +1160,16 @@ export function StoreProvider({ children }) {
         total: Number(createdOrder.total) || 0,
         status: 'Paid',
         paymentMethod: checkoutDetails.paymentMethod || 'UPI',
+        invoiceNumber: createdOrder.invoiceNumber,
+        isB2B: createdOrder.isB2B,
+        customerGstin: createdOrder.customerGstin,
+        customerCompanyName: createdOrder.customerCompanyName,
+        buyerStateCode: createdOrder.buyerStateCode,
+        taxableAmount: createdOrder.taxableAmount,
+        cgstAmount: createdOrder.cgstAmount,
+        sgstAmount: createdOrder.sgstAmount,
+        igstAmount: createdOrder.igstAmount,
+        totalGst: createdOrder.totalGst,
         items: (createdOrder.items || []).map(i => ({
           product: { id: i.productId, title: i.title, price: i.price, category: 'General' },
           variant: { id: i.variantId, name: i.variantTitle, price: i.price, sku: i.sku },
@@ -1265,7 +1324,16 @@ export function StoreProvider({ children }) {
         stripeEnabled: newSettings.stripeEnabled !== undefined ? newSettings.stripeEnabled : store.stripeEnabled,
         stripePublishableKey: newSettings.stripePublishableKey !== undefined ? newSettings.stripePublishableKey : store.stripePublishableKey,
         stripeSecretKey: newSettings.stripeSecretKey !== undefined ? newSettings.stripeSecretKey : store.stripeSecretKey,
-        codEnabled: newSettings.codEnabled !== undefined ? newSettings.codEnabled : store.codEnabled
+        codEnabled: newSettings.codEnabled !== undefined ? newSettings.codEnabled : store.codEnabled,
+        gstEnabled: newSettings.gstEnabled !== undefined ? newSettings.gstEnabled : store.gstEnabled,
+        gstin: newSettings.gstin !== undefined ? newSettings.gstin : store.gstin,
+        legalBusinessName: newSettings.legalBusinessName !== undefined ? newSettings.legalBusinessName : store.legalBusinessName,
+        stateCode: newSettings.stateCode !== undefined ? newSettings.stateCode : store.stateCode,
+        stateName: newSettings.stateName !== undefined ? newSettings.stateName : store.stateName,
+        defaultHsnCode: newSettings.defaultHsnCode !== undefined ? newSettings.defaultHsnCode : store.defaultHsnCode,
+        gstRatePercent: typeof newSettings.gstRatePercent === 'number' ? newSettings.gstRatePercent : store.gstRatePercent,
+        pricesIncludeGst: newSettings.pricesIncludeGst !== undefined ? newSettings.pricesIncludeGst : store.pricesIncludeGst,
+        invoicePrefix: newSettings.invoicePrefix !== undefined ? newSettings.invoicePrefix : store.invoicePrefix
       };
       return updatedStore;
     });
@@ -1295,7 +1363,16 @@ export function StoreProvider({ children }) {
         stripeEnabled: updatedStore.stripeEnabled,
         stripePublishableKey: updatedStore.stripePublishableKey,
         stripeSecretKey: updatedStore.stripeSecretKey,
-        codEnabled: updatedStore.codEnabled
+        codEnabled: updatedStore.codEnabled,
+        gstEnabled: updatedStore.gstEnabled,
+        gstin: updatedStore.gstin,
+        legalBusinessName: updatedStore.legalBusinessName,
+        stateCode: updatedStore.stateCode,
+        stateName: updatedStore.stateName,
+        defaultHsnCode: updatedStore.defaultHsnCode,
+        gstRatePercent: updatedStore.gstRatePercent,
+        pricesIncludeGst: updatedStore.pricesIncludeGst,
+        invoicePrefix: updatedStore.invoicePrefix
       }).catch(err => console.warn('[StoreContext] Backend updateStore error:', err));
     }
   };

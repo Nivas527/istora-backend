@@ -10,11 +10,14 @@ import {
   X,
   ExternalLink,
   ShieldCheck,
-  AlertCircle
+  AlertCircle,
+  FileText
 } from 'lucide-react';
+import GstInvoiceModal from '../admin/GstInvoiceModal';
 
 export default function OrderTrackingModal({ initialOrderNumber = '', onClose }) {
   const { orders, settings } = useStore();
+  const [showInvoiceModal, setShowInvoiceModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState(initialOrderNumber);
   const [selectedOrder, setSelectedOrder] = useState(() => {
     if (initialOrderNumber) {
@@ -155,14 +158,24 @@ export default function OrderTrackingModal({ initialOrderNumber = '', onClose })
                 </p>
               </div>
 
-              {selectedOrder.trackingNumber && (
-                <div className="bg-white px-3 py-1.5 rounded-lg border border-zinc-200 text-right">
-                  <span className="text-[10px] text-zinc-400 block font-semibold uppercase">AWB Courier ID</span>
-                  <span className="font-mono text-xs font-bold text-[#008060]">
-                    {selectedOrder.trackingNumber}
-                  </span>
-                </div>
-              )}
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setShowInvoiceModal(true)}
+                  className="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-lg border border-indigo-200 text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
+                >
+                  <FileText className="w-3.5 h-3.5 text-indigo-600" />
+                  <span>Tax Invoice</span>
+                </button>
+
+                {selectedOrder.trackingNumber && (
+                  <div className="bg-white px-3 py-1.5 rounded-lg border border-zinc-200 text-right">
+                    <span className="text-[10px] text-zinc-400 block font-semibold uppercase">AWB Courier ID</span>
+                    <span className="font-mono text-xs font-bold text-[#008060]">
+                      {selectedOrder.trackingNumber}
+                    </span>
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* Vertical Milestone Timeline */}
@@ -262,6 +275,14 @@ export default function OrderTrackingModal({ initialOrderNumber = '', onClose })
             Close
           </button>
         </div>
+
+        {/* GST Tax Invoice Modal */}
+        {showInvoiceModal && selectedOrder && (
+          <GstInvoiceModal
+            order={selectedOrder}
+            onClose={() => setShowInvoiceModal(false)}
+          />
+        )}
       </div>
     </div>
   );

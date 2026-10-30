@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
 import { useStore } from '../../context/StoreContext';
-import { Package, Clock, CheckCircle, Truck, Search, Eye } from 'lucide-react';
+import { Package, Clock, CheckCircle, Truck, Search, Eye, FileText } from 'lucide-react';
+import GstInvoiceModal from './GstInvoiceModal';
 
 export default function OrdersView() {
-  const { orders, fulfillOrder } = useStore();
+  const { orders, fulfillOrder, activeStore, settings } = useStore();
   const [filter, setFilter] = useState('all'); // 'all' | 'unfulfilled' | 'fulfilled'
   const [selectedOrder, setSelectedOrder] = useState(null);
+  const [invoiceOrder, setInvoiceOrder] = useState(null);
   const [customTracking, setCustomTracking] = useState('');
 
   const filteredOrders = orders.filter((ord) => {
@@ -121,12 +123,22 @@ export default function OrdersView() {
                   </td>
 
                   <td className="py-3 px-4 text-right">
-                    <button
-                      onClick={() => setSelectedOrder(ord)}
-                      className="px-2.5 py-1 text-xs font-semibold bg-zinc-100 hover:bg-zinc-200 text-zinc-800 rounded transition-colors"
-                    >
-                      Inspect / Fulfill
-                    </button>
+                    <div className="flex items-center justify-end gap-1.5">
+                      <button
+                        onClick={() => setInvoiceOrder(ord)}
+                        className="px-2.5 py-1 text-xs font-semibold bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 rounded transition-colors flex items-center gap-1 cursor-pointer"
+                        title="View & Print GST Tax Invoice"
+                      >
+                        <FileText className="w-3 h-3 text-emerald-600" />
+                        <span>Tax Invoice</span>
+                      </button>
+                      <button
+                        onClick={() => setSelectedOrder(ord)}
+                        className="px-2.5 py-1 text-xs font-semibold bg-zinc-100 hover:bg-zinc-200 text-zinc-800 rounded transition-colors cursor-pointer"
+                      >
+                        Inspect / Fulfill
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -169,6 +181,18 @@ export default function OrdersView() {
               ))}
             </div>
 
+            {/* GST Tax Invoice Quick Action */}
+            <button
+              type="button"
+              onClick={() => {
+                setInvoiceOrder(selectedOrder);
+              }}
+              className="w-full py-2 px-3 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer border border-emerald-200"
+            >
+              <FileText className="w-3.5 h-3.5 text-emerald-600" />
+              <span>View & Print Official GST Tax Invoice</span>
+            </button>
+
             {/* Fulfillment Action */}
             {selectedOrder.fulfillmentStatus === 'unfulfilled' ? (
               <div className="p-4 bg-amber-50/60 rounded-xl border border-amber-200 space-y-3">
@@ -185,7 +209,7 @@ export default function OrdersView() {
                 />
                 <button
                   onClick={() => handleFulfill(selectedOrder.id)}
-                  className="w-full py-2.5 bg-[#008060] hover:bg-[#006e52] text-white text-xs font-bold rounded-lg shadow-xs"
+                  className="w-full py-2.5 bg-[#008060] hover:bg-[#006e52] text-white text-xs font-bold rounded-lg shadow-xs cursor-pointer"
                 >
                   Confirm & Fulfill Order
                 </button>
@@ -198,6 +222,16 @@ export default function OrdersView() {
             )}
           </div>
         </div>
+      )}
+
+      {/* GST Tax Invoice Viewer & Print Modal */}
+      {invoiceOrder && (
+        <GstInvoiceModal
+          order={invoiceOrder}
+          store={activeStore}
+          settings={settings}
+          onClose={() => setInvoiceOrder(null)}
+        />
       )}
     </div>
   );

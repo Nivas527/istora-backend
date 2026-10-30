@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useStore } from '../../context/StoreContext';
 import { apiClient } from '../../services/apiClient';
 import {
@@ -12,8 +12,11 @@ import {
   AlertCircle,
   Sparkles,
   Zap,
-  Globe
+  Globe,
+  FileText,
+  Building2
 } from 'lucide-react';
+import { resolveStateCode, getStateFromGSTIN, isValidGSTIN, calculateGstTax } from '../../utils/gstUtils';
 import confetti from 'canvas-confetti';
 
 export default function CheckoutPage({ onBackToStore, onOrderPlaced }) {
@@ -36,11 +39,14 @@ export default function CheckoutPage({ onBackToStore, onOrderPlaced }) {
     firstName: 'Alex',
     lastName: 'Rivera',
     address: '500 Howard Street, Suite 300',
-    city: 'San Francisco',
-    state: 'CA',
-    zip: '94105',
+    city: 'Bangalore',
+    state: 'Karnataka',
+    zip: '560001',
+    isB2B: false,
+    customerCompanyName: '',
+    customerGstin: '',
     shippingMethod: 'standard', // 'standard' | 'express'
-    paymentMethod: 'card', // 'card' | 'cod'
+    paymentMethod: 'card', // 'card' | 'cod' | 'upi'
     cardNumber: '4242 •••• •••• 4242',
     cardExp: '12/28',
     cardCvc: '888',
@@ -81,8 +87,24 @@ export default function CheckoutPage({ onBackToStore, onOrderPlaced }) {
       : settings.standardShippingRate;
 
   const taxableAmount = Math.max(0, cartSubtotal - cartDiscountAmount);
-  const taxAmount = taxableAmount * settings.taxRate;
-  const grandTotal = taxableAmount + shippingCost + taxAmount;
+
+  // GST Compliance Calculation
+  const gstDetails = useMemo(() => {
+    const merchantState = settings.stateCode || '29';
+    const buyerStateCode = resolveStateCode(formData.state) || merchantState;
+    return calculateGstTax({
+      cartItems: cart.items || [],
+      shippingCost,
+      taxableAmount,
+      merchantStateCode: merchantState,
+      buyerStateCode,
+      gstRatePercent: settings.gstRatePercent ?? 18,
+      pricesIncludeGst: !!settings.pricesIncludeGst
+    });
+  }, [cart.items, shippingCost, taxableAmount, settings.stateCode, settings.gstRatePercent, settings.pricesIncludeGst, formData.state]);
+
+  const taxAmount = settings.gstEnabled !== false ? gstDetails.totalTax : taxableAmount * (settings.taxRate || 0.08);
+  const grandTotal = settings.pricesIncludeGst ? (taxableAmount + shippingCost) : (taxableAmount + shippingCost + taxAmount);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -114,7 +136,16 @@ export default function CheckoutPage({ onBackToStore, onOrderPlaced }) {
       ...formData,
       shippingMethod: formData.shippingMethod,
       paymentMethod: paymentMethodLabel,
-      financialStatus: statusLabel.toLowerCase()
+      financialStatus: statusLabel.toLowerCase(),
+      isB2B: formData.isB2B,
+      customerGstin: formData.customerGstin,
+      customerCompanyName: formData.customerCompanyName,
+      buyerStateCode: gstDetails.buyerStateCode,
+      taxableAmount: gstDetails.totalTaxable,
+      cgstAmount: gstDetails.totalCgst,
+      sgstAmount: gstDetails.totalSgst,
+      igstAmount: gstDetails.totalIgst,
+      totalGst: gstDetails.totalTax
     });
 
     setIsProcessing(false);
@@ -448,6 +479,79 @@ export default function CheckoutPage({ onBackToStore, onOrderPlaced }) {
               </div>
             </div>
 
+            {/* B2B / GST Invoicing Section */}
+            <div className="bg-zinc-50 border border-zinc-200 rounded-xl p-4 space-y-3">
+              <label className="flex items-center gap-2.5 cursor-pointer">
+                <input
+                  type="checkbox"
+                  name="isB2B"
+                  checked={!!formData.isB2B}
+                  onChange={(e) => setFormData(p => ({ ...p, isB2B: e.target.checked }))}
+                  className="w-4 h-4 rounded text-[#008060] focus:ring-[#008060]"
+                />
+                <div>
+                  <span className="text-xs font-bold text-zinc-900 block flex items-center gap-1.5">
+                    <FileText className="w-3.5 h-3.5 text-indigo-600" />
+                    Claim GST Input Tax Credit (B2B Tax Invoice)
+                  </span>
+                  <span className="text-[11px] text-zinc-500 block">
+                    Add your company name and GSTIN to receive an official Rule 46 compliant Tax Invoice
+                  </span>
+                </div>
+              </label>
+
+              {formData.isB2B && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-3 border-t border-zinc-200">
+                  <div>
+                    <label className="block text-[11px] font-semibold text-zinc-700 mb-1">
+                      Company / Organization Name
+                    </label>
+                    <input
+                      type="text"
+                      name="customerCompanyName"
+                      value={formData.customerCompanyName || ''}
+                      onChange={handleInputChange}
+                      placeholder="e.g. Acme Tech Solutions Pvt. Ltd."
+                      required={formData.isB2B}
+                      className="w-full px-3 py-2 bg-white border border-zinc-300 rounded-lg text-xs text-zinc-900 focus:outline-none focus:ring-1 focus:ring-[#008060]"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-semibold text-zinc-700 mb-1">
+                      15-Digit Buyer GSTIN
+                    </label>
+                    <input
+                      type="text"
+                      name="customerGstin"
+                      maxLength={15}
+                      value={formData.customerGstin || ''}
+                      onChange={(e) => {
+                        const val = e.target.value.toUpperCase();
+                        const stateObj = getStateFromGSTIN(val);
+                        setFormData(p => ({
+                          ...p,
+                          customerGstin: val,
+                          ...(stateObj ? { state: stateObj.name } : {})
+                        }));
+                      }}
+                      placeholder="e.g. 27AABCB1234P1Z5"
+                      required={formData.isB2B}
+                      className="w-full px-3 py-2 bg-white border border-zinc-300 rounded-lg text-xs font-mono text-zinc-900 focus:outline-none focus:ring-1 focus:ring-[#008060] uppercase"
+                    />
+                    {isValidGSTIN(formData.customerGstin) ? (
+                      <span className="text-[10px] text-emerald-600 font-semibold flex items-center gap-1 mt-1">
+                        <CheckCircle2 className="w-3 h-3" /> Valid GSTIN ({getStateFromGSTIN(formData.customerGstin)?.name})
+                      </span>
+                    ) : formData.customerGstin?.length > 0 ? (
+                      <span className="text-[10px] text-amber-600 mt-1 block">
+                        Enter 15-character GSTIN (State + PAN + Entity + Z + Check)
+                      </span>
+                    ) : null}
+                  </div>
+                </div>
+              )}
+            </div>
+
             {/* 3. Shipping Method */}
             <div>
               <h3 className="text-sm font-bold text-zinc-900 mb-3">
@@ -772,10 +876,43 @@ export default function CheckoutPage({ onBackToStore, onOrderPlaced }) {
               </span>
             </div>
 
-            <div className="flex justify-between">
-              <span>Estimated Taxes (8%)</span>
-              <span className="font-semibold text-zinc-900">${(taxAmount || 0).toFixed(2)}</span>
-            </div>
+            {settings.gstEnabled !== false ? (
+              <>
+                <div className="flex justify-between items-center text-[11px] text-zinc-500 py-1 bg-zinc-100/70 px-2 rounded">
+                  <span>Place of Supply:</span>
+                  <span className="font-semibold text-zinc-700">
+                    {gstDetails.buyerStateName} [{gstDetails.buyerStateCode}]
+                  </span>
+                </div>
+                {gstDetails.isIntraState ? (
+                  <>
+                    <div className="flex justify-between text-indigo-700">
+                      <span>Central GST / CGST ({gstDetails.ratePercent / 2}%)</span>
+                      <span className="font-semibold">${gstDetails.totalCgst.toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between text-indigo-700">
+                      <span>State GST / SGST ({gstDetails.ratePercent / 2}%)</span>
+                      <span className="font-semibold">${gstDetails.totalSgst.toFixed(2)}</span>
+                    </div>
+                  </>
+                ) : (
+                  <div className="flex justify-between text-indigo-700">
+                    <span>Integrated GST / IGST ({gstDetails.ratePercent}%)</span>
+                    <span className="font-semibold">${gstDetails.totalIgst.toFixed(2)}</span>
+                  </div>
+                )}
+                {settings.pricesIncludeGst && (
+                  <div className="text-[10px] text-zinc-400 italic text-right">
+                    (Prices include {gstDetails.ratePercent}% GST)
+                  </div>
+                )}
+              </>
+            ) : (
+              <div className="flex justify-between">
+                <span>Estimated Taxes (8%)</span>
+                <span className="font-semibold text-zinc-900">${(taxAmount || 0).toFixed(2)}</span>
+              </div>
+            )}
 
             <div className="flex justify-between text-base font-extrabold text-zinc-950 pt-3 border-t border-zinc-300">
               <span>Total</span>
