@@ -17,15 +17,17 @@ export default function AntiBracketingBanner() {
   const [bracketAlerts, setBracketAlerts] = useState([]);
   const [loading, setLoading] = useState(false);
 
+  const cartItems = Array.isArray(cart) ? cart : (cart?.items || []);
+
   useEffect(() => {
     let isMounted = true;
     async function evaluateCart() {
-      if (!cart || cart.length < 2) {
+      if (!cartItems || cartItems.length < 2) {
         setBracketAlerts([]);
         return;
       }
       setLoading(true);
-      const res = await checkAntiBracketing(cart);
+      const res = await checkAntiBracketing(cartItems);
       if (isMounted) {
         setBracketAlerts(res?.alerts || []);
         setLoading(false);
@@ -33,21 +35,21 @@ export default function AntiBracketingBanner() {
     }
     evaluateCart();
     return () => { isMounted = false; };
-  }, [cart, JSON.stringify(cart?.map(i => ({ id: i.id, q: i.quantity, s: i.selectedSize })))]);
+  }, [cartItems, JSON.stringify(cartItems?.map(i => ({ id: i.variantId || i.id, q: i.quantity, s: i.selectedSize || i.variantTitle })))]);
 
   if (!bracketAlerts || bracketAlerts.length === 0) return null;
 
   const handleDropRedundantSizes = (alert) => {
     // Find cart items matching this product with redundant sizes and remove them
     const redundantSizeNames = (alert.redundantSizes || []).map(r => r.size.toLowerCase());
-    const itemsToRemove = cart.filter((item) => {
-      const matchProduct = (item.productId === alert.ProductId) || (item.id === alert.ProductId);
+    const itemsToRemove = cartItems.filter((item) => {
+      const matchProduct = (item.productId === alert.productId) || (item.id === alert.productId);
       const itemSize = (item.selectedSize || item.size || item.variantTitle?.split('/')?.[0]?.trim() || '').toLowerCase();
       return matchProduct && redundantSizeNames.includes(itemSize);
     });
 
     itemsToRemove.forEach((item) => {
-      removeFromCart(item.id || item.variantId);
+      removeFromCart(item.variantId || item.id);
     });
   };
 
