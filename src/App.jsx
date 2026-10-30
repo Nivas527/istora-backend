@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { StoreProvider, useStore } from './context/StoreContext';
-import { FitProvider } from './context/FitContext';
+import { FitProvider, useFit } from './context/FitContext';
+import { Sparkles } from 'lucide-react';
 import ShopperFitScanModal from './components/fit/ShopperFitScanModal';
 import LauncherHub from './components/hub/LauncherHub';
 import GlobalHeader from './components/common/GlobalHeader';
@@ -37,6 +38,7 @@ function MainApp() {
     isDedicatedStore,
     isImpersonating
   } = useStore();
+  const { profile, openScanModal } = useFit();
 
   // If visiting a dedicated store domain without master impersonation, restrict views to storefront or admin only
   const effectiveMode = (isDedicatedStore && !isImpersonating && !['storefront', 'admin'].includes(activeMode))
@@ -319,6 +321,19 @@ function MainApp() {
       {/* Global Developer Theme Marketplace Modal */}
       {isThemeMarketplaceOpen && (
         <ThemeMarketplaceModal onClose={() => setIsThemeMarketplaceOpen(false)} />
+      )}
+
+      {/* Floating Fit Check Quick Action Pill for Storefront Shoppers */}
+      {effectiveMode === 'storefront' && (
+        <button
+          onClick={openScanModal}
+          className="fixed bottom-6 right-6 z-40 flex items-center gap-2 px-4 py-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-full font-bold text-xs shadow-2xl border-2 border-white/20 transition-all hover:scale-105 active:scale-95 cursor-pointer backdrop-blur-md group animate-bounce-subtle"
+          title="Calibrate your metric body measurements for zero returns"
+        >
+          <span className="w-2.5 h-2.5 rounded-full bg-white animate-pulse" />
+          <Sparkles className="w-4 h-4 text-emerald-100" />
+          <span className="tracking-wide">✨ Fit Check ({profile.chestCm}cm)</span>
+        </button>
       )}
 
       {/* Zero-Friction Shopper Body Scan Modal */}

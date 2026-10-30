@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useStore } from '../../context/StoreContext';
+import { useFit } from '../../context/FitContext';
 import StoreSelectorDropdown from '../StoreSelectorDropdown';
 import {
   LayoutGrid,
@@ -11,7 +12,8 @@ import {
   ChevronDown,
   ExternalLink,
   Plus,
-  ArrowLeft
+  ArrowLeft,
+  Sparkles
 } from 'lucide-react';
 
 export default function GlobalHeader({ currentSection, rightContent }) {
@@ -27,6 +29,7 @@ export default function GlobalHeader({ currentSection, rightContent }) {
     exitImpersonation,
     isDedicatedStore
   } = useStore();
+  const { profile, openScanModal } = useFit();
 
   // In dedicated store mode (storefront or admin), hide the platform command bar completely unless Master Admin is impersonating
   if (isDedicatedStore && !isImpersonating) {
@@ -224,6 +227,15 @@ export default function GlobalHeader({ currentSection, rightContent }) {
         {/* Right Content / Store Info */}
         <div className="flex items-center space-x-2">
           {rightContent}
+
+          <button
+            onClick={openScanModal}
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 text-[11px] font-bold transition-all cursor-pointer shadow-xs"
+            title="Calibrate your metric body measurements for zero-return fit verification"
+          >
+            <Sparkles className="w-3.5 h-3.5 text-emerald-400 animate-pulse" />
+            <span>✨ Fit Check</span>
+          </button>
 
           <div className="hidden sm:block">
             <StoreSelectorDropdown />

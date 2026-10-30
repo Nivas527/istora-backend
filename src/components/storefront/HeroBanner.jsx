@@ -1,9 +1,11 @@
 import React from 'react';
-import { ArrowRight, ShieldCheck, Zap, Layers, Cpu, Palette } from 'lucide-react';
+import { ArrowRight, ShieldCheck, Zap, Layers, Cpu, Palette, Sparkles } from 'lucide-react';
 import { useStore } from '../../context/StoreContext';
+import { useFit } from '../../context/FitContext';
 
 export default function HeroBanner({ onExploreClick }) {
   const { activeTheme, activeStore, settings, setIsThemeMarketplaceOpen } = useStore();
+  const { profile, openScanModal } = useFit();
   const styles = activeTheme?.styles || {};
   const bannerVideo = activeStore?.bannerVideoUrl || settings?.bannerVideoUrl;
 
@@ -82,6 +84,14 @@ export default function HeroBanner({ onExploreClick }) {
           >
             <span>Explore Collection</span>
             <ArrowRight className="w-4 h-4" />
+          </button>
+
+          <button
+            onClick={openScanModal}
+            className="flex items-center gap-2 px-5 py-3 bg-emerald-950/80 hover:bg-emerald-900 border border-emerald-500/60 text-emerald-300 font-bold rounded-xl text-xs shadow-lg transition-all hover:scale-[1.02] active:scale-95 cursor-pointer ring-1 ring-emerald-500/30"
+          >
+            <Sparkles className="w-4 h-4 text-emerald-400 animate-pulse" />
+            <span>✨ Biometric Fit Check ({profile.chestCm}cm / {profile.waistCm}cm)</span>
           </button>
 
           <button
