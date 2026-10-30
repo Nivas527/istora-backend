@@ -3,7 +3,6 @@ import { StoreProvider, useStore } from './context/StoreContext';
 import { FitProvider, useFit } from './context/FitContext';
 import { Sparkles } from 'lucide-react';
 import ShopperFitScanModal from './components/fit/ShopperFitScanModal';
-import ETrialModal from './components/fit/ETrialModal';
 import LauncherHub from './components/hub/LauncherHub';
 import GlobalHeader from './components/common/GlobalHeader';
 import Navigation from './components/Navigation';
@@ -39,7 +38,7 @@ function MainApp() {
     isDedicatedStore,
     isImpersonating
   } = useStore();
-  const { profile, openScanModal, isETrialOpen, eTrialProduct, eTrialInitialSize, closeETrial } = useFit();
+  const { profile, openScanModal } = useFit();
 
   // If visiting a dedicated store domain without master impersonation, restrict views to storefront or admin only
   const effectiveMode = (isDedicatedStore && !isImpersonating && !['storefront', 'admin'].includes(activeMode))
@@ -339,15 +338,6 @@ function MainApp() {
 
       {/* Zero-Friction Shopper Body Scan Modal */}
       <ShopperFitScanModal />
-
-      {/* 3D Virtual Fitting Room / E-Trial Modal */}
-      {isETrialOpen && eTrialProduct && (
-        <ETrialModal
-          product={eTrialProduct}
-          initialSize={eTrialInitialSize}
-          onClose={closeETrial}
-        />
-      )}
     </>
   );
 }

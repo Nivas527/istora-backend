@@ -14,7 +14,7 @@ import {
 } from 'lucide-react';
 
 export default function FitVerificationWidget({ product, selectedSize, onSelectSize }) {
-  const { profile, openScanModal, openETrial, verifyProductFit } = useFit();
+  const { profile, openScanModal, verifyProductFit } = useFit();
 
   const [fitData, setFitData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -270,20 +270,13 @@ export default function FitVerificationWidget({ product, selectedSize, onSelectS
           </div>
 
           <div className="flex items-center justify-between text-[11px] text-zinc-500 pt-1">
-            <button
-              type="button"
-              onClick={() => openETrial?.(product, inspectedSize)}
-              className="text-emerald-700 font-bold hover:underline flex items-center gap-1 cursor-pointer bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 transition-colors shadow-2xs"
-            >
-              <Sparkles className="w-3 h-3 text-emerald-600 animate-pulse" />
-              <span>✨ 3D E-Trial Room →</span>
-            </button>
+            <span className="italic">Zero 3D lag • Calculated from pure metric geometry</span>
             <button
               type="button"
               onClick={openScanModal}
               className="text-[#008060] font-bold hover:underline cursor-pointer"
             >
-              Update Measurements ↗
+              Update Body Measurements ↗
             </button>
           </div>
         </div>

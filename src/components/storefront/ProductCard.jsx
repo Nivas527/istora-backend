@@ -4,7 +4,7 @@ import { useFit } from '../../context/FitContext';
 
 export default function ProductCard({ product, onSelect }) {
   const { activeTheme } = useStore();
-  const { profile, openScanModal, openETrial } = useFit();
+  const { profile, openScanModal } = useFit();
   const themeStyles = activeTheme?.styles || {};
   const isDark = themeStyles.isDark || false;
 
@@ -57,16 +57,16 @@ export default function ProductCard({ product, onSelect }) {
         />
 
         {/* Hover Quick Action Overlay */}
-        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-end p-3 gap-1.5">
+        <div className="absolute inset-0 bg-black/35 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-end p-3 gap-1.5">
           <button
             onClick={(e) => {
               e.stopPropagation();
-              openETrial(product, 'M');
+              onSelect(product);
             }}
             className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs py-2 px-3 rounded-lg shadow-md flex items-center justify-center gap-1.5 backdrop-blur-sm transition-transform active:scale-95 cursor-pointer"
           >
-            <Sparkles className="w-3.5 h-3.5 text-white animate-pulse" />
-            <span>✨ 3D E-Trial Room</span>
+            <Sparkles className="w-3.5 h-3.5 text-white" />
+            <span>✨ Fit Check • Verify My Size</span>
           </button>
 
           <button
@@ -100,29 +100,19 @@ export default function ProductCard({ product, onSelect }) {
             {product.title}
           </h3>
 
-          {/* Direct Biometric Fit & 3D E-Trial Badges */}
-          <div className="mt-2 flex items-center justify-between gap-1.5">
-            <span
-              onClick={(e) => {
-                e.stopPropagation();
-                openETrial(product, 'M');
-              }}
-              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-emerald-600 text-white hover:bg-emerald-500 transition-colors shadow-2xs cursor-pointer"
-              title="Launch 3D Virtual Fitting Room"
-            >
-              <Sparkles className="w-3 h-3 text-white animate-pulse" />
-              <span>✨ 3D E-Trial</span>
-            </span>
-
+          {/* Direct Biometric Fit Badge */}
+          <div className="mt-2 flex items-center justify-between">
             <span
               onClick={(e) => {
                 e.stopPropagation();
                 onSelect(product);
               }}
-              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200/80 hover:bg-emerald-100 transition-colors shadow-2xs cursor-pointer"
+              className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[11px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200/80 hover:bg-emerald-100 transition-colors shadow-2xs cursor-pointer"
             >
-              <span>Fit Check</span>
+              <Sparkles className="w-3 h-3 text-emerald-600 animate-pulse" />
+              <span>✨ Fit Check Available</span>
             </span>
+            <span className="text-[10px] text-zinc-400 font-mono">Zero Returns</span>
           </div>
         </div>
 
