@@ -114,6 +114,9 @@ const DEFAULT_PROFILE = {
   inseamCm: 79,
   scanConfidence: 0.95,
   captureMethod: 'two_photo_hmr',
+  photoUrl: null,
+  frontPhotoUrl: null,
+  sidePhotoUrl: null,
   lastScannedAt: new Date().toISOString()
 };
 

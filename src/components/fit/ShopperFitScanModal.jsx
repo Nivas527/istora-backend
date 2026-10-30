@@ -101,7 +101,10 @@ export default function ShopperFitScanModal() {
         acrossShoulderCm: estShoulder,
         sleeveLengthCm: estSleeve,
         scanConfidence: 0.96,
-        captureMethod: 'two_photo_hmr'
+        captureMethod: 'two_photo_hmr',
+        photoUrl: frontPhoto?.url || null,
+        frontPhotoUrl: frontPhoto?.url || null,
+        sidePhotoUrl: sidePhoto?.url || null
       });
 
       setIsProcessingHmr(false);
