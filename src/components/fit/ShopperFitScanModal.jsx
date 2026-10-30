@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useFit } from '../../context/FitContext';
+import { useStore } from '../../context/StoreContext';
 import {
   X,
   Camera,
@@ -18,7 +19,8 @@ import {
 } from 'lucide-react';
 
 export default function ShopperFitScanModal() {
-  const { profile, updateProfile, isScanModalOpen, closeScanModal } = useFit();
+  const { profile, updateProfile, isScanModalOpen, closeScanModal, openETrial } = useFit();
+  const { products } = useStore();
 
   const [step, setStep] = useState(1); // 1 = Anchors, 2 = Photo Capture, 3 = Mesh Extracted
   const [activeTab, setActiveTab] = useState('camera'); // 'camera' | 'manual'
@@ -581,10 +583,25 @@ export default function ShopperFitScanModal() {
                     </button>
                   </div>
 
-                  <div className="pt-2 flex justify-end">
+                  <div className="pt-2 flex flex-col sm:flex-row items-center justify-between gap-3">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        closeScanModal();
+                        const targetProd = (products && products.length > 0) ? products[0] : null;
+                        if (targetProd) {
+                          openETrial(targetProd, 'M');
+                        }
+                      }}
+                      className="w-full sm:w-auto px-5 py-2.5 bg-emerald-950/70 hover:bg-emerald-900 border border-emerald-500/50 text-emerald-300 rounded-xl text-xs font-bold transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer ring-1 ring-emerald-500/20"
+                    >
+                      <Sparkles className="w-4 h-4 text-emerald-400 animate-pulse" />
+                      <span>✨ Try On Avatar in 3D E-Trial Room</span>
+                    </button>
+
                     <button
                       onClick={closeScanModal}
-                      className="px-6 py-2.5 bg-[#008060] hover:bg-[#006e52] text-white rounded-xl text-xs font-bold transition-all shadow-md cursor-pointer"
+                      className="w-full sm:w-auto px-6 py-2.5 bg-[#008060] hover:bg-[#006e52] text-white rounded-xl text-xs font-bold transition-all shadow-md cursor-pointer"
                     >
                       Done: Return to Shopping
                     </button>

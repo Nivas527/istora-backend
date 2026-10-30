@@ -132,6 +132,9 @@ export function FitProvider({ children }) {
   });
 
   const [isScanModalOpen, setIsScanModalOpen] = useState(false);
+  const [isETrialOpen, setIsETrialOpen] = useState(false);
+  const [eTrialProduct, setETrialProduct] = useState(null);
+  const [eTrialInitialSize, setETrialInitialSize] = useState('M');
   const [cachedEvaluations, setCachedEvaluations] = useState({});
 
   useEffect(() => {
@@ -239,12 +242,28 @@ export function FitProvider({ children }) {
     return await res.json();
   }, []);
 
+  const openETrial = useCallback((product, initialSize = 'M') => {
+    setETrialProduct(product);
+    setETrialInitialSize(initialSize);
+    setIsETrialOpen(true);
+  }, []);
+
+  const closeETrial = useCallback(() => {
+    setIsETrialOpen(false);
+    setETrialProduct(null);
+  }, []);
+
   const value = {
     profile,
     updateProfile,
     isScanModalOpen,
     openScanModal: () => setIsScanModalOpen(true),
     closeScanModal: () => setIsScanModalOpen(false),
+    isETrialOpen,
+    eTrialProduct,
+    eTrialInitialSize,
+    openETrial,
+    closeETrial,
     verifyProductFit,
     checkAntiBracketing,
     parseTechPack,

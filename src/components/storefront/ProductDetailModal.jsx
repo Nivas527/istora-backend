@@ -20,7 +20,7 @@ import {
 
 export default function ProductDetailModal({ product, onClose }) {
   const { addToCart } = useStore();
-  const { profile, openScanModal } = useFit();
+  const { profile, openScanModal, openETrial } = useFit();
 
   // Selected image index
   const [activeImageIndex, setActiveImageIndex] = useState(0);
@@ -268,6 +268,16 @@ export default function ProductDetailModal({ product, onClose }) {
                     handleOptionChange(sizeKey, newSize);
                   }}
                 />
+
+                {/* 3D E-Trial Room Trigger */}
+                <button
+                  type="button"
+                  onClick={() => openETrial(product, selectedOptions['Size'] || 'M')}
+                  className="w-full mt-2 py-2.5 px-4 bg-emerald-950/30 hover:bg-emerald-900/50 border border-emerald-500/40 text-emerald-800 rounded-xl font-bold text-xs shadow-xs transition-all flex items-center justify-center gap-2 cursor-pointer ring-1 ring-emerald-500/20 active:scale-95"
+                >
+                  <Sparkles className="w-4 h-4 text-emerald-600 animate-pulse" />
+                  <span>✨ Try On in 3D Fitting Room (E-Trial)</span>
+                </button>
               </div>
 
               {/* Quantity Stepper & Add to Cart */}

@@ -4,8 +4,8 @@ import { useStore } from '../../context/StoreContext';
 import { useFit } from '../../context/FitContext';
 
 export default function HeroBanner({ onExploreClick }) {
-  const { activeTheme, activeStore, settings, setIsThemeMarketplaceOpen } = useStore();
-  const { profile, openScanModal } = useFit();
+  const { activeTheme, activeStore, settings, setIsThemeMarketplaceOpen, products } = useStore();
+  const { profile, openScanModal, openETrial } = useFit();
   const styles = activeTheme?.styles || {};
   const bannerVideo = activeStore?.bannerVideoUrl || settings?.bannerVideoUrl;
 
@@ -87,11 +87,22 @@ export default function HeroBanner({ onExploreClick }) {
           </button>
 
           <button
+            onClick={() => {
+              const targetProd = (products && products.length > 0) ? products[0] : null;
+              if (targetProd) openETrial(targetProd, 'M');
+            }}
+            className="flex items-center gap-2 px-5 py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-xs shadow-lg transition-all hover:scale-[1.02] active:scale-95 cursor-pointer ring-1 ring-white/20"
+          >
+            <Sparkles className="w-4 h-4 text-white animate-pulse" />
+            <span>✨ 3D E-Trial Room</span>
+          </button>
+
+          <button
             onClick={openScanModal}
             className="flex items-center gap-2 px-5 py-3 bg-emerald-950/80 hover:bg-emerald-900 border border-emerald-500/60 text-emerald-300 font-bold rounded-xl text-xs shadow-lg transition-all hover:scale-[1.02] active:scale-95 cursor-pointer ring-1 ring-emerald-500/30"
           >
             <Sparkles className="w-4 h-4 text-emerald-400 animate-pulse" />
-            <span>✨ Biometric Fit Check ({profile.chestCm}cm / {profile.waistCm}cm)</span>
+            <span>Fit Check ({profile.chestCm}cm / {profile.waistCm}cm)</span>
           </button>
 
           <button
