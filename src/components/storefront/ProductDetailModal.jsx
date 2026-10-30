@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useStore } from '../../context/StoreContext';
+import { useFit } from '../../context/FitContext';
 import ProductReviews from './ProductReviews';
 import FitVerificationWidget from '../fit/FitVerificationWidget';
 import {
@@ -13,11 +14,13 @@ import {
   Layers,
   ChevronDown,
   ChevronUp,
-  Star
+  Star,
+  Sparkles
 } from 'lucide-react';
 
 export default function ProductDetailModal({ product, onClose }) {
   const { addToCart } = useStore();
+  const { profile, openScanModal } = useFit();
 
   // Selected image index
   const [activeImageIndex, setActiveImageIndex] = useState(0);
@@ -214,6 +217,17 @@ export default function ProductDetailModal({ product, onClose }) {
                           {selectedOptions[option.name]}
                         </span>
                       </span>
+
+                      {option.name.toLowerCase().includes('size') && (
+                        <button
+                          type="button"
+                          onClick={openScanModal}
+                          className="text-[11px] font-bold text-[#008060] hover:text-[#006e52] flex items-center gap-1 cursor-pointer bg-emerald-50 hover:bg-emerald-100 px-2 py-0.5 rounded border border-emerald-200 transition-colors shadow-2xs"
+                        >
+                          <Sparkles className="w-3 h-3 text-emerald-600 animate-pulse" />
+                          <span>✨ Calibrate ({profile.chestCm}cm / {profile.waistCm}cm)</span>
+                        </button>
+                      )}
                     </div>
 
                     <div className="flex flex-wrap gap-2">
@@ -242,7 +256,13 @@ export default function ProductDetailModal({ product, onClose }) {
               <div className="mt-5">
                 <FitVerificationWidget
                   product={product}
-                  selectedSize={selectedOptions['Size'] || Object.values(selectedOptions)[0]}
+                  selectedSize={
+                    selectedOptions['Size'] ||
+                    selectedOptions['size'] ||
+                    (Array.isArray(product.options) && selectedOptions[product.options.find(o => o?.name?.toLowerCase()?.includes('size'))?.name]) ||
+                    Object.values(selectedOptions)[0] ||
+                    'M'
+                  }
                   onSelectSize={(newSize) => {
                     const sizeKey = Object.keys(selectedOptions).find(k => k.toLowerCase().includes('size')) || 'Size';
                     handleOptionChange(sizeKey, newSize);

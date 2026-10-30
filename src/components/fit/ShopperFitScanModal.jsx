@@ -29,10 +29,46 @@ export default function ShopperFitScanModal() {
   const [gender, setGender] = useState(profile.gender || 'unisex');
   const [fitPreference, setFitPreference] = useState('regular'); // slim, regular, relaxed
 
-  // Simulated photos
+  // Photos: can be { url, name, type } or null
   const [frontPhoto, setFrontPhoto] = useState(null);
   const [sidePhoto, setSidePhoto] = useState(null);
   const [isProcessingHmr, setIsProcessingHmr] = useState(false);
+  const [isDraggingFront, setIsDraggingFront] = useState(false);
+  const [isDraggingSide, setIsDraggingSide] = useState(false);
+
+  // Hidden input refs
+  const frontFileInputRef = React.useRef(null);
+  const frontCameraInputRef = React.useRef(null);
+  const sideFileInputRef = React.useRef(null);
+  const sideCameraInputRef = React.useRef(null);
+
+  const handleFrontFileSelect = (file) => {
+    if (!file) return;
+    const url = URL.createObjectURL(file);
+    setFrontPhoto({ url, name: file.name, type: 'upload' });
+  };
+
+  const handleSideFileSelect = (file) => {
+    if (!file) return;
+    const url = URL.createObjectURL(file);
+    setSidePhoto({ url, name: file.name, type: 'upload' });
+  };
+
+  const handleMockSnapFront = () => {
+    setFrontPhoto({
+      url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=600&q=80',
+      name: 'Live_Camera_Front_Snap.jpg',
+      type: 'snap'
+    });
+  };
+
+  const handleMockSnapSide = () => {
+    setSidePhoto({
+      url: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&w=600&q=80',
+      name: 'Live_Camera_Side_Profile.jpg',
+      type: 'snap'
+    });
+  };
 
   // Manual sliders
   const [manualChest, setManualChest] = useState(profile.chestCm || 99);
@@ -261,61 +297,203 @@ export default function ShopperFitScanModal() {
                     </span>
                   </div>
 
+                  {/* Hidden Inputs for Front and Side Photo Capture */}
+                  <input
+                    ref={frontFileInputRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => handleFrontFileSelect(e.target.files?.[0])}
+                  />
+                  <input
+                    ref={frontCameraInputRef}
+                    type="file"
+                    accept="image/*"
+                    capture="user"
+                    className="hidden"
+                    onChange={(e) => handleFrontFileSelect(e.target.files?.[0])}
+                  />
+                  <input
+                    ref={sideFileInputRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => handleSideFileSelect(e.target.files?.[0])}
+                  />
+                  <input
+                    ref={sideCameraInputRef}
+                    type="file"
+                    accept="image/*"
+                    capture="user"
+                    className="hidden"
+                    onChange={(e) => handleSideFileSelect(e.target.files?.[0])}
+                  />
+
                   {/* Photo Cards */}
-                  <div className="grid grid-cols-2 gap-4">
-                    {/* Front Photo */}
-                    <div className="border-2 border-dashed border-zinc-300 rounded-xl p-4 bg-zinc-50 flex flex-col items-center justify-center text-center space-y-2 aspect-3/4 group hover:border-[#008060] transition-colors relative overflow-hidden">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {/* Front Photo Card */}
+                    <div
+                      onDragOver={(e) => { e.preventDefault(); setIsDraggingFront(true); }}
+                      onDragLeave={() => setIsDraggingFront(false)}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        setIsDraggingFront(false);
+                        if (e.dataTransfer.files?.[0]) handleFrontFileSelect(e.dataTransfer.files[0]);
+                      }}
+                      className={`border-2 border-dashed rounded-xl p-4 transition-all relative overflow-hidden flex flex-col items-center justify-center text-center min-h-[220px] aspect-4/5 ${
+                        isDraggingFront
+                          ? 'border-[#008060] bg-emerald-50/50 scale-[1.01]'
+                          : frontPhoto
+                          ? 'border-emerald-500 bg-zinc-900 p-0'
+                          : 'border-zinc-300 bg-zinc-50/80 hover:border-zinc-400'
+                      }`}
+                    >
                       {frontPhoto ? (
-                        <div className="w-full h-full bg-zinc-800 rounded-lg flex flex-col items-center justify-center text-white p-2">
-                          <CheckCircle2 className="w-8 h-8 text-emerald-400 mb-1" />
-                          <span className="text-xs font-bold">Front Scan Locked</span>
-                          <span className="text-[10px] text-zinc-400">10,475 vertices mapped</span>
+                        <div className="relative w-full h-full min-h-[220px]">
+                          <img
+                            src={frontPhoto.url}
+                            alt="Front View"
+                            className="w-full h-full object-cover"
+                          />
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/25 to-black/30 p-3 flex flex-col justify-between text-left">
+                            <div className="flex items-center justify-between">
+                              <span className="text-[10px] font-mono font-bold bg-emerald-500 text-white px-2 py-0.5 rounded-full flex items-center gap-1 shadow-sm">
+                                <CheckCircle2 className="w-3 h-3" />
+                                <span>Front Profile Locked</span>
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => setFrontPhoto(null)}
+                                className="text-[10px] bg-white/20 hover:bg-red-600 text-white px-2 py-0.5 rounded font-bold backdrop-blur-sm transition-colors cursor-pointer"
+                              >
+                                Replace
+                              </button>
+                            </div>
+                            <div>
+                              <p className="text-xs font-bold text-white line-clamp-1">{frontPhoto.name || 'Front Scan'}</p>
+                              <p className="text-[10px] text-emerald-300 font-mono">10,475 skin vertices extracted</p>
+                            </div>
+                          </div>
                         </div>
                       ) : (
-                        <>
-                          <div className="w-12 h-12 rounded-full bg-zinc-200 flex items-center justify-center text-zinc-600 group-hover:bg-emerald-100 group-hover:text-[#008060] transition-colors">
-                            <Camera className="w-6 h-6" />
+                        <div className="space-y-3 w-full px-2">
+                          <div className="w-12 h-12 rounded-full bg-zinc-200/80 flex items-center justify-center text-zinc-600 mx-auto">
+                            <Camera className="w-5 h-5 text-zinc-700" />
                           </div>
                           <div>
-                            <p className="text-xs font-bold text-zinc-800">1. Front View</p>
-                            <p className="text-[10px] text-zinc-500">Arms slightly relaxed at sides</p>
+                            <p className="text-xs font-bold text-zinc-900">1. Front View</p>
+                            <p className="text-[10px] text-zinc-500 mt-0.5">Arms slightly relaxed at sides</p>
                           </div>
-                          <button
-                            type="button"
-                            onClick={() => setFrontPhoto('captured')}
-                            className="px-3 py-1 bg-white hover:bg-zinc-100 border border-zinc-300 rounded text-xs font-semibold text-zinc-700 cursor-pointer shadow-xs"
-                          >
-                            Snap Front Photo
-                          </button>
-                        </>
+                          
+                          <div className="flex flex-col gap-1.5 pt-1">
+                            <button
+                              type="button"
+                              onClick={() => frontFileInputRef.current?.click()}
+                              className="w-full py-1.5 px-3 bg-[#008060] hover:bg-[#006e52] text-white rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 shadow-xs transition-all cursor-pointer"
+                            >
+                              <Upload className="w-3.5 h-3.5" />
+                              <span>Upload Photo</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (/Mobi|Android|iPhone/i.test(navigator.userAgent)) {
+                                  frontCameraInputRef.current?.click();
+                                } else {
+                                  handleMockSnapFront();
+                                }
+                              }}
+                              className="w-full py-1.5 px-3 bg-white hover:bg-zinc-100 border border-zinc-300 rounded-lg text-xs font-semibold text-zinc-700 flex items-center justify-center gap-1.5 shadow-2xs transition-all cursor-pointer"
+                            >
+                              <Camera className="w-3.5 h-3.5 text-zinc-500" />
+                              <span>Take Live Snap</span>
+                            </button>
+                          </div>
+                          <span className="text-[9px] text-zinc-400 block">or drag & drop picture</span>
+                        </div>
                       )}
                     </div>
 
-                    {/* Side Photo */}
-                    <div className="border-2 border-dashed border-zinc-300 rounded-xl p-4 bg-zinc-50 flex flex-col items-center justify-center text-center space-y-2 aspect-3/4 group hover:border-[#008060] transition-colors relative overflow-hidden">
+                    {/* Side Photo Card */}
+                    <div
+                      onDragOver={(e) => { e.preventDefault(); setIsDraggingSide(true); }}
+                      onDragLeave={() => setIsDraggingSide(false)}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        setIsDraggingSide(false);
+                        if (e.dataTransfer.files?.[0]) handleSideFileSelect(e.dataTransfer.files[0]);
+                      }}
+                      className={`border-2 border-dashed rounded-xl p-4 transition-all relative overflow-hidden flex flex-col items-center justify-center text-center min-h-[220px] aspect-4/5 ${
+                        isDraggingSide
+                          ? 'border-[#008060] bg-emerald-50/50 scale-[1.01]'
+                          : sidePhoto
+                          ? 'border-emerald-500 bg-zinc-900 p-0'
+                          : 'border-zinc-300 bg-zinc-50/80 hover:border-zinc-400'
+                      }`}
+                    >
                       {sidePhoto ? (
-                        <div className="w-full h-full bg-zinc-800 rounded-lg flex flex-col items-center justify-center text-white p-2">
-                          <CheckCircle2 className="w-8 h-8 text-emerald-400 mb-1" />
-                          <span className="text-xs font-bold">Side Profile Locked</span>
-                          <span className="text-[10px] text-zinc-400">Chest & lumbar curve depth</span>
+                        <div className="relative w-full h-full min-h-[220px]">
+                          <img
+                            src={sidePhoto.url}
+                            alt="Side Profile"
+                            className="w-full h-full object-cover"
+                          />
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/25 to-black/30 p-3 flex flex-col justify-between text-left">
+                            <div className="flex items-center justify-between">
+                              <span className="text-[10px] font-mono font-bold bg-emerald-500 text-white px-2 py-0.5 rounded-full flex items-center gap-1 shadow-sm">
+                                <CheckCircle2 className="w-3 h-3" />
+                                <span>Side Profile Locked</span>
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => setSidePhoto(null)}
+                                className="text-[10px] bg-white/20 hover:bg-red-600 text-white px-2 py-0.5 rounded font-bold backdrop-blur-sm transition-colors cursor-pointer"
+                              >
+                                Replace
+                              </button>
+                            </div>
+                            <div>
+                              <p className="text-xs font-bold text-white line-clamp-1">{sidePhoto.name || 'Side Scan'}</p>
+                              <p className="text-[10px] text-emerald-300 font-mono">Chest & lumbar depth verified</p>
+                            </div>
+                          </div>
                         </div>
                       ) : (
-                        <>
-                          <div className="w-12 h-12 rounded-full bg-zinc-200 flex items-center justify-center text-zinc-600 group-hover:bg-emerald-100 group-hover:text-[#008060] transition-colors">
-                            <Camera className="w-6 h-6" />
+                        <div className="space-y-3 w-full px-2">
+                          <div className="w-12 h-12 rounded-full bg-zinc-200/80 flex items-center justify-center text-zinc-600 mx-auto">
+                            <Camera className="w-5 h-5 text-zinc-700" />
                           </div>
                           <div>
-                            <p className="text-xs font-bold text-zinc-800">2. Side Profile</p>
-                            <p className="text-[10px] text-zinc-500">Turn 90° for posture depth</p>
+                            <p className="text-xs font-bold text-zinc-900">2. Side Profile</p>
+                            <p className="text-[10px] text-zinc-500 mt-0.5">Turn 90° for posture depth</p>
                           </div>
-                          <button
-                            type="button"
-                            onClick={() => setSidePhoto('captured')}
-                            className="px-3 py-1 bg-white hover:bg-zinc-100 border border-zinc-300 rounded text-xs font-semibold text-zinc-700 cursor-pointer shadow-xs"
-                          >
-                            Snap Side Photo
-                          </button>
-                        </>
+                          
+                          <div className="flex flex-col gap-1.5 pt-1">
+                            <button
+                              type="button"
+                              onClick={() => sideFileInputRef.current?.click()}
+                              className="w-full py-1.5 px-3 bg-[#008060] hover:bg-[#006e52] text-white rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 shadow-xs transition-all cursor-pointer"
+                            >
+                              <Upload className="w-3.5 h-3.5" />
+                              <span>Upload Photo</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (/Mobi|Android|iPhone/i.test(navigator.userAgent)) {
+                                  sideCameraInputRef.current?.click();
+                                } else {
+                                  handleMockSnapSide();
+                                }
+                              }}
+                              className="w-full py-1.5 px-3 bg-white hover:bg-zinc-100 border border-zinc-300 rounded-lg text-xs font-semibold text-zinc-700 flex items-center justify-center gap-1.5 shadow-2xs transition-all cursor-pointer"
+                            >
+                              <Camera className="w-3.5 h-3.5 text-zinc-500" />
+                              <span>Take Live Snap</span>
+                            </button>
+                          </div>
+                          <span className="text-[9px] text-zinc-400 block">or drag & drop picture</span>
+                        </div>
                       )}
                     </div>
                   </div>

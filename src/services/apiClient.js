@@ -1,10 +1,10 @@
 // apiClient.js - Centralized HTTP client connecting the React frontend to the ASP.NET Core (C#) Backend
-const API_BASE_URL = import.meta.env.VITE_API_URL || '';
+const API_BASE_URL = import.meta.env.VITE_API_URL || (typeof window !== 'undefined' && window.location.hostname.includes('pages.dev') ? 'https://api.istora.online' : '');
 
 /**
  * Helper to build full endpoint URL (supports relative proxy or absolute URL)
  */
-function getUrl(path) {
+export function getUrl(path) {
   if (path.startsWith('http://') || path.startsWith('https://')) return path;
   if (!API_BASE_URL) return path;
   return `${API_BASE_URL.replace(/\/+$/, '')}/${path.replace(/^\/+/, '')}`;
