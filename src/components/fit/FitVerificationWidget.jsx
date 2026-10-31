@@ -10,7 +10,8 @@ import {
   Ruler,
   Info,
   Layers,
-  ArrowRight
+  ArrowRight,
+  Lock
 } from 'lucide-react';
 
 export default function FitVerificationWidget({ product, selectedSize, onSelectSize }) {
@@ -281,6 +282,21 @@ export default function FitVerificationWidget({ product, selectedSize, onSelectS
           </div>
         </div>
       )}
+
+      {/* Sensitive Biometric Data & Privacy Guarantee Footer */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between pt-2 border-t border-zinc-200/80 text-[10px] text-zinc-500 gap-1.5">
+        <span className="flex items-center gap-1.5 text-zinc-600 font-medium">
+          <Lock className="w-3 h-3 text-emerald-600 shrink-0" />
+          <span>Sensitive Data Guard: Ephemeral RAM processing • Photos auto-purged • Zero cloud storage</span>
+        </span>
+        <button
+          type="button"
+          onClick={openScanModal}
+          className="text-[#008060] font-bold hover:underline cursor-pointer self-start sm:self-auto shrink-0"
+        >
+          Manage / Delete Fit Data
+        </button>
+      </div>
     </div>
   );
 }

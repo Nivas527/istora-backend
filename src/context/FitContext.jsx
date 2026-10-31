@@ -100,6 +100,7 @@ function calculateClientFitFallback(productId, requestedSize, compareSizes, prof
 }
 
 const SHOPPER_PROFILE_STORAGE_KEY = 'istora_shopper_profile';
+const FIT_CONSENT_STORAGE_KEY = 'istora_fit_biometric_consent_v1';
 
 const DEFAULT_PROFILE = {
   heightCm: 178,
@@ -117,6 +118,15 @@ const DEFAULT_PROFILE = {
   lastScannedAt: new Date().toISOString()
 };
 
+const DEFAULT_CONSENT = {
+  hasConsented: false,
+  agreedAt: null,
+  purposeAgreed: false,
+  autoDeleteAgreed: false,
+  neverShareAgreed: false,
+  storePrivatelyOnDevice: true
+};
+
 const FitContext = createContext(null);
 
 export function FitProvider({ children }) {
@@ -131,14 +141,55 @@ export function FitProvider({ children }) {
     return DEFAULT_PROFILE;
   });
 
+  const [consent, setConsent] = useState(() => {
+    try {
+      const saved = localStorage.getItem(FIT_CONSENT_STORAGE_KEY);
+      if (saved) return { ...DEFAULT_CONSENT, ...JSON.parse(saved) };
+    } catch {}
+    return DEFAULT_CONSENT;
+  });
+
   const [isScanModalOpen, setIsScanModalOpen] = useState(false);
   const [cachedEvaluations, setCachedEvaluations] = useState({});
 
   useEffect(() => {
     try {
-      localStorage.setItem(SHOPPER_PROFILE_STORAGE_KEY, JSON.stringify(profile));
+      // Only persist privately on device if user chose to do so
+      if (consent.storePrivatelyOnDevice) {
+        localStorage.setItem(SHOPPER_PROFILE_STORAGE_KEY, JSON.stringify(profile));
+      } else {
+        localStorage.removeItem(SHOPPER_PROFILE_STORAGE_KEY);
+        sessionStorage.setItem(SHOPPER_PROFILE_STORAGE_KEY, JSON.stringify(profile));
+      }
     } catch {}
-  }, [profile]);
+  }, [profile, consent.storePrivatelyOnDevice]);
+
+  const updateConsent = useCallback((newConsent) => {
+    setConsent((prev) => {
+      const merged = { ...prev, ...newConsent };
+      const hasConsented = Boolean(merged.purposeAgreed && merged.autoDeleteAgreed && merged.neverShareAgreed);
+      const updated = {
+        ...merged,
+        hasConsented,
+        agreedAt: hasConsented ? (prev.agreedAt || new Date().toISOString()) : null
+      };
+      try {
+        localStorage.setItem(FIT_CONSENT_STORAGE_KEY, JSON.stringify(updated));
+      } catch {}
+      return updated;
+    });
+  }, []);
+
+  const clearFitData = useCallback(() => {
+    try {
+      localStorage.removeItem(SHOPPER_PROFILE_STORAGE_KEY);
+      localStorage.removeItem(FIT_CONSENT_STORAGE_KEY);
+      sessionStorage.removeItem(SHOPPER_PROFILE_STORAGE_KEY);
+    } catch {}
+    setProfile(DEFAULT_PROFILE);
+    setConsent(DEFAULT_CONSENT);
+    setCachedEvaluations({});
+  }, []);
 
   const updateProfile = useCallback((newProfile) => {
     setProfile((prev) => {
@@ -242,6 +293,9 @@ export function FitProvider({ children }) {
   const value = {
     profile,
     updateProfile,
+    consent,
+    updateConsent,
+    clearFitData,
     isScanModalOpen,
     openScanModal: () => setIsScanModalOpen(true),
     closeScanModal: () => setIsScanModalOpen(false),

@@ -11,7 +11,7 @@ public static class FitEndpoints
         var group = app.MapGroup("/api/fit")
                        .WithTags("Fit Verification & Return Reduction Engine");
 
-        // 1. Verify Fit for Shopper Profile
+        // 1. Verify Fit for Shopper Profile (Ephemeral Biometric Processing)
         group.MapPost("/verify", (
             [FromBody] FitVerificationRequest request,
             StoreService storeService,
@@ -36,7 +36,7 @@ public static class FitEndpoints
             );
 
             return Results.Ok(result);
-        });
+        }).WithSummary("Ephemeral biometric sizing calculation - zero disk storage, no body photos accepted, strictly purpose-limited to active sizing advice");
 
         // 2. Parse Brand Tech Pack (Point of Measure sheet)
         group.MapPost("/tech-pack/parse", (

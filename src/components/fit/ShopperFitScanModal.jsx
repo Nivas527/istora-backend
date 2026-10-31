@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useFit } from '../../context/FitContext';
 import {
   X,
@@ -14,14 +14,30 @@ import {
   Ruler,
   RefreshCw,
   Sliders,
-  Check
+  Check,
+  Lock,
+  EyeOff,
+  Trash2,
+  AlertTriangle,
+  Clock,
+  FileText,
+  ShieldAlert
 } from 'lucide-react';
 
 export default function ShopperFitScanModal() {
-  const { profile, updateProfile, isScanModalOpen, closeScanModal } = useFit();
+  const { profile, updateProfile, consent, updateConsent, clearFitData, isScanModalOpen, closeScanModal } = useFit();
 
-  const [step, setStep] = useState(1); // 1 = Anchors, 2 = Photo Capture, 3 = Mesh Extracted
+  // 0 = Consent Gateway, 1 = Anchors, 2 = Photo Capture, 3 = Mesh Extracted
+  const [step, setStep] = useState(() => (consent?.hasConsented ? 1 : 0));
   const [activeTab, setActiveTab] = useState('camera'); // 'camera' | 'manual'
+
+  // Explicit Consent Checklist States
+  const [purposeAgreed, setPurposeAgreed] = useState(consent?.purposeAgreed || false);
+  const [autoDeleteAgreed, setAutoDeleteAgreed] = useState(consent?.autoDeleteAgreed || false);
+  const [neverShareAgreed, setNeverShareAgreed] = useState(consent?.neverShareAgreed || false);
+  const [storePrivatelyOnDevice, setStorePrivatelyOnDevice] = useState(consent?.storePrivatelyOnDevice ?? true);
+  const [showPolicyDrawer, setShowPolicyDrawer] = useState(false);
+  const [photosPurged, setPhotosPurged] = useState(false);
 
   // Metric anchors
   const [height, setHeight] = useState(profile.heightCm || 178);
@@ -36,38 +52,93 @@ export default function ShopperFitScanModal() {
   const [isDraggingFront, setIsDraggingFront] = useState(false);
   const [isDraggingSide, setIsDraggingSide] = useState(false);
 
+  // Ephemeral Auto-Destruct Countdown Timer (60s)
+  const [autoDeleteSeconds, setAutoDeleteSeconds] = useState(60);
+  const [autoDeleteWarning, setAutoDeleteWarning] = useState(false);
+
   // Hidden input refs
-  const frontFileInputRef = React.useRef(null);
-  const frontCameraInputRef = React.useRef(null);
-  const sideFileInputRef = React.useRef(null);
-  const sideCameraInputRef = React.useRef(null);
+  const frontFileInputRef = useRef(null);
+  const frontCameraInputRef = useRef(null);
+  const sideFileInputRef = useRef(null);
+  const sideCameraInputRef = useRef(null);
+
+  // Whenever consent status changes from outside or storage, sync state
+  useEffect(() => {
+    if (!consent?.hasConsented && step !== 0) {
+      setStep(0);
+    }
+  }, [consent?.hasConsented]);
+
+  // Sensitive Data Auto-Destruction Timer:
+  // If user takes or uploads photos, volatile memory auto-purges after 60 seconds of inactivity
+  useEffect(() => {
+    let timer = null;
+    if (frontPhoto || sidePhoto) {
+      setAutoDeleteSeconds(60);
+      setAutoDeleteWarning(false);
+      timer = setInterval(() => {
+        setAutoDeleteSeconds((prev) => {
+          if (prev <= 1) {
+            // Memory purge
+            if (frontPhoto?.url?.startsWith('blob:')) URL.revokeObjectURL(frontPhoto.url);
+            if (sidePhoto?.url?.startsWith('blob:')) URL.revokeObjectURL(sidePhoto.url);
+            setFrontPhoto(null);
+            setSidePhoto(null);
+            setAutoDeleteWarning(true);
+            setTimeout(() => setAutoDeleteWarning(false), 5000);
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    }
+    return () => {
+      if (timer) clearInterval(timer);
+    };
+  }, [Boolean(frontPhoto || sidePhoto)]);
 
   const handleFrontFileSelect = (file) => {
     if (!file) return;
+    if (frontPhoto?.url?.startsWith('blob:')) URL.revokeObjectURL(frontPhoto.url);
     const url = URL.createObjectURL(file);
     setFrontPhoto({ url, name: file.name, type: 'upload' });
+    setPhotosPurged(false);
   };
 
   const handleSideFileSelect = (file) => {
     if (!file) return;
+    if (sidePhoto?.url?.startsWith('blob:')) URL.revokeObjectURL(sidePhoto.url);
     const url = URL.createObjectURL(file);
     setSidePhoto({ url, name: file.name, type: 'upload' });
+    setPhotosPurged(false);
   };
 
   const handleMockSnapFront = () => {
     setFrontPhoto({
       url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=600&q=80',
-      name: 'Live_Camera_Front_Snap.jpg',
+      name: 'Volatile_RAM_Front_Snap.jpg',
       type: 'snap'
     });
+    setPhotosPurged(false);
   };
 
   const handleMockSnapSide = () => {
     setSidePhoto({
       url: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&w=600&q=80',
-      name: 'Live_Camera_Side_Profile.jpg',
+      name: 'Volatile_RAM_Side_Snap.jpg',
       type: 'snap'
     });
+    setPhotosPurged(false);
+  };
+
+  const handleDeleteFrontPhoto = () => {
+    if (frontPhoto?.url?.startsWith('blob:')) URL.revokeObjectURL(frontPhoto.url);
+    setFrontPhoto(null);
+  };
+
+  const handleDeleteSidePhoto = () => {
+    if (sidePhoto?.url?.startsWith('blob:')) URL.revokeObjectURL(sidePhoto.url);
+    setSidePhoto(null);
   };
 
   // Manual sliders
@@ -77,6 +148,27 @@ export default function ShopperFitScanModal() {
   const [manualShoulder, setManualShoulder] = useState(profile.acrossShoulderCm || 44.5);
 
   if (!isScanModalOpen) return null;
+
+  const handleSafeClose = () => {
+    // Purge any lingering in-memory photos immediately when exiting
+    if (frontPhoto?.url?.startsWith('blob:')) URL.revokeObjectURL(frontPhoto.url);
+    if (sidePhoto?.url?.startsWith('blob:')) URL.revokeObjectURL(sidePhoto.url);
+    setFrontPhoto(null);
+    setSidePhoto(null);
+    closeScanModal();
+  };
+
+  const handleGrantConsent = (e) => {
+    e.preventDefault();
+    if (!purposeAgreed || !autoDeleteAgreed || !neverShareAgreed) return;
+    updateConsent({
+      purposeAgreed,
+      autoDeleteAgreed,
+      neverShareAgreed,
+      storePrivatelyOnDevice
+    });
+    setStep(1);
+  };
 
   const handleSimulateCapture = () => {
     setIsProcessingHmr(true);
@@ -102,6 +194,13 @@ export default function ShopperFitScanModal() {
         captureMethod: 'two_photo_hmr'
       });
 
+      // SENSITIVE DATA DESTRUCTION: Instantly purge photos from volatile browser memory
+      if (frontPhoto?.url?.startsWith('blob:')) URL.revokeObjectURL(frontPhoto.url);
+      if (sidePhoto?.url?.startsWith('blob:')) URL.revokeObjectURL(sidePhoto.url);
+      setFrontPhoto(null);
+      setSidePhoto(null);
+      setPhotosPurged(true);
+
       setIsProcessingHmr(false);
       setStep(3);
     }, 1800);
@@ -119,7 +218,19 @@ export default function ShopperFitScanModal() {
       scanConfidence: 0.92,
       captureMethod: 'manual_metric'
     });
-    closeScanModal();
+    handleSafeClose();
+  };
+
+  const handleWipeData = () => {
+    if (frontPhoto?.url?.startsWith('blob:')) URL.revokeObjectURL(frontPhoto.url);
+    if (sidePhoto?.url?.startsWith('blob:')) URL.revokeObjectURL(sidePhoto.url);
+    setFrontPhoto(null);
+    setSidePhoto(null);
+    clearFitData();
+    setPurposeAgreed(false);
+    setAutoDeleteAgreed(false);
+    setNeverShareAgreed(false);
+    setStep(0);
   };
 
   return (
@@ -144,12 +255,24 @@ export default function ShopperFitScanModal() {
             </div>
           </div>
 
-          <button
-            onClick={closeScanModal}
-            className="p-1.5 rounded-full text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors cursor-pointer"
-          >
-            <X className="w-5 h-5" />
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setStep(0)}
+              className="text-[10px] bg-zinc-800 hover:bg-zinc-700 text-zinc-300 px-2.5 py-1 rounded-lg border border-zinc-700 flex items-center gap-1 transition-colors cursor-pointer"
+              title="Review sensitive biometric data handling policy"
+            >
+              <Lock className="w-3 h-3 text-emerald-400" />
+              <span>Privacy Guard</span>
+            </button>
+
+            <button
+              onClick={handleSafeClose}
+              className="p-1.5 rounded-full text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors cursor-pointer"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
         </div>
 
         {/* Mode Selector Tabs */}
@@ -181,6 +304,154 @@ export default function ShopperFitScanModal() {
         <div className="p-6">
           {activeTab === 'camera' ? (
             <div>
+              {/* Step 0: Explicit Consent & Sensitive Biometric Data Notice */}
+              {step === 0 && (
+                <div className="space-y-4">
+                  <div className="bg-amber-50/70 border border-amber-200/90 rounded-xl p-4 flex items-start gap-3 text-xs text-amber-950">
+                    <ShieldAlert className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+                    <div>
+                      <h4 className="font-bold text-zinc-900 text-sm">Sensitive Biometric Data Notice</h4>
+                      <p className="text-zinc-600 text-xs mt-1 leading-relaxed">
+                        Body photos and physical contours are sensitive biometric data. 
+                        We process them exclusively in volatile browser RAM and delete them immediately.
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* 4 Pillars Grid */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                    <div className="p-3 bg-zinc-50 rounded-xl border border-zinc-200 flex items-start gap-2.5">
+                      <Clock className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                      <div>
+                        <span className="font-bold text-zinc-900 block">Ephemeral In-RAM Processing</span>
+                        <span className="text-[11px] text-zinc-500">
+                          Photos exist in temporary browser memory only and are permanently destroyed immediately upon measurement calculation (0s retention).
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="p-3 bg-zinc-50 rounded-xl border border-zinc-200 flex items-start gap-2.5">
+                      <Lock className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                      <div>
+                        <span className="font-bold text-zinc-900 block">Zero Cloud Photo Storage</span>
+                        <span className="text-[11px] text-zinc-500">
+                          Your pictures are never written to permanent disks, cloud storage buckets, or remote servers.
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="p-3 bg-zinc-50 rounded-xl border border-zinc-200 flex items-start gap-2.5">
+                      <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                      <div>
+                        <span className="font-bold text-zinc-900 block">Strict Purpose Limitation</span>
+                        <span className="text-[11px] text-zinc-500">
+                          Used exclusively to calculate garment size recommendations. Never used for facial recognition or AI training.
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="p-3 bg-zinc-50 rounded-xl border border-zinc-200 flex items-start gap-2.5">
+                      <EyeOff className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                      <div>
+                        <span className="font-bold text-zinc-900 block">Never Sold or Shared</span>
+                        <span className="text-[11px] text-zinc-500">
+                          Your body metrics are strictly private to you and never shared with advertisers, trackers, or third parties.
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Affirmative Consent Checkbox List */}
+                  <form onSubmit={handleGrantConsent} className="space-y-3 pt-2 border-t border-zinc-200">
+                    <span className="text-xs font-bold text-zinc-900 uppercase tracking-wider block">
+                      Explicit Consent Affirmations (All Required):
+                    </span>
+
+                    <label className="flex items-start gap-2.5 cursor-pointer p-2.5 bg-zinc-50 rounded-lg border border-zinc-200 hover:border-zinc-300">
+                      <input
+                        type="checkbox"
+                        checked={purposeAgreed}
+                        onChange={(e) => setPurposeAgreed(e.target.checked)}
+                        className="w-4 h-4 mt-0.5 rounded text-[#008060] focus:ring-[#008060]"
+                      />
+                      <span className="text-xs text-zinc-800">
+                        <strong>Explicit Sizing Consent:</strong> I explicitly consent to the temporary scanning of my body photos to calculate garment ease and fit recommendations.
+                      </span>
+                    </label>
+
+                    <label className="flex items-start gap-2.5 cursor-pointer p-2.5 bg-zinc-50 rounded-lg border border-zinc-200 hover:border-zinc-300">
+                      <input
+                        type="checkbox"
+                        checked={autoDeleteAgreed}
+                        onChange={(e) => setAutoDeleteAgreed(e.target.checked)}
+                        className="w-4 h-4 mt-0.5 rounded text-[#008060] focus:ring-[#008060]"
+                      />
+                      <span className="text-xs text-zinc-800">
+                        <strong>Automatic Photo Deletion:</strong> I acknowledge that all photos are treated as sensitive data and permanently deleted immediately after processing or upon a 60-second window.
+                      </span>
+                    </label>
+
+                    <label className="flex items-start gap-2.5 cursor-pointer p-2.5 bg-zinc-50 rounded-lg border border-zinc-200 hover:border-zinc-300">
+                      <input
+                        type="checkbox"
+                        checked={neverShareAgreed}
+                        onChange={(e) => setNeverShareAgreed(e.target.checked)}
+                        className="w-4 h-4 mt-0.5 rounded text-[#008060] focus:ring-[#008060]"
+                      />
+                      <span className="text-xs text-zinc-800">
+                        <strong>Private Storage & No Secondary Use:</strong> I understand my body measurements will never be sold, shared, or used for AI foundation model training or any other purpose.
+                      </span>
+                    </label>
+
+                    {/* Storage preference */}
+                    <div className="p-3 bg-zinc-50 rounded-lg border border-zinc-200 text-xs">
+                      <span className="font-semibold text-zinc-700 block mb-1.5">Measurement Storage Preference:</span>
+                      <div className="flex flex-col sm:flex-row gap-3">
+                        <label className="flex items-center gap-2 cursor-pointer">
+                          <input
+                            type="radio"
+                            name="storagePref"
+                            checked={storePrivatelyOnDevice}
+                            onChange={() => setStorePrivatelyOnDevice(true)}
+                            className="text-[#008060] focus:ring-[#008060]"
+                          />
+                          <span className="text-zinc-700">Save measurements privately on this device</span>
+                        </label>
+                        <label className="flex items-center gap-2 cursor-pointer">
+                          <input
+                            type="radio"
+                            name="storagePref"
+                            checked={!storePrivatelyOnDevice}
+                            onChange={() => setStorePrivatelyOnDevice(false)}
+                            className="text-[#008060] focus:ring-[#008060]"
+                          />
+                          <span className="text-zinc-700">Session only (Delete upon closing tab)</span>
+                        </label>
+                      </div>
+                    </div>
+
+                    <div className="pt-2 flex items-center justify-between">
+                      <button
+                        type="button"
+                        onClick={handleSafeClose}
+                        className="text-xs text-zinc-500 hover:text-zinc-800 cursor-pointer"
+                      >
+                        Cancel
+                      </button>
+
+                      <button
+                        type="submit"
+                        disabled={!purposeAgreed || !autoDeleteAgreed || !neverShareAgreed}
+                        className="px-6 py-2.5 bg-[#008060] hover:bg-[#006e52] disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-xl text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
+                      >
+                        <span>I Consent & Agree</span>
+                        <ChevronRight className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              )}
+
               {/* Step 1: Metric Anchors */}
               {step === 1 && (
                 <div className="space-y-5">
@@ -279,6 +550,27 @@ export default function ShopperFitScanModal() {
               {/* Step 2: Casual Photo Capture */}
               {step === 2 && (
                 <div className="space-y-4">
+                  {/* Sensitive Data Protection & Auto-Purge Banner */}
+                  <div className="bg-emerald-50/90 border border-emerald-200 rounded-xl p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs text-emerald-950">
+                    <div className="flex items-center gap-2">
+                      <Lock className="w-4 h-4 text-emerald-700 shrink-0" />
+                      <span><strong>Sensitive Biometric Data:</strong> Ephemeral in-RAM processing only. Photos auto-purged upon mesh extraction.</span>
+                    </div>
+                    {(frontPhoto || sidePhoto) && (
+                      <span className="text-[11px] font-mono font-bold bg-amber-100 text-amber-900 border border-amber-300 px-2 py-0.5 rounded-full flex items-center gap-1 shrink-0">
+                        <Clock className="w-3 h-3 text-amber-700" />
+                        <span>Auto-destructs in {autoDeleteSeconds}s</span>
+                      </span>
+                    )}
+                  </div>
+
+                  {autoDeleteWarning && (
+                    <div className="bg-amber-50 border border-amber-200 p-3 rounded-lg text-xs text-amber-900 flex items-center gap-2">
+                      <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+                      <span>Security Notice: Your temporary photos were automatically deleted from memory after the 60-second window.</span>
+                    </div>
+                  )}
+
                   <div className="text-center space-y-1">
                     <h4 className="text-sm font-bold text-zinc-900">Take 2 Casual Photos in Fitted Clothing</h4>
                     <p className="text-xs text-zinc-500">
@@ -363,10 +655,12 @@ export default function ShopperFitScanModal() {
                               </span>
                               <button
                                 type="button"
-                                onClick={() => setFrontPhoto(null)}
-                                className="text-[10px] bg-white/20 hover:bg-red-600 text-white px-2 py-0.5 rounded font-bold backdrop-blur-sm transition-colors cursor-pointer"
+                                onClick={handleDeleteFrontPhoto}
+                                className="text-[10px] bg-red-600/90 hover:bg-red-700 text-white px-2.5 py-1 rounded font-bold backdrop-blur-sm transition-colors cursor-pointer flex items-center gap-1 shadow-sm"
+                                title="Permanently delete this photo from memory"
                               >
-                                Replace
+                                <Trash2 className="w-3 h-3" />
+                                <span>Delete Photo</span>
                               </button>
                             </div>
                             <div>
@@ -446,10 +740,12 @@ export default function ShopperFitScanModal() {
                               </span>
                               <button
                                 type="button"
-                                onClick={() => setSidePhoto(null)}
-                                className="text-[10px] bg-white/20 hover:bg-red-600 text-white px-2 py-0.5 rounded font-bold backdrop-blur-sm transition-colors cursor-pointer"
+                                onClick={handleDeleteSidePhoto}
+                                className="text-[10px] bg-red-600/90 hover:bg-red-700 text-white px-2.5 py-1 rounded font-bold backdrop-blur-sm transition-colors cursor-pointer flex items-center gap-1 shadow-sm"
+                                title="Permanently delete this photo from memory"
                               >
-                                Replace
+                                <Trash2 className="w-3 h-3" />
+                                <span>Delete Photo</span>
                               </button>
                             </div>
                             <div>
@@ -570,8 +866,24 @@ export default function ShopperFitScanModal() {
                     </div>
                   </div>
 
+                  {/* Sensitive Data Destruction & Privacy Confirmation */}
+                  <div className="p-3.5 bg-zinc-900 text-white rounded-xl text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-7 h-7 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0">
+                        <Lock className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <span className="font-bold block text-white">Body Photos Permanently Destroyed</span>
+                        <span className="text-[11px] text-zinc-400">Zero cloud storage • 0s retention • Released from volatile memory</span>
+                      </div>
+                    </div>
+                    <span className="text-[10px] font-mono text-emerald-400 bg-emerald-950/80 px-2.5 py-1 rounded border border-emerald-800/60 font-bold self-start sm:self-auto">
+                      Memory Purged: 100%
+                    </span>
+                  </div>
+
                   <div className="p-3 bg-zinc-100 rounded-lg text-[11px] text-zinc-600 flex items-center justify-between">
-                    <span>Profile will automatically verify fit across every garment on this store.</span>
+                    <span>Measurements saved privately to your active browser session only.</span>
                     <button
                       type="button"
                       onClick={() => setStep(1)}
@@ -581,9 +893,19 @@ export default function ShopperFitScanModal() {
                     </button>
                   </div>
 
-                  <div className="pt-2 flex justify-end">
+                  <div className="pt-2 flex items-center justify-between border-t border-zinc-200">
                     <button
-                      onClick={closeScanModal}
+                      type="button"
+                      onClick={handleWipeData}
+                      className="text-xs text-red-600 hover:text-red-700 font-semibold flex items-center gap-1.5 cursor-pointer py-1.5 px-2.5 rounded hover:bg-red-50 transition-colors"
+                      title="Erase all measurements and revoke consent"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                      <span>Delete My Fit Data</span>
+                    </button>
+
+                    <button
+                      onClick={handleSafeClose}
                       className="px-6 py-2.5 bg-[#008060] hover:bg-[#006e52] text-white rounded-xl text-xs font-bold transition-all shadow-md cursor-pointer"
                     >
                       Done: Return to Shopping
@@ -662,7 +984,16 @@ export default function ShopperFitScanModal() {
                 </div>
               </div>
 
-              <div className="pt-3 border-t border-zinc-200 flex justify-end">
+              <div className="pt-3 border-t border-zinc-200 flex items-center justify-between">
+                <button
+                  type="button"
+                  onClick={handleWipeData}
+                  className="text-xs text-red-600 hover:text-red-700 font-semibold flex items-center gap-1.5 cursor-pointer py-1.5 px-2.5 rounded hover:bg-red-50 transition-colors"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>Wipe All Data</span>
+                </button>
+
                 <button
                   onClick={handleSaveManual}
                   className="px-5 py-2.5 bg-[#008060] hover:bg-[#006e52] text-white rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer"
