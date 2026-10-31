@@ -1,7 +1,7 @@
-import React, { useRef } from 'react';
+import React, { useRef, useState } from 'react';
 import { 
   X, Printer, Download, Building2, CheckCircle2, ShieldCheck, 
-  MapPin, Phone, Mail, FileText, QrCode 
+  MapPin, Phone, Mail, FileText, QrCode, Loader2 
 } from 'lucide-react';
 import { 
   calculateGstTax, 
@@ -9,9 +9,11 @@ import {
   resolveStateCode, 
   INDIAN_GST_STATES 
 } from '../../utils/gstUtils';
+import { downloadInvoicePdf, downloadInvoiceHtml } from '../../utils/invoicePdfUtils';
 
 export default function GstInvoiceModal({ order, store, settings, onClose }) {
   const invoiceRef = useRef(null);
+  const [isDownloading, setIsDownloading] = useState(false);
 
   if (!order) return null;
 
@@ -65,6 +67,20 @@ export default function GstInvoiceModal({ order, store, settings, onClose }) {
     window.print();
   };
 
+  const handleDownloadPdf = async () => {
+    setIsDownloading(true);
+    try {
+      await downloadInvoicePdf({
+        order,
+        store,
+        settings,
+        element: invoiceRef.current
+      });
+    } finally {
+      setIsDownloading(false);
+    }
+  };
+
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-black/75 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4 print:p-0 print:bg-white animate-fadeIn">
       <div className="relative bg-white rounded-2xl max-w-4xl w-full shadow-2xl border border-zinc-200 overflow-hidden my-6 print:m-0 print:border-none print:shadow-none">
@@ -95,11 +111,26 @@ export default function GstInvoiceModal({ order, store, settings, onClose }) {
 
           <div className="flex items-center gap-2">
             <button
+              onClick={handleDownloadPdf}
+              disabled={isDownloading}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white rounded-lg text-xs font-bold transition-all shadow-xs cursor-pointer"
+              title="Download official PDF invoice to device"
+            >
+              {isDownloading ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              ) : (
+                <Download className="w-3.5 h-3.5" />
+              )}
+              <span>{isDownloading ? 'Generating PDF...' : 'Download PDF'}</span>
+            </button>
+
+            <button
               onClick={handlePrint}
               className="flex items-center gap-1.5 px-3 py-1.5 bg-[#008060] hover:bg-[#006e52] text-white rounded-lg text-xs font-bold transition-all shadow-xs cursor-pointer"
+              title="Print directly or save as PDF"
             >
               <Printer className="w-3.5 h-3.5" />
-              <span>Print Tax Invoice</span>
+              <span>Print</span>
             </button>
 
             <button
@@ -432,3 +463,4 @@ export default function GstInvoiceModal({ order, store, settings, onClose }) {
     </div>
   );
 }
+
