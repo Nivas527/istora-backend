@@ -1108,4 +1108,148 @@ public class CustomerAuthResponse
     public CustomerProfile? Customer { get; set; }
 }
 
+// ==========================================
+// AUTOMATED NOTIFICATIONS DTOs
+// ==========================================
+public class NotificationSettings
+{
+    [JsonPropertyName("storeId")]
+    public string StoreId { get; set; } = "store_apex";
+
+    [JsonPropertyName("emailProvider")]
+    public string EmailProvider { get; set; } = "resend"; // resend | sendgrid | ses | simulation
+
+    [JsonPropertyName("emailApiKey")]
+    public string EmailApiKey { get; set; } = "re_live_sec_istora_2026";
+
+    [JsonPropertyName("senderEmail")]
+    public string SenderEmail { get; set; } = "orders@istora.online";
+
+    [JsonPropertyName("senderName")]
+    public string SenderName { get; set; } = "Apex Athletics";
+
+    [JsonPropertyName("whatsAppProvider")]
+    public string WhatsAppProvider { get; set; } = "twilio"; // twilio | gupshup | simulation
+
+    [JsonPropertyName("whatsAppApiKey")]
+    public string WhatsAppApiKey { get; set; } = "tw_sec_istora_wa_2026";
+
+    [JsonPropertyName("whatsAppSenderNumber")]
+    public string WhatsAppSenderNumber { get; set; } = "+14155238886";
+
+    [JsonPropertyName("merchantAlertEmail")]
+    public string MerchantAlertEmail { get; set; } = "owner@istora.online";
+
+    [JsonPropertyName("lowStockThreshold")]
+    public int LowStockThreshold { get; set; } = 5;
+
+    [JsonPropertyName("orderConfirmationEmail")]
+    public bool OrderConfirmationEmail { get; set; } = true;
+
+    [JsonPropertyName("orderConfirmationWhatsApp")]
+    public bool OrderConfirmationWhatsApp { get; set; } = true;
+
+    [JsonPropertyName("dispatchEmail")]
+    public bool DispatchEmail { get; set; } = true;
+
+    [JsonPropertyName("dispatchWhatsApp")]
+    public bool DispatchWhatsApp { get; set; } = true;
+
+    [JsonPropertyName("merchantNewOrderAlert")]
+    public bool MerchantNewOrderAlert { get; set; } = true;
+
+    [JsonPropertyName("merchantLowStockAlert")]
+    public bool MerchantLowStockAlert { get; set; } = true;
+
+    [JsonPropertyName("attachGstInvoicePdf")]
+    public bool AttachGstInvoicePdf { get; set; } = true;
+}
+
+public class NotificationLog
+{
+    [JsonPropertyName("id")]
+    public string Id { get; set; } = string.Empty;
+
+    [JsonPropertyName("storeId")]
+    public string StoreId { get; set; } = "store_apex";
+
+    [JsonPropertyName("channel")]
+    public string Channel { get; set; } = "email"; // email | whatsapp | sms
+
+    [JsonPropertyName("type")]
+    public string Type { get; set; } = "order_confirmation"; // order_confirmation | order_dispatched | merchant_new_order | merchant_low_stock
+
+    [JsonPropertyName("recipient")]
+    public string Recipient { get; set; } = string.Empty;
+
+    [JsonPropertyName("subject")]
+    public string Subject { get; set; } = string.Empty;
+
+    [JsonPropertyName("snippet")]
+    public string Snippet { get; set; } = string.Empty;
+
+    [JsonPropertyName("status")]
+    public string Status { get; set; } = "delivered"; // delivered | sent | simulated
+
+    [JsonPropertyName("hasAttachment")]
+    public bool HasAttachment { get; set; } = false;
+
+    [JsonPropertyName("attachmentName")]
+    public string? AttachmentName { get; set; }
+
+    [JsonPropertyName("createdAt")]
+    public string CreatedAt { get; set; } = DateTime.UtcNow.ToString("o");
+}
+
+public class NotificationTestRequest
+{
+    [JsonPropertyName("storeId")]
+    public string? StoreId { get; set; }
+
+    [JsonPropertyName("channel")]
+    public string Channel { get; set; } = "email"; // email | whatsapp
+
+    [JsonPropertyName("type")]
+    public string Type { get; set; } = "order_confirmation"; // order_confirmation | order_dispatched | merchant_new_order | merchant_low_stock
+
+    [JsonPropertyName("recipient")]
+    public string Recipient { get; set; } = string.Empty;
+}
+
+public class NotificationTestResponse
+{
+    [JsonPropertyName("success")]
+    public bool Success { get; set; } = true;
+
+    [JsonPropertyName("message")]
+    public string Message { get; set; } = string.Empty;
+
+    [JsonPropertyName("channel")]
+    public string Channel { get; set; } = "email";
+
+    [JsonPropertyName("recipient")]
+    public string Recipient { get; set; } = string.Empty;
+
+    [JsonPropertyName("log")]
+    public NotificationLog? Log { get; set; }
+}
+
+public class OrderFulfillRequest
+{
+    [JsonPropertyName("storeId")]
+    public string? StoreId { get; set; }
+
+    [JsonPropertyName("trackingNumber")]
+    public string? TrackingNumber { get; set; }
+
+    [JsonPropertyName("carrier")]
+    public string Carrier { get; set; } = "Blue Dart / Delhivery Express";
+
+    [JsonPropertyName("trackingUrl")]
+    public string? TrackingUrl { get; set; }
+
+    [JsonPropertyName("notifyCustomer")]
+    public bool NotifyCustomer { get; set; } = true;
+}
+
 

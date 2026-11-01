@@ -76,6 +76,20 @@ public static class DatabaseMigrator
                     ""CreatedAt"" text NOT NULL
                 );
 
+                CREATE TABLE IF NOT EXISTS notification_logs (
+                    ""Id"" text PRIMARY KEY,
+                    ""StoreId"" text NOT NULL,
+                    ""Channel"" text NOT NULL,
+                    ""Type"" text NOT NULL,
+                    ""Recipient"" text NOT NULL,
+                    ""Subject"" text NOT NULL,
+                    ""Snippet"" text NOT NULL,
+                    ""Status"" text NOT NULL,
+                    ""HasAttachment"" boolean NOT NULL,
+                    ""AttachmentName"" text,
+                    ""CreatedAt"" text NOT NULL
+                );
+
                 ALTER TABLE products ADD COLUMN IF NOT EXISTS ""StoreId"" text NOT NULL DEFAULT 'store_apex';
                 ALTER TABLE orders ADD COLUMN IF NOT EXISTS ""StoreId"" text NOT NULL DEFAULT 'store_apex';
                 ALTER TABLE orders ADD COLUMN IF NOT EXISTS ""PaymentMethod"" text NOT NULL DEFAULT 'UPI';
@@ -94,6 +108,16 @@ public static class DatabaseMigrator
                 ALTER TABLE stores ADD COLUMN IF NOT EXISTS ""CodEnabled"" boolean NOT NULL DEFAULT true;
                 ALTER TABLE stores ADD COLUMN IF NOT EXISTS ""BannerVideoUrl"" text;
                 ALTER TABLE stores ADD COLUMN IF NOT EXISTS ""PreviewVideosJson"" text NOT NULL DEFAULT '[]';
+                ALTER TABLE stores ADD COLUMN IF NOT EXISTS ""GstEnabled"" boolean NOT NULL DEFAULT true;
+                ALTER TABLE stores ADD COLUMN IF NOT EXISTS ""Gstin"" text NOT NULL DEFAULT '29AABCU9603R1ZM';
+                ALTER TABLE stores ADD COLUMN IF NOT EXISTS ""LegalBusinessName"" text NOT NULL DEFAULT 'Apex Commerce India Pvt. Ltd.';
+                ALTER TABLE stores ADD COLUMN IF NOT EXISTS ""StateCode"" text NOT NULL DEFAULT '29';
+                ALTER TABLE stores ADD COLUMN IF NOT EXISTS ""StateName"" text NOT NULL DEFAULT 'Karnataka';
+                ALTER TABLE stores ADD COLUMN IF NOT EXISTS ""DefaultHsnCode"" text NOT NULL DEFAULT '6109';
+                ALTER TABLE stores ADD COLUMN IF NOT EXISTS ""GstRatePercent"" numeric NOT NULL DEFAULT 18.0;
+                ALTER TABLE stores ADD COLUMN IF NOT EXISTS ""PricesIncludeGst"" boolean NOT NULL DEFAULT false;
+                ALTER TABLE stores ADD COLUMN IF NOT EXISTS ""InvoicePrefix"" text NOT NULL DEFAULT 'INV-2026/';
+                ALTER TABLE stores ADD COLUMN IF NOT EXISTS ""NotificationSettingsJson"" text NOT NULL DEFAULT '{{}}';
                 ALTER TABLE products ADD COLUMN IF NOT EXISTS ""PreviewVideoUrl"" text;
                 ALTER TABLE products ADD COLUMN IF NOT EXISTS ""GarmentSpecJson"" text;
 

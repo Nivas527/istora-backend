@@ -53,6 +53,10 @@ public class DbStore
     public decimal GstRatePercent { get; set; } = 18m;
     public bool PricesIncludeGst { get; set; } = false;
     public string InvoicePrefix { get; set; } = "INV-2026/";
+
+    // Automated Notifications Configuration
+    [Column(TypeName = "jsonb")]
+    public string NotificationSettingsJson { get; set; } = "{}";
 }
 
 public class DbStoreSetting
@@ -213,6 +217,22 @@ public class DbDeployment
     public string LogsJson { get; set; } = "[]";
 }
 
+public class DbNotificationLog : IMultiTenantEntity
+{
+    [Key]
+    public string Id { get; set; } = string.Empty;
+    public string StoreId { get; set; } = "store_apex";
+    public string Channel { get; set; } = "email";
+    public string Type { get; set; } = "order_confirmation";
+    public string Recipient { get; set; } = string.Empty;
+    public string Subject { get; set; } = string.Empty;
+    public string Snippet { get; set; } = string.Empty;
+    public string Status { get; set; } = "delivered";
+    public bool HasAttachment { get; set; } = false;
+    public string? AttachmentName { get; set; }
+    public string CreatedAt { get; set; } = DateTime.UtcNow.ToString("o");
+}
+
 public class ShopifyDbContext : DbContext
 {
     private readonly ITenantProvider? _tenantProvider;
@@ -233,6 +253,7 @@ public class ShopifyDbContext : DbContext
     public DbSet<DbDiscount> Discounts => Set<DbDiscount>();
     public DbSet<DbReview> Reviews => Set<DbReview>();
     public DbSet<DbDeployment> Deployments => Set<DbDeployment>();
+    public DbSet<DbNotificationLog> NotificationLogs => Set<DbNotificationLog>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -247,6 +268,7 @@ public class ShopifyDbContext : DbContext
         modelBuilder.Entity<DbDiscount>().ToTable("discounts");
         modelBuilder.Entity<DbReview>().ToTable("reviews");
         modelBuilder.Entity<DbDeployment>().ToTable("deployments");
+        modelBuilder.Entity<DbNotificationLog>().ToTable("notification_logs");
 
         // Multi-tenant Indexes for high-performance scoped lookups
         modelBuilder.Entity<DbProduct>().HasIndex(p => p.StoreId);
@@ -255,6 +277,7 @@ public class ShopifyDbContext : DbContext
         modelBuilder.Entity<DbCategory>().HasIndex(cat => cat.StoreId);
         modelBuilder.Entity<DbDiscount>().HasIndex(d => d.StoreId);
         modelBuilder.Entity<DbReview>().HasIndex(r => new { r.StoreId, r.ProductId });
+        modelBuilder.Entity<DbNotificationLog>().HasIndex(n => n.StoreId);
 
         // EF Core Global Query Filters:
         // Automatically injects WHERE "StoreId" = @CurrentStoreId on EVERY query

@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useStore } from '../../context/StoreContext';
 import ShopifyMigrationModal from './ShopifyMigrationModal';
+import NotificationSettingsModal from './NotificationSettingsModal';
 import { 
   Settings, Save, CheckCircle, RefreshCcw, Sparkles, Upload, ArrowRight, 
   CreditCard, ShieldCheck, Eye, EyeOff, Film, Video, Play, Trash2, Plus, 
-  AlertCircle, Link2, Clock, CheckCircle2, FileText, Building2 
+  AlertCircle, Link2, Clock, CheckCircle2, FileText, Building2, Bell, Mail, Smartphone
 } from 'lucide-react';
 import { INDIAN_GST_STATES, GST_RATE_SLABS, isValidGSTIN, getStateFromGSTIN } from '../../utils/gstUtils';
 
@@ -23,6 +24,7 @@ export default function SettingsView() {
   const [formData, setFormData] = useState({ ...settings });
   const [saved, setSaved] = useState(false);
   const [isMigrationModalOpen, setIsMigrationModalOpen] = useState(false);
+  const [isNotifModalOpen, setIsNotifModalOpen] = useState(false);
   const [showRazorpaySecret, setShowRazorpaySecret] = useState(false);
   const [showStripeSecret, setShowStripeSecret] = useState(false);
 
@@ -1120,6 +1122,45 @@ export default function SettingsView() {
         </div>
       </div>
 
+      {/* Automated Email & WhatsApp Notifications Module */}
+      <div className="bg-gradient-to-br from-indigo-50/80 via-white to-zinc-50 p-6 rounded-2xl border border-indigo-200/80 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="space-y-1.5">
+          <div className="flex items-center gap-2">
+            <span className="p-1 rounded-md bg-indigo-600 text-white">
+              <Bell className="w-3.5 h-3.5" />
+            </span>
+            <h4 className="text-sm font-bold text-zinc-900">Automated Email & WhatsApp Notifications</h4>
+            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-800">
+              Resend & Twilio
+            </span>
+          </div>
+          <p className="text-xs text-zinc-600 max-w-xl leading-relaxed">
+            Automate customer transactional emails with attached GST Tax Invoices (PDF), instant WhatsApp order alerts, dispatch tracking emails, and low-inventory merchant warnings (&lt; 5 units).
+          </p>
+          <div className="flex flex-wrap gap-2 pt-1 text-[11px] font-semibold">
+            <span className="inline-flex items-center gap-1 text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+              <Mail className="w-3 h-3" /> Order Confirmation Email + GST PDF
+            </span>
+            <span className="inline-flex items-center gap-1 text-teal-700 bg-teal-50 px-2 py-0.5 rounded-md border border-teal-200">
+              <Smartphone className="w-3 h-3" /> WhatsApp Order & Dispatch Alerts
+            </span>
+            <span className="inline-flex items-center gap-1 text-amber-700 bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200">
+              <Bell className="w-3 h-3" /> Merchant Low Stock Warnings
+            </span>
+          </div>
+        </div>
+
+        <button
+          type="button"
+          onClick={() => setIsNotifModalOpen(true)}
+          className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition-all shadow-xs shrink-0 flex items-center justify-center gap-2 cursor-pointer"
+        >
+          <Bell className="w-3.5 h-3.5" />
+          <span>Configure Engine</span>
+          <ArrowRight className="w-3.5 h-3.5" />
+        </button>
+      </div>
+
       {/* Shopify Data Migration Section */}
       <div className="bg-gradient-to-br from-emerald-50/80 via-white to-zinc-50 p-6 rounded-2xl border border-emerald-200/80 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="space-y-1">
@@ -1173,6 +1214,13 @@ export default function SettingsView() {
       <ShopifyMigrationModal
         isOpen={isMigrationModalOpen}
         onClose={() => setIsMigrationModalOpen(false)}
+      />
+
+      {/* Automated Notifications Modal */}
+      <NotificationSettingsModal
+        isOpen={isNotifModalOpen}
+        onClose={() => setIsNotifModalOpen(false)}
+        storeId={activeStore?.id || 'store_apex'}
       />
     </div>
   );

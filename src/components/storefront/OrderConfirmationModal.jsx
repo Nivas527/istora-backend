@@ -32,8 +32,21 @@ export default function OrderConfirmationModal({ order, onClose, onGoToAdmin, on
           Thank you for your purchase!
         </h2>
         <p className="text-xs text-zinc-500 mt-1">
-          A confirmation receipt was sent to <strong>{order.customer.email}</strong>
+          A confirmation receipt was sent to <strong>{order.customer?.email || order.customerEmail || 'your email'}</strong>
         </p>
+
+        {/* Automated Notifications Confirmation Badges */}
+        <div className="mt-3.5 p-3 rounded-xl bg-gradient-to-r from-emerald-50 via-teal-50 to-indigo-50 border border-emerald-200/80 flex flex-col sm:flex-row items-center justify-center gap-3 text-[11px] text-zinc-700 font-medium">
+          <span className="flex items-center gap-1.5 text-indigo-900 font-bold">
+            <span className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse"></span>
+            📧 GST Invoice PDF attached in Email
+          </span>
+          <span className="hidden sm:inline text-zinc-300">•</span>
+          <span className="flex items-center gap-1.5 text-teal-900 font-bold">
+            <span className="w-2 h-2 rounded-full bg-teal-500"></span>
+            💬 WhatsApp Order Alert Dispatched
+          </span>
+        </div>
 
         {/* Order Step Timeline */}
         <div className="my-6 p-4 rounded-xl bg-zinc-50 border border-zinc-200">

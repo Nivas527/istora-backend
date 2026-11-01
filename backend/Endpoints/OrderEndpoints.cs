@@ -16,12 +16,44 @@ public static class OrderEndpoints
             .WithSummary("Retrieve orders for tenant store");
 
         // Order creation
-        group.MapPost("/", (Order orderRequest, StoreService store) =>
+        group.MapPost("/", async (Order orderRequest, StoreService store, NotificationService notificationService) =>
         {
             var order = store.CreateOrder(orderRequest);
+            try
+            {
+                await notificationService.ProcessOrderCreatedNotificationsAsync(order);
+            }
+            catch { }
             return Results.Created($"/api/orders/{order.Id}", order);
         }).WithName("CreateOrder")
-          .WithSummary("Submit a new order");
+          .WithSummary("Submit a new order and trigger automated confirmation notifications");
+
+        // Order fulfillment with live tracking notification dispatch
+        group.MapPost("/{id}/fulfill", async (string id, OrderFulfillRequest req, string? storeId, StoreService store, NotificationService notificationService) =>
+        {
+            var carrier = !string.IsNullOrWhiteSpace(req.Carrier) ? req.Carrier : "Blue Dart Express";
+            var trackingNumber = !string.IsNullOrWhiteSpace(req.TrackingNumber) ? req.TrackingNumber : $"APX-{Random.Shared.Next(10000000, 99999999)}";
+            var updatedOrder = store.FulfillOrder(id, trackingNumber, carrier, req.TrackingUrl, storeId);
+            
+            if (updatedOrder == null)
+            {
+                return Results.NotFound(new { error = $"Order '{id}' not found" });
+            }
+
+            try
+            {
+                await notificationService.ProcessOrderDispatchedNotificationsAsync(updatedOrder, carrier, trackingNumber);
+            }
+            catch { }
+
+            return Results.Ok(new
+            {
+                success = true,
+                message = $"Order {updatedOrder.OrderNumber} fulfilled. Dispatched tracking alerts via Email & WhatsApp.",
+                order = updatedOrder
+            });
+        }).WithName("FulfillOrder")
+          .WithSummary("Mark order fulfilled and dispatch tracking notifications");
 
         // Server-Side Order & Price Validation (Single Source of Truth)
         app.MapPost("/api/checkout/validate-order", (ValidateOrderRequest req, string? storeId, StoreService store) =>

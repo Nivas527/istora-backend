@@ -1031,6 +1031,57 @@ public class StoreService
         return order;
     }
 
+    public Order? FulfillOrder(string orderId, string? trackingNumber, string? carrier, string? trackingUrl, string? storeId = null)
+    {
+        var clean = orderId.Trim().ToLowerInvariant();
+        var normalizedStore = !string.IsNullOrWhiteSpace(storeId) ? HttpTenantProvider.NormalizeStoreId(storeId) : null;
+        
+        var query = _db.Orders.AsQueryable();
+        if (normalizedStore != null)
+        {
+            query = query.IgnoreQueryFilters().Where(o => o.StoreId == normalizedStore);
+        }
+
+        var order = query.FirstOrDefault(o =>
+            o.Id.ToLower() == clean ||
+            (o.OrderNumber != null && o.OrderNumber.ToLower() == clean)
+        );
+
+        if (order == null) return null;
+
+        order.Status = "fulfilled";
+        if (!string.IsNullOrWhiteSpace(trackingNumber)) order.TrackingNumber = trackingNumber;
+        if (!string.IsNullOrWhiteSpace(carrier)) order.Carrier = carrier;
+
+        _db.SaveChanges();
+
+        return new Order
+        {
+            Id = order.Id,
+            StoreId = order.StoreId,
+            OrderNumber = order.OrderNumber,
+            CustomerName = order.CustomerName,
+            CustomerEmail = order.CustomerEmail,
+            Total = order.Total,
+            Status = order.Status,
+            PaymentMethod = order.PaymentMethod,
+            TrackingNumber = order.TrackingNumber,
+            Carrier = order.Carrier,
+            CreatedAt = order.CreatedAt,
+            InvoiceNumber = order.InvoiceNumber,
+            IsB2B = order.IsB2B,
+            CustomerGstin = order.CustomerGstin,
+            CustomerCompanyName = order.CustomerCompanyName,
+            BuyerStateCode = order.BuyerStateCode,
+            TaxableAmount = order.TaxableAmount,
+            CgstAmount = order.CgstAmount,
+            SgstAmount = order.SgstAmount,
+            IgstAmount = order.IgstAmount,
+            TotalGst = order.TotalGst,
+            Items = DeserializeCartItems(order.ItemsJson)
+        };
+    }
+
     // =========================================================================
     // 4. CATEGORIES, CUSTOMERS, DISCOUNTS & REVIEWS APIS
     // =========================================================================

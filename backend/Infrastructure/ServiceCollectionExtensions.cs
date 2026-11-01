@@ -34,6 +34,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<ShopifyMigrationService>();
         services.AddScoped<PaymentService>();
         services.AddScoped<FitVerificationService>();
+        services.AddScoped<NotificationService>();
 
         // 4. Register Singleton Engine Services
         services.AddSingleton<DeploymentService>();
