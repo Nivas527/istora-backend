@@ -1252,4 +1252,184 @@ public class OrderFulfillRequest
     public bool NotifyCustomer { get; set; } = true;
 }
 
+// =========================================================================
+// 10. ABANDONED CART RECOVERY ENGINE MODELS
+// =========================================================================
+public class AbandonedCart
+{
+    [JsonPropertyName("id")]
+    public string Id { get; set; } = string.Empty;
+
+    [JsonPropertyName("storeId")]
+    public string StoreId { get; set; } = "store_apex";
+
+    [JsonPropertyName("customerEmail")]
+    public string CustomerEmail { get; set; } = string.Empty;
+
+    [JsonPropertyName("customerPhone")]
+    public string CustomerPhone { get; set; } = string.Empty;
+
+    [JsonPropertyName("customerName")]
+    public string CustomerName { get; set; } = string.Empty;
+
+    [JsonPropertyName("cartItems")]
+    public List<CartItem> CartItems { get; set; } = new();
+
+    [JsonPropertyName("totalValue")]
+    public decimal TotalValue { get; set; }
+
+    [JsonPropertyName("checkoutStep")]
+    public string CheckoutStep { get; set; } = "customer_info"; // customer_info | shipping | payment
+
+    [JsonPropertyName("recoveryToken")]
+    public string RecoveryToken { get; set; } = string.Empty;
+
+    [JsonPropertyName("recoveryUrl")]
+    public string RecoveryUrl { get; set; } = string.Empty;
+
+    [JsonPropertyName("recoveryStatus")]
+    public string RecoveryStatus { get; set; } = "abandoned"; // abandoned | recovering | recovered | expired
+
+    [JsonPropertyName("emailSequenceStep")]
+    public int EmailSequenceStep { get; set; } = 0; // 0 = none, 1 = 1hr, 2 = 24hr
+
+    [JsonPropertyName("discountCode")]
+    public string? DiscountCode { get; set; } = "SAVE5";
+
+    [JsonPropertyName("discountPercent")]
+    public decimal DiscountPercent { get; set; } = 5m;
+
+    [JsonPropertyName("lastEmailSentAt")]
+    public string? LastEmailSentAt { get; set; }
+
+    [JsonPropertyName("recoveredAt")]
+    public string? RecoveredAt { get; set; }
+
+    [JsonPropertyName("recoveredOrderId")]
+    public string? RecoveredOrderId { get; set; }
+
+    [JsonPropertyName("createdAt")]
+    public string CreatedAt { get; set; } = string.Empty;
+
+    [JsonPropertyName("updatedAt")]
+    public string UpdatedAt { get; set; } = string.Empty;
+}
+
+public class CaptureCartRequest
+{
+    [JsonPropertyName("storeId")]
+    public string? StoreId { get; set; }
+
+    [JsonPropertyName("customerEmail")]
+    public string CustomerEmail { get; set; } = string.Empty;
+
+    [JsonPropertyName("customerPhone")]
+    public string? CustomerPhone { get; set; }
+
+    [JsonPropertyName("customerName")]
+    public string? CustomerName { get; set; }
+
+    [JsonPropertyName("cartItems")]
+    public List<CartItem> CartItems { get; set; } = new();
+
+    [JsonPropertyName("totalValue")]
+    public decimal TotalValue { get; set; }
+
+    [JsonPropertyName("checkoutStep")]
+    public string CheckoutStep { get; set; } = "customer_info";
+
+    [JsonPropertyName("existingToken")]
+    public string? ExistingToken { get; set; }
+}
+
+public class CaptureCartResponse
+{
+    [JsonPropertyName("success")]
+    public bool Success { get; set; } = true;
+
+    [JsonPropertyName("cartId")]
+    public string CartId { get; set; } = string.Empty;
+
+    [JsonPropertyName("recoveryToken")]
+    public string RecoveryToken { get; set; } = string.Empty;
+
+    [JsonPropertyName("recoveryUrl")]
+    public string RecoveryUrl { get; set; } = string.Empty;
+}
+
+public class SendRecoveryNotificationRequest
+{
+    [JsonPropertyName("storeId")]
+    public string? StoreId { get; set; }
+
+    [JsonPropertyName("cartId")]
+    public string CartId { get; set; } = string.Empty;
+
+    [JsonPropertyName("channel")]
+    public string Channel { get; set; } = "email"; // email | whatsapp
+
+    [JsonPropertyName("customDiscountCode")]
+    public string? CustomDiscountCode { get; set; }
+
+    [JsonPropertyName("customDiscountPercent")]
+    public decimal? CustomDiscountPercent { get; set; }
+}
+
+public class AbandonedCartAnalytics
+{
+    [JsonPropertyName("totalLostRevenue")]
+    public decimal TotalLostRevenue { get; set; }
+
+    [JsonPropertyName("totalRecoveredRevenue")]
+    public decimal TotalRecoveredRevenue { get; set; }
+
+    [JsonPropertyName("totalAbandonedCarts")]
+    public int TotalAbandonedCarts { get; set; }
+
+    [JsonPropertyName("totalRecoveredCarts")]
+    public int TotalRecoveredCarts { get; set; }
+
+    [JsonPropertyName("activeAbandonedCount")]
+    public int ActiveAbandonedCount { get; set; }
+
+    [JsonPropertyName("recoveryRatePercent")]
+    public decimal RecoveryRatePercent { get; set; }
+
+    [JsonPropertyName("averageAbandonedValue")]
+    public decimal AverageAbandonedValue { get; set; }
+
+    [JsonPropertyName("sequence1HourSent")]
+    public int Sequence1HourSent { get; set; }
+
+    [JsonPropertyName("sequence24HourSent")]
+    public int Sequence24HourSent { get; set; }
+}
+
+public class AbandonedCartSettings
+{
+    [JsonPropertyName("storeId")]
+    public string StoreId { get; set; } = "store_apex";
+
+    [JsonPropertyName("enableAutoRecovery")]
+    public bool EnableAutoRecovery { get; set; } = true;
+
+    [JsonPropertyName("send1HourReminder")]
+    public bool Send1HourReminder { get; set; } = true;
+
+    [JsonPropertyName("send24HourReminder")]
+    public bool Send24HourReminder { get; set; } = true;
+
+    [JsonPropertyName("defaultDiscountCode")]
+    public string DefaultDiscountCode { get; set; } = "SAVE5";
+
+    [JsonPropertyName("defaultDiscountPercent")]
+    public decimal DefaultDiscountPercent { get; set; } = 5m;
+
+    [JsonPropertyName("emailSubject1Hour")]
+    public string EmailSubject1Hour { get; set; } = "Did you forget something? Your cart is waiting!";
+
+    [JsonPropertyName("emailSubject24Hour")]
+    public string EmailSubject24Hour { get; set; } = "Still thinking it over? Enjoy 5% off to complete your order!";
+}
+
 

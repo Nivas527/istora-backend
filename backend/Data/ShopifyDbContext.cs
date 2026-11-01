@@ -233,6 +233,32 @@ public class DbNotificationLog : IMultiTenantEntity
     public string CreatedAt { get; set; } = DateTime.UtcNow.ToString("o");
 }
 
+public class DbAbandonedCart : IMultiTenantEntity
+{
+    [Key]
+    public string Id { get; set; } = string.Empty;
+    public string StoreId { get; set; } = "store_apex";
+    public string CustomerEmail { get; set; } = string.Empty;
+    public string CustomerPhone { get; set; } = string.Empty;
+    public string CustomerName { get; set; } = string.Empty;
+
+    [Column(TypeName = "jsonb")]
+    public string CartJson { get; set; } = "[]";
+
+    public decimal TotalValue { get; set; }
+    public string CheckoutStep { get; set; } = "customer_info"; // customer_info | shipping | payment
+    public string RecoveryToken { get; set; } = string.Empty;
+    public string RecoveryStatus { get; set; } = "abandoned"; // abandoned | recovering | recovered | expired
+    public int EmailSequenceStep { get; set; } = 0; // 0 = none, 1 = 1hr, 2 = 24hr
+    public string? DiscountCode { get; set; } = "SAVE5";
+    public decimal DiscountPercent { get; set; } = 5m;
+    public string? LastEmailSentAt { get; set; }
+    public string? RecoveredAt { get; set; }
+    public string? RecoveredOrderId { get; set; }
+    public string CreatedAt { get; set; } = DateTime.UtcNow.ToString("o");
+    public string UpdatedAt { get; set; } = DateTime.UtcNow.ToString("o");
+}
+
 public class ShopifyDbContext : DbContext
 {
     private readonly ITenantProvider? _tenantProvider;
@@ -254,6 +280,7 @@ public class ShopifyDbContext : DbContext
     public DbSet<DbReview> Reviews => Set<DbReview>();
     public DbSet<DbDeployment> Deployments => Set<DbDeployment>();
     public DbSet<DbNotificationLog> NotificationLogs => Set<DbNotificationLog>();
+    public DbSet<DbAbandonedCart> AbandonedCarts => Set<DbAbandonedCart>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -269,6 +296,7 @@ public class ShopifyDbContext : DbContext
         modelBuilder.Entity<DbReview>().ToTable("reviews");
         modelBuilder.Entity<DbDeployment>().ToTable("deployments");
         modelBuilder.Entity<DbNotificationLog>().ToTable("notification_logs");
+        modelBuilder.Entity<DbAbandonedCart>().ToTable("abandoned_carts");
 
         // Multi-tenant Indexes for high-performance scoped lookups
         modelBuilder.Entity<DbProduct>().HasIndex(p => p.StoreId);
@@ -278,6 +306,9 @@ public class ShopifyDbContext : DbContext
         modelBuilder.Entity<DbDiscount>().HasIndex(d => d.StoreId);
         modelBuilder.Entity<DbReview>().HasIndex(r => new { r.StoreId, r.ProductId });
         modelBuilder.Entity<DbNotificationLog>().HasIndex(n => n.StoreId);
+        modelBuilder.Entity<DbAbandonedCart>().HasIndex(a => new { a.StoreId, a.RecoveryToken }).IsUnique();
+        modelBuilder.Entity<DbAbandonedCart>().HasIndex(a => new { a.StoreId, a.RecoveryStatus });
+        modelBuilder.Entity<DbAbandonedCart>().HasIndex(a => new { a.StoreId, a.CustomerEmail });
 
         // EF Core Global Query Filters:
         // Automatically injects WHERE "StoreId" = @CurrentStoreId on EVERY query
@@ -306,6 +337,10 @@ public class ShopifyDbContext : DbContext
         modelBuilder.Entity<DbReview>()
             .HasQueryFilter(r => (_tenantProvider != null && _tenantProvider.IsMasterPlatformAdmin) ||
                                  r.StoreId == (_tenantProvider != null && !string.IsNullOrEmpty(_tenantProvider.CurrentStoreId) ? _tenantProvider.CurrentStoreId : "store_apex"));
+
+        modelBuilder.Entity<DbAbandonedCart>()
+            .HasQueryFilter(a => (_tenantProvider != null && _tenantProvider.IsMasterPlatformAdmin) ||
+                                 a.StoreId == (_tenantProvider != null && !string.IsNullOrEmpty(_tenantProvider.CurrentStoreId) ? _tenantProvider.CurrentStoreId : "store_apex"));
     }
 
     public override int SaveChanges()

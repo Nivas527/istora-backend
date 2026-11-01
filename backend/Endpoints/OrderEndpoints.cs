@@ -16,7 +16,7 @@ public static class OrderEndpoints
             .WithSummary("Retrieve orders for tenant store");
 
         // Order creation
-        group.MapPost("/", async (Order orderRequest, StoreService store, NotificationService notificationService) =>
+        group.MapPost("/", async (Order orderRequest, StoreService store, NotificationService notificationService, AbandonedCartService abandonedCartService) =>
         {
             var order = store.CreateOrder(orderRequest);
             try
@@ -24,9 +24,16 @@ public static class OrderEndpoints
                 await notificationService.ProcessOrderCreatedNotificationsAsync(order);
             }
             catch { }
+
+            try
+            {
+                await abandonedCartService.MarkCartRecoveredAsync(order.StoreId, order.CustomerEmail, order.OrderNumber);
+            }
+            catch { }
+
             return Results.Created($"/api/orders/{order.Id}", order);
         }).WithName("CreateOrder")
-          .WithSummary("Submit a new order and trigger automated confirmation notifications");
+          .WithSummary("Submit a new order, trigger automated confirmation notifications, and update cart recovery state");
 
         // Order fulfillment with live tracking notification dispatch
         group.MapPost("/{id}/fulfill", async (string id, OrderFulfillRequest req, string? storeId, StoreService store, NotificationService notificationService) =>

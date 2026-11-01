@@ -90,6 +90,30 @@ public static class DatabaseMigrator
                     ""CreatedAt"" text NOT NULL
                 );
 
+                CREATE TABLE IF NOT EXISTS abandoned_carts (
+                    ""Id"" text PRIMARY KEY,
+                    ""StoreId"" text NOT NULL,
+                    ""CustomerEmail"" text NOT NULL,
+                    ""CustomerPhone"" text NOT NULL DEFAULT '',
+                    ""CustomerName"" text NOT NULL DEFAULT '',
+                    ""CartJson"" jsonb NOT NULL DEFAULT '[]'::jsonb,
+                    ""TotalValue"" numeric NOT NULL DEFAULT 0,
+                    ""CheckoutStep"" text NOT NULL DEFAULT 'customer_info',
+                    ""RecoveryToken"" text NOT NULL,
+                    ""RecoveryStatus"" text NOT NULL DEFAULT 'abandoned',
+                    ""EmailSequenceStep"" integer NOT NULL DEFAULT 0,
+                    ""DiscountCode"" text DEFAULT 'SAVE5',
+                    ""DiscountPercent"" numeric NOT NULL DEFAULT 5,
+                    ""LastEmailSentAt"" text,
+                    ""RecoveredAt"" text,
+                    ""RecoveredOrderId"" text,
+                    ""CreatedAt"" text NOT NULL,
+                    ""UpdatedAt"" text NOT NULL
+                );
+
+                CREATE UNIQUE INDEX IF NOT EXISTS ix_abandoned_carts_token ON abandoned_carts (""StoreId"", ""RecoveryToken"");
+                CREATE INDEX IF NOT EXISTS ix_abandoned_carts_status ON abandoned_carts (""StoreId"", ""RecoveryStatus"");
+
                 ALTER TABLE products ADD COLUMN IF NOT EXISTS ""StoreId"" text NOT NULL DEFAULT 'store_apex';
                 ALTER TABLE orders ADD COLUMN IF NOT EXISTS ""StoreId"" text NOT NULL DEFAULT 'store_apex';
                 ALTER TABLE orders ADD COLUMN IF NOT EXISTS ""PaymentMethod"" text NOT NULL DEFAULT 'UPI';

@@ -1085,3 +1085,4 @@ export default function NotificationSettingsModal({ isOpen, onClose, storeId = '
     </div>
   );
 }
+

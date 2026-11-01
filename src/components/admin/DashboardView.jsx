@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useStore } from '../../context/StoreContext';
 import {
   DollarSign,
   ShoppingBag,
+  ShoppingCart,
   TrendingUp,
   Percent,
   Package,
@@ -11,8 +12,10 @@ import {
   CheckCircle,
   Truck,
   Sparkles,
-  ArrowRight
+  ArrowRight,
+  AlertOctagon
 } from 'lucide-react';
+import { apiClient } from '../../services/apiClient';
 
 export default function DashboardView({ onNavigateTab, onOpenImportModal }) {
   const {
@@ -22,8 +25,24 @@ export default function DashboardView({ onNavigateTab, onOpenImportModal }) {
     unfulfilledOrdersCount,
     orders,
     products,
-    fulfillOrder
+    fulfillOrder,
+    activeStore
   } = useStore();
+
+  const [cartStats, setCartStats] = useState({
+    totalLostRevenue: 6048,
+    totalRecoveredRevenue: 2490,
+    activeAbandonedCount: 2,
+    recoveryRatePercent: 33.3
+  });
+
+  useEffect(() => {
+    let mounted = true;
+    apiClient.getAbandonedCartAnalytics(activeStore?.id).then((stats) => {
+      if (mounted && stats) setCartStats(stats);
+    }).catch(() => null);
+    return () => { mounted = false; };
+  }, [activeStore?.id]);
 
   const recentOrders = orders.slice(0, 5);
 
@@ -117,6 +136,34 @@ export default function DashboardView({ onNavigateTab, onOpenImportModal }) {
             <span>Orders awaiting shipment</span>
           </div>
         </div>
+      </div>
+
+      {/* Abandoned Cart Recovery Strip */}
+      <div className="bg-gradient-to-r from-rose-50 via-white to-amber-50 p-4 rounded-xl border border-rose-200/80 shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 rounded-lg bg-rose-600 text-white flex items-center justify-center shrink-0 shadow-xs">
+            <ShoppingCart className="w-4 h-4" />
+          </div>
+          <div>
+            <div className="text-xs font-bold text-zinc-900 flex items-center gap-2">
+              <span>Abandoned Cart Recovery Engine</span>
+              <span className="text-[10px] font-bold px-1.5 py-0.2 bg-rose-100 text-rose-800 rounded-full">
+                {cartStats.activeAbandonedCount} Drop-offs Waiting
+              </span>
+            </div>
+            <p className="text-[11px] text-zinc-600 mt-0.5">
+              Potential recoverable revenue: <strong className="font-mono text-rose-700">₹{(cartStats.totalLostRevenue || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</strong> • Recovered to date: <strong className="font-mono text-emerald-700">₹{(cartStats.totalRecoveredRevenue || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</strong> ({cartStats.recoveryRatePercent}% conversion).
+            </p>
+          </div>
+        </div>
+
+        <button
+          onClick={() => onNavigateTab('abandoned-carts')}
+          className="px-3.5 py-2 bg-zinc-900 hover:bg-black text-white text-xs font-bold rounded-lg shadow-xs flex items-center justify-center gap-1.5 shrink-0 transition-all cursor-pointer"
+        >
+          <span>Open Recovery Engine</span>
+          <ArrowRight className="w-3.5 h-3.5" />
+        </button>
       </div>
 
       {/* Two Column Layout: Recent Orders & Quick Store Status */}

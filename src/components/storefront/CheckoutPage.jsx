@@ -103,6 +103,38 @@ export default function CheckoutPage({ onBackToStore, onOrderPlaced }) {
   const [isProcessing, setIsProcessing] = useState(false);
   const [paymentError, setPaymentError] = useState('');
   const [paymentConfig, setPaymentConfig] = useState(null);
+  const [recoveryBanner, setRecoveryBanner] = useState(null);
+
+  // 1-Click Cart Recovery Link Restoration
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const params = new URLSearchParams(window.location.search);
+    const recoverToken = params.get('recover_cart');
+    const recoverDiscount = params.get('discount') || 'SAVE5';
+
+    if (recoverToken) {
+      apiClient.getRecoverCart(recoverToken, activeStore?.id).then((recovered) => {
+        if (recovered) {
+          if (recovered.customerEmail) {
+            setFormData((prev) => ({
+              ...prev,
+              email: recovered.customerEmail,
+              firstName: recovered.customerName?.split(' ')[0] || prev.firstName,
+              lastName: recovered.customerName?.split(' ').slice(1).join(' ') || prev.lastName,
+              phone: recovered.customerPhone || prev.phone
+            }));
+          }
+          if (recovered.discountCode || recoverDiscount) {
+            applyDiscount(recovered.discountCode || recoverDiscount);
+          }
+          setRecoveryBanner({
+            code: recovered.discountCode || recoverDiscount,
+            percent: recovered.discountPercent || 5
+          });
+        }
+      }).catch(() => null);
+    }
+  }, [activeStore?.id]);
 
   useEffect(() => {
     let isMounted = true;
@@ -150,6 +182,29 @@ export default function CheckoutPage({ onBackToStore, onOrderPlaced }) {
 
   const taxAmount = settings.gstEnabled !== false ? gstDetails.totalTax : taxableAmount * (settings.taxRate || 0.08);
   const grandTotal = settings.pricesIncludeGst ? (taxableAmount + shippingCost) : (taxableAmount + shippingCost + taxAmount);
+
+  // Real-time Drop-off Capture (Debounced on Step 1)
+  useEffect(() => {
+    if (!formData.email || !formData.email.includes('@') || (cart.items || []).length === 0) return;
+
+    const timer = setTimeout(() => {
+      apiClient.captureAbandonedCart({
+        customerEmail: formData.email,
+        customerName: `${formData.firstName} ${formData.lastName}`.trim(),
+        customerPhone: formData.phone || '',
+        totalValue: grandTotal,
+        checkoutStep: 'customer_info',
+        existingToken: typeof window !== 'undefined' ? sessionStorage.getItem('istora_rec_token') : undefined,
+        cartItems: cart.items
+      }, activeStore?.id).then((res) => {
+        if (res?.recoveryToken && typeof window !== 'undefined') {
+          sessionStorage.setItem('istora_rec_token', res.recoveryToken);
+        }
+      }).catch(() => null);
+    }, 800);
+
+    return () => clearTimeout(timer);
+  }, [formData.email, formData.firstName, formData.lastName, cart.items, grandTotal, activeStore?.id]);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -419,6 +474,32 @@ export default function CheckoutPage({ onBackToStore, onOrderPlaced }) {
       <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12">
         {/* Left Column: Checkout Inputs Form (7 cols) */}
         <div className="lg:col-span-7 px-4 sm:px-10 py-8 lg:border-r border-zinc-200">
+          {/* Cart Recovery Celebration Banner */}
+          {recoveryBanner && (
+            <div className="mb-6 p-4 rounded-2xl bg-gradient-to-r from-emerald-500/10 via-teal-500/10 to-indigo-500/10 border-2 border-emerald-500/30 flex items-center justify-between text-xs animate-fadeIn">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-bold text-sm shadow-xs shrink-0">
+                  🎉
+                </div>
+                <div>
+                  <p className="font-bold text-emerald-950">
+                    Welcome back! We restored your shopping bag.
+                  </p>
+                  <p className="text-emerald-800 text-[11px]">
+                    An exclusive <strong>{recoveryBanner.percent}% recovery discount</strong> has been applied with promo code <strong className="font-mono bg-emerald-100 text-emerald-900 px-1 rounded">{recoveryBanner.code}</strong>.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setRecoveryBanner(null)}
+                className="text-zinc-400 hover:text-zinc-700 text-sm font-bold px-2 py-1"
+              >
+                ✕
+              </button>
+            </div>
+          )}
+
           {/* Express Checkout Shortcuts */}
           <div className="mb-8">
             <p className="text-xs font-semibold text-zinc-500 uppercase tracking-wider text-center mb-3">

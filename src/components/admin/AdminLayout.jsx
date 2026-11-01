@@ -11,11 +11,13 @@ import CustomersView from './CustomersView';
 import DiscountsView from './DiscountsView';
 import SettingsView from './SettingsView';
 import ThemesView from './ThemesView';
+import AbandonedCartView from './AbandonedCartView';
 import HostingDashboard from '../hosting/HostingDashboard';
 import {
   LayoutDashboard,
   Package,
   ShoppingBag,
+  ShoppingCart,
   Users,
   Tag,
   Settings,
@@ -58,6 +60,7 @@ export default function AdminLayout() {
   const navItems = [
     { id: 'dashboard', label: 'Home / Dashboard', icon: LayoutDashboard },
     { id: 'orders', label: 'Orders', icon: ShoppingBag, badge: unfulfilledOrdersCount > 0 ? unfulfilledOrdersCount : null, badgeColor: 'bg-amber-500' },
+    { id: 'abandoned-carts', label: 'Abandoned Carts', icon: ShoppingCart, badge: 'High ROI', badgeColor: 'bg-rose-500 text-white' },
     { id: 'products', label: 'Products', icon: Package, badge: products.length, badgeColor: 'bg-zinc-200 text-zinc-700' },
     { id: 'customers', label: 'Customers', icon: Users },
     { id: 'discounts', label: 'Discounts', icon: Tag },
@@ -301,6 +304,7 @@ export default function AdminLayout() {
             )}
             {adminTab === 'products' && <ProductsView />}
             {adminTab === 'orders' && <OrdersView />}
+            {adminTab === 'abandoned-carts' && <AbandonedCartView />}
             {adminTab === 'customers' && <CustomersView />}
             {adminTab === 'discounts' && <DiscountsView />}
             {adminTab === 'themes' && <ThemesView />}

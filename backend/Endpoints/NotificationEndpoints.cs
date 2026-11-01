@@ -44,3 +44,4 @@ public static class NotificationEndpoints
         return app;
     }
 }
+
