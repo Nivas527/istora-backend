@@ -4,6 +4,7 @@ import { useFit } from '../../context/FitContext';
 import { useWishlist } from '../../context/WishlistContext';
 import ProductReviews from './ProductReviews';
 import FitVerificationWidget from '../fit/FitVerificationWidget';
+import { getProductTierPricing, DEFAULT_VOLUME_TIERS } from '../../utils/promotionEngine';
 import {
   X,
   ShoppingBag,
@@ -17,7 +18,10 @@ import {
   ChevronUp,
   Star,
   Sparkles,
-  Heart
+  Heart,
+  Zap,
+  Tag,
+  Gift
 } from 'lucide-react';
 
 export default function ProductDetailModal({ product, onClose }) {
@@ -77,6 +81,11 @@ export default function ProductDetailModal({ product, onClose }) {
   const isSoldOut = stockAvailable <= 0;
   const isWishlisted = isInWishlist(product.id, currentVariant?.id);
 
+  // Volume Tier Pricing Calculation
+  const tierPricing = useMemo(() => {
+    return getProductTierPricing(quantity, currentPrice || 0);
+  }, [quantity, currentPrice]);
+
   const handleOptionChange = (optionName, value) => {
     setSelectedOptions((prev) => ({
       ...prev,
@@ -87,7 +96,11 @@ export default function ProductDetailModal({ product, onClose }) {
 
   const handleAddToCart = () => {
     if (!currentVariant || isSoldOut) return;
-    addToCart(product, currentVariant, quantity);
+    addToCart(product, {
+      ...currentVariant,
+      tierDiscountPercent: tierPricing.discountPercent,
+      effectiveUnitPrice: tierPricing.effectiveUnitPrice
+    }, quantity);
     setAddedSuccess(true);
     setTimeout(() => {
       setAddedSuccess(false);
@@ -288,8 +301,68 @@ export default function ProductDetailModal({ product, onClose }) {
                 />
               </div>
 
+              {/* Quantity Tier Volume Pricing Table */}
+              <div className="mt-4 pt-4 border-t border-zinc-100">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-zinc-900">
+                    <Zap className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
+                    <span>Volume Tier Pricing</span>
+                  </div>
+                  {tierPricing.discountPercent > 0 && (
+                    <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200 animate-pulse">
+                      Saving {tierPricing.discountPercent}% (₹{Math.round(tierPricing.totalSavings).toLocaleString('en-IN')} off)
+                    </span>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-3 gap-2">
+                  {DEFAULT_VOLUME_TIERS.map((tier) => {
+                    const isSelected = (tier.minQty === 1 && quantity === 1) ||
+                      (tier.minQty === 2 && quantity === 2) ||
+                      (tier.minQty === 3 && quantity >= 3);
+                    const tierUnitDiscount = ((currentPrice || 0) * tier.discountPercent) / 100;
+                    const tierUnitPrice = Math.max(0, (currentPrice || 0) - tierUnitDiscount);
+
+                    return (
+                      <button
+                        key={tier.minQty}
+                        type="button"
+                        onClick={() => setQuantity(tier.minQty)}
+                        className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer relative ${
+                          isSelected
+                            ? 'border-emerald-500 bg-emerald-50/70 shadow-xs ring-2 ring-emerald-500/20'
+                            : 'border-zinc-200 hover:border-zinc-300 bg-zinc-50/50'
+                        }`}
+                      >
+                        {tier.badge && (
+                          <span className={`absolute -top-2 right-2 text-[9px] font-extrabold uppercase px-1.5 py-0.2 rounded-full ${
+                            tier.minQty === 3
+                              ? 'bg-amber-500 text-white'
+                              : tier.minQty === 2
+                              ? 'bg-blue-600 text-white'
+                              : 'bg-zinc-200 text-zinc-700'
+                          }`}>
+                            {tier.badge}
+                          </span>
+                        )}
+                        <div className="text-[11px] font-bold text-zinc-900">
+                          {tier.minQty === 1 ? '1 Unit' : tier.minQty === 2 ? 'Buy 2' : 'Buy 3+'}
+                        </div>
+                        <div className="font-mono text-xs font-extrabold text-zinc-900 mt-0.5">
+                          ₹{Math.round(tierUnitPrice).toLocaleString('en-IN')}
+                          <span className="text-[10px] text-zinc-400 font-normal">/ea</span>
+                        </div>
+                        <div className="text-[10px] text-emerald-600 font-bold mt-0.5">
+                          {tier.discountPercent > 0 ? `Save ${tier.discountPercent}%` : 'Standard'}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
               {/* Quantity Stepper & Add to Cart */}
-              <div className="mt-5 pt-4 border-t border-zinc-100 flex items-center gap-3">
+              <div className="mt-4 pt-4 border-t border-zinc-100 flex items-center gap-3">
                 {/* Quantity Controls */}
                 <div className="flex items-center border border-zinc-300 rounded-lg bg-zinc-50 overflow-hidden">
                   <button
@@ -333,7 +406,14 @@ export default function ProductDetailModal({ product, onClose }) {
                   ) : (
                     <>
                       <ShoppingBag className="w-4 h-4" />
-                      <span>Add to Cart • ${((currentPrice || 0) * (quantity || 1)).toFixed(2)}</span>
+                      <span>
+                        Add to Cart • ₹{Math.round(tierPricing.lineSubtotal).toLocaleString('en-IN')}
+                        {tierPricing.discountPercent > 0 && (
+                          <span className="line-through text-white/60 ml-1.5 text-xs">
+                            ₹{Math.round((currentPrice || 0) * quantity).toLocaleString('en-IN')}
+                          </span>
+                        )}
+                      </span>
                     </>
                   )}
                 </button>

@@ -121,8 +121,8 @@ export default function ProductCard({ product, onSelect }) {
             {product.title}
           </h3>
 
-          {/* Direct Biometric Fit Badge */}
-          <div className="mt-2 flex items-center justify-between">
+          {/* Direct Biometric Fit & Volume Tier Badge */}
+          <div className="mt-2 flex items-center justify-between gap-1 flex-wrap">
             <span
               onClick={(e) => {
                 e.stopPropagation();
@@ -131,9 +131,11 @@ export default function ProductCard({ product, onSelect }) {
               className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[11px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200/80 hover:bg-emerald-100 transition-colors shadow-2xs cursor-pointer"
             >
               <Sparkles className="w-3 h-3 text-emerald-600 animate-pulse" />
-              <span>✨ Fit Check Available</span>
+              <span>✨ Fit Check</span>
             </span>
-            <span className="text-[10px] text-zinc-400 font-mono">Zero Returns</span>
+            <span className="text-[10px] text-amber-700 bg-amber-50 border border-amber-200 font-bold px-1.5 py-0.5 rounded">
+              ⚡ Buy 2+ Save 15%
+            </span>
           </div>
         </div>
 

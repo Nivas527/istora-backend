@@ -13,7 +13,10 @@ import {
   CheckCircle2,
   AlertCircle,
   Truck,
-  Heart
+  Heart,
+  Zap,
+  Gift,
+  Sparkles
 } from 'lucide-react';
 
 export default function CartDrawer({ onProceedToCheckout }) {
@@ -24,6 +27,12 @@ export default function CartDrawer({ onProceedToCheckout }) {
     cartItemsCount,
     cartSubtotal,
     cartDiscountAmount,
+    volumeTierSavings,
+    totalCartSavings,
+    thresholdProgress,
+    bogoDetails,
+    availablePromotions,
+    isAutoAppliedDiscount,
     cartTotal,
     amountToFreeShipping,
     isFreeShipping,
@@ -102,6 +111,50 @@ export default function CartDrawer({ onProceedToCheckout }) {
             />
           </div>
         </div>
+
+        {/* Cart Value Threshold Milestone Meter */}
+        {thresholdProgress && (
+          <div className={`p-3 border-b text-xs transition-all ${
+            thresholdProgress.isUnlocked
+              ? 'bg-amber-50/80 border-amber-200 text-amber-900'
+              : 'bg-zinc-50 border-zinc-200 text-zinc-700'
+          }`}>
+            <div className="flex items-center justify-between mb-1.5">
+              <div className="flex items-center gap-1.5 font-semibold">
+                <Zap className={`w-3.5 h-3.5 ${thresholdProgress.isUnlocked ? 'text-amber-600 fill-amber-500' : 'text-zinc-500'}`} />
+                <span>{thresholdProgress.message}</span>
+              </div>
+              <span className="font-mono text-[11px] font-extrabold text-amber-700">
+                {thresholdProgress.rewardText}
+              </span>
+            </div>
+            <div className="w-full bg-zinc-200 rounded-full h-1.5 overflow-hidden">
+              <div
+                className="bg-amber-500 h-1.5 rounded-full transition-all duration-500"
+                style={{ width: `${thresholdProgress.percentComplete}%` }}
+              />
+            </div>
+          </div>
+        )}
+
+        {/* BOGO Promotional Milestone Banner */}
+        {bogoDetails && (
+          <div className={`p-2.5 px-3 border-b text-xs flex items-center justify-between ${
+            bogoDetails.eligible
+              ? 'bg-blue-50/80 border-blue-200 text-blue-900 font-semibold'
+              : 'bg-zinc-50 border-zinc-200 text-zinc-600'
+          }`}>
+            <div className="flex items-center gap-1.5">
+              <Gift className={`w-3.5 h-3.5 ${bogoDetails.eligible ? 'text-blue-600' : 'text-zinc-400'}`} />
+              <span>{bogoDetails.message}</span>
+            </div>
+            {bogoDetails.eligible && (
+              <span className="font-mono font-bold text-blue-700 text-[11px]">
+                Saved ₹{Math.round(bogoDetails.savings).toLocaleString('en-IN')}
+              </span>
+            )}
+          </div>
+        )}
 
         {/* Anti-Bracketing Multi-Size Order Guard */}
         <div className="px-4 pt-2">
@@ -232,18 +285,24 @@ export default function CartDrawer({ onProceedToCheckout }) {
         {/* Footer (Discount Code, Subtotal, Checkout Button) */}
         {cart.items.length > 0 && (
           <div className="p-4 sm:p-5 border-t border-zinc-200 bg-zinc-50/80 space-y-3">
-            {/* Promo Code Input */}
-            <div>
+            {/* Promo Code Input & Quick Apply Chips */}
+            <div className="space-y-2">
               {appliedDiscount ? (
-                <div className="flex items-center justify-between bg-emerald-50 border border-emerald-200 px-3 py-1.5 rounded-lg text-xs text-emerald-800">
-                  <div className="flex items-center gap-1.5">
-                    <Tag className="w-3.5 h-3.5 text-emerald-600" />
+                <div className="flex items-center justify-between bg-emerald-50 border border-emerald-200 px-3 py-2 rounded-xl text-xs text-emerald-800 shadow-2xs">
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <Tag className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
                     <span className="font-bold">{appliedDiscount.code}</span>
-                    <span className="text-[11px] text-emerald-600">({appliedDiscount.description})</span>
+                    {isAutoAppliedDiscount && (
+                      <span className="text-[10px] font-extrabold uppercase bg-emerald-600 text-white px-1.5 py-0.2 rounded-full">
+                        Auto-Applied
+                      </span>
+                    )}
+                    <span className="text-[11px] text-emerald-700">({appliedDiscount.description})</span>
                   </div>
                   <button
                     onClick={removeDiscount}
-                    className="text-zinc-400 hover:text-zinc-700 font-bold ml-2"
+                    className="text-zinc-400 hover:text-zinc-700 font-bold ml-2 text-sm cursor-pointer"
+                    title="Remove discount"
                   >
                     ×
                   </button>
@@ -254,20 +313,46 @@ export default function CartDrawer({ onProceedToCheckout }) {
                     type="text"
                     value={promoInput}
                     onChange={(e) => setPromoInput(e.target.value)}
-                    placeholder="Discount code (e.g. WELCOME20)"
+                    placeholder="Discount code (e.g. WELCOME20, BOGO21, FLAT500)"
                     className="flex-1 bg-white border border-zinc-300 rounded-lg px-3 py-1.5 text-xs text-zinc-800 focus:outline-none focus:ring-1 focus:ring-[#008060]"
                   />
                   <button
                     type="submit"
-                    className="px-3 py-1.5 bg-zinc-800 hover:bg-zinc-900 text-white rounded-lg text-xs font-semibold"
+                    className="px-3.5 py-1.5 bg-zinc-800 hover:bg-zinc-900 text-white rounded-lg text-xs font-semibold cursor-pointer"
                   >
                     Apply
                   </button>
                 </form>
               )}
 
+              {/* Quick-Apply Available Promotion Chips */}
+              {availablePromotions && availablePromotions.length > 0 && !appliedDiscount && (
+                <div className="pt-1">
+                  <div className="text-[11px] font-semibold text-zinc-400 mb-1 flex items-center gap-1">
+                    <Sparkles className="w-3 h-3 text-amber-500" />
+                    <span>Available Promotions (Tap to Apply):</span>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {availablePromotions.slice(0, 3).map((promo) => (
+                      <button
+                        key={promo.code}
+                        type="button"
+                        onClick={() => {
+                          const res = applyDiscount(promo.code);
+                          setPromoMessage(res);
+                        }}
+                        className="px-2 py-1 text-[11px] font-bold rounded-lg border border-dashed border-emerald-400 bg-emerald-50/70 hover:bg-emerald-100 text-emerald-800 flex items-center gap-1 cursor-pointer transition-colors"
+                      >
+                        <Tag className="w-2.5 h-2.5 text-emerald-600" />
+                        <span>{promo.code}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {promoMessage && !appliedDiscount && (
-                <p className={`text-[11px] mt-1 ${promoMessage.success ? 'text-emerald-600' : 'text-red-500'}`}>
+                <p className={`text-[11px] mt-1 ${promoMessage.success ? 'text-emerald-600 font-medium' : 'text-red-500'}`}>
                   {promoMessage.message}
                 </p>
               )}
@@ -277,13 +362,26 @@ export default function CartDrawer({ onProceedToCheckout }) {
             <div className="space-y-1.5 text-xs text-zinc-600 pt-1">
               <div className="flex justify-between">
                 <span>Subtotal</span>
-                <span className="font-semibold text-zinc-900">${(cartSubtotal || 0).toFixed(2)}</span>
+                <span className="font-semibold text-zinc-900">₹{Math.round(cartSubtotal || 0).toLocaleString('en-IN')}</span>
               </div>
+
+              {volumeTierSavings > 0 && (
+                <div className="flex justify-between text-amber-700 font-medium">
+                  <span className="flex items-center gap-1">
+                    <Zap className="w-3 h-3 text-amber-500 fill-amber-500" />
+                    <span>Volume Tier Savings</span>
+                  </span>
+                  <span>-₹{Math.round(volumeTierSavings || 0).toLocaleString('en-IN')}</span>
+                </div>
+              )}
 
               {cartDiscountAmount > 0 && (
                 <div className="flex justify-between text-emerald-600 font-medium">
-                  <span>Discount ({appliedDiscount?.code})</span>
-                  <span>-${(cartDiscountAmount || 0).toFixed(2)}</span>
+                  <span>
+                    Discount ({appliedDiscount?.code})
+                    {isAutoAppliedDiscount && <span className="ml-1 text-[10px] text-emerald-700 font-bold">(Auto)</span>}
+                  </span>
+                  <span>-₹{Math.round(cartDiscountAmount || 0).toLocaleString('en-IN')}</span>
                 </div>
               )}
 
@@ -294,10 +392,16 @@ export default function CartDrawer({ onProceedToCheckout }) {
 
               <div className="flex justify-between text-sm font-bold text-zinc-900 pt-2 border-t border-zinc-200">
                 <span>Estimated Total</span>
-                <span className="text-base text-zinc-950">
-                  ${Math.max(0, (cartSubtotal || 0) - (cartDiscountAmount || 0)).toFixed(2)}
+                <span className="text-base text-zinc-950 font-mono">
+                  ₹{Math.round(cartTotal || Math.max(0, (cartSubtotal || 0) - (cartDiscountAmount || 0) - (volumeTierSavings || 0))).toLocaleString('en-IN')}
                 </span>
               </div>
+
+              {totalCartSavings > 0 && (
+                <div className="bg-emerald-100/60 border border-emerald-200 rounded-lg p-2 text-center text-[11px] font-bold text-emerald-800">
+                  🎉 Total Savings on this order: ₹{Math.round(totalCartSavings).toLocaleString('en-IN')}!
+                </div>
+              )}
             </div>
 
             {/* Checkout Action Button */}

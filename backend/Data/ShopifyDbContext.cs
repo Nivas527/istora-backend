@@ -164,10 +164,24 @@ public class DbDiscount : IMultiTenantEntity
 
     public string StoreId { get; set; } = "store_apex";
     public string Code { get; set; } = string.Empty;
-    public string Type { get; set; } = "percentage";
+    public string Type { get; set; } = "percentage"; // percentage | fixed | shipping | bogo | threshold
     public decimal Value { get; set; }
     public decimal MinSubtotal { get; set; }
     public string Description { get; set; } = string.Empty;
+
+    // Advanced Promotion Rules
+    public string RuleType { get; set; } = "percentage"; // percentage | fixed | shipping | bogo | threshold | volume_tier
+    public bool IsAutoApplied { get; set; } = false;
+    public int? BuyQuantity { get; set; } // for BOGO
+    public int? GetQuantity { get; set; } // for BOGO
+    public decimal? GetDiscountPercent { get; set; } = 100m; // 100 for free item
+    public string? ApplicableCategory { get; set; } = "all";
+    public string? ApplicableProductId { get; set; }
+    public string? TierPricingJson { get; set; } = "[]";
+    public int UsageCount { get; set; } = 0;
+    public bool IsActive { get; set; } = true;
+    public string? StartsAt { get; set; }
+    public string? EndsAt { get; set; }
 }
 
 public class DbReview : IMultiTenantEntity

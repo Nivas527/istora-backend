@@ -322,6 +322,34 @@ export const apiClient = {
     }
   },
 
+  async updateDiscount(id, discountData) {
+    try {
+      const storeId = discountData?.storeId;
+      const res = await fetch(getUrl(`/api/discounts/${encodeURIComponent(id)}`), {
+        method: 'PUT',
+        headers: getHeaders({ 'Content-Type': 'application/json' }, storeId),
+        body: JSON.stringify(discountData)
+      });
+      return await res.json();
+    } catch (err) {
+      console.warn('[C# API] updateDiscount fallback:', err.message);
+      return discountData;
+    }
+  },
+
+  async deleteDiscount(id, storeId = null) {
+    try {
+      const res = await fetch(getUrl(`/api/discounts/${encodeURIComponent(id)}`), {
+        method: 'DELETE',
+        headers: getHeaders({}, storeId)
+      });
+      return await res.json();
+    } catch (err) {
+      console.warn('[C# API] deleteDiscount fallback:', err.message);
+      return { success: true, id };
+    }
+  },
+
   async getReviews(storeId = null, productId = null) {
     try {
       const query = new URLSearchParams();

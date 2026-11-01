@@ -25,6 +25,10 @@ export default function CheckoutPage({ onBackToStore, onOrderPlaced }) {
     cart,
     cartSubtotal,
     cartDiscountAmount,
+    volumeTierSavings,
+    totalCartSavings,
+    isAutoAppliedDiscount,
+    bogoDetails,
     appliedDiscount,
     settings,
     activeStore,
@@ -1033,14 +1037,20 @@ export default function CheckoutPage({ onBackToStore, onOrderPlaced }) {
           <div className="mt-6 pt-6 border-t border-zinc-200">
             {appliedDiscount ? (
               <div className="flex items-center justify-between bg-emerald-50 border border-emerald-200 p-2.5 rounded-lg text-xs text-emerald-800">
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                   <Tag className="w-4 h-4 text-emerald-600" />
                   <span className="font-bold">{appliedDiscount.code}</span>
+                  {isAutoAppliedDiscount && (
+                    <span className="text-[10px] font-extrabold uppercase bg-emerald-600 text-white px-1.5 py-0.2 rounded-full">
+                      Auto-Applied
+                    </span>
+                  )}
                   <span>({appliedDiscount.description})</span>
                 </div>
                 <button
                   onClick={removeDiscount}
-                  className="text-zinc-400 hover:text-zinc-700 font-bold"
+                  className="text-zinc-400 hover:text-zinc-700 font-bold ml-2 cursor-pointer"
+                  title="Remove coupon"
                 >
                   ×
                 </button>
@@ -1051,12 +1061,12 @@ export default function CheckoutPage({ onBackToStore, onOrderPlaced }) {
                   type="text"
                   value={couponInput}
                   onChange={(e) => setCouponInput(e.target.value)}
-                  placeholder="Discount code (try WELCOME20)"
+                  placeholder="Discount code (try WELCOME20, BOGO21, FLAT500)"
                   className="flex-1 bg-white border border-zinc-300 rounded-lg px-3 py-2 text-xs text-zinc-800 focus:outline-none focus:ring-1 focus:ring-[#008060]"
                 />
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-zinc-800 hover:bg-zinc-900 text-white rounded-lg text-xs font-bold"
+                  className="px-4 py-2 bg-zinc-800 hover:bg-zinc-900 text-white rounded-lg text-xs font-bold cursor-pointer"
                 >
                   Apply
                 </button>
@@ -1075,9 +1085,19 @@ export default function CheckoutPage({ onBackToStore, onOrderPlaced }) {
               <span className="font-semibold text-zinc-900">${(cartSubtotal || 0).toFixed(2)}</span>
             </div>
 
+            {volumeTierSavings > 0 && (
+              <div className="flex justify-between text-amber-700 font-semibold">
+                <span>Volume Tier Savings</span>
+                <span>-${(volumeTierSavings || 0).toFixed(2)}</span>
+              </div>
+            )}
+
             {cartDiscountAmount > 0 && (
               <div className="flex justify-between text-emerald-700 font-semibold">
-                <span>Discount ({appliedDiscount?.code})</span>
+                <span>
+                  Discount ({appliedDiscount?.code})
+                  {isAutoAppliedDiscount && <span className="ml-1 text-[10px] font-bold text-emerald-800">(Auto)</span>}
+                </span>
                 <span>-${(cartDiscountAmount || 0).toFixed(2)}</span>
               </div>
             )}

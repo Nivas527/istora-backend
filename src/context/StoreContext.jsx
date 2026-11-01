@@ -5,6 +5,7 @@ import { initialDeployments } from '../data/initialDeployments';
 import { apiClient, getPublicStorefrontToken, getPrivateMerchantToken } from '../services/apiClient';
 import { saveItemToDB, getAllFromDB, THEMES_STORE, DEPLOYMENTS_STORE } from '../services/dbStorage';
 import { resolveStateCode } from '../utils/gstUtils';
+import { evaluateAllPromotions, calculateBogoDiscount } from '../utils/promotionEngine';
 
 const StoreContext = createContext(null);
 
@@ -896,28 +897,30 @@ export function StoreProvider({ children }) {
     invoicePrefix: activeStore?.invoicePrefix || 'INV-2026/'
   };
 
-  const appliedDiscount = discounts.find(
-    (d) => d.code.toUpperCase() === (cart.discountCode || '').toUpperCase()
-  );
+  // Master Promotional Engine Evaluation (Auto-Applied, BOGO, Thresholds, Quantity Tiers)
+  const promoEvaluation = useMemo(() => {
+    return evaluateAllPromotions({
+      cartItems: cart.items || [],
+      discounts,
+      manualDiscountCode: cart.discountCode,
+      freeShippingThreshold: settings.freeShippingThreshold
+    });
+  }, [cart.items, discounts, cart.discountCode, settings.freeShippingThreshold]);
 
+  const appliedDiscount = promoEvaluation.appliedDiscount;
+  const isAutoAppliedDiscount = promoEvaluation.isAutoApplied;
   const cartItemsCount = (cart.items || []).reduce((sum, item) => sum + (item.quantity || 0), 0);
-  const cartSubtotal = (cart.items || []).reduce((sum, item) => sum + (item.price || 0) * (item.quantity || 0), 0);
-
-  let cartDiscountAmount = 0;
-  if (appliedDiscount) {
-    if (appliedDiscount.type === 'percentage') {
-      cartDiscountAmount = (cartSubtotal * appliedDiscount.value) / 100;
-    } else if (appliedDiscount.type === 'fixed') {
-      cartDiscountAmount = Math.min(appliedDiscount.value, cartSubtotal);
-    }
-  }
-
-  const isFreeShipping =
-    cartSubtotal >= settings.freeShippingThreshold ||
-    (appliedDiscount && appliedDiscount.type === 'shipping');
+  const cartSubtotal = promoEvaluation.rawSubtotal;
+  const cartDiscountAmount = promoEvaluation.discountAmount;
+  const volumeTierSavings = promoEvaluation.volumeTierSavings;
+  const totalCartSavings = promoEvaluation.totalSavings;
+  const isFreeShipping = promoEvaluation.isFreeShipping;
+  const thresholdProgress = promoEvaluation.thresholdProgress;
+  const bogoDetails = promoEvaluation.bogoDetails;
+  const availablePromotions = promoEvaluation.availablePromotions;
 
   const cartShippingCost = (cart.items || []).length === 0 ? 0 : isFreeShipping ? 0 : settings.standardShippingRate;
-  const taxableAmount = Math.max(0, cartSubtotal - cartDiscountAmount);
+  const taxableAmount = Math.max(0, cartSubtotal - cartDiscountAmount - volumeTierSavings);
   const cartTax = taxableAmount * settings.taxRate;
   const cartTotal = taxableAmount + cartShippingCost + cartTax;
   const amountToFreeShipping = Math.max(0, settings.freeShippingThreshold - cartSubtotal);
@@ -997,15 +1000,24 @@ export function StoreProvider({ children }) {
 
   const applyDiscount = (code) => {
     const trimmed = (code || '').trim().toUpperCase();
-    const match = discounts.find((d) => d.code.toUpperCase() === trimmed);
+    const match = discounts.find((d) => (d.code || '').toUpperCase() === trimmed);
     if (!match) {
       return { success: false, message: 'Invalid discount code' };
     }
-    if (cartSubtotal < match.minSubtotal) {
+    if (cartSubtotal < (match.minSubtotal || 0)) {
       return {
         success: false,
-        message: `Order subtotal must be at least $${match.minSubtotal} to use ${match.code}`
+        message: `Order subtotal must be at least ₹${match.minSubtotal} to use ${match.code}`
       };
+    }
+    if (match.ruleType === 'bogo' || match.type === 'bogo') {
+      const bogo = calculateBogoDiscount(cart.items || [], match);
+      if (!bogo.eligible) {
+        return {
+          success: false,
+          message: bogo.message || `Add more items to unlock BOGO ${match.code}`
+        };
+      }
     }
     mutateActiveStore((store) => ({
       ...store,
@@ -1018,6 +1030,50 @@ export function StoreProvider({ children }) {
     mutateActiveStore((store) => ({
       ...store,
       cart: { ...(store.cart || {}), discountCode: null }
+    }));
+  };
+
+  const addDiscount = async (discountData) => {
+    const newDiscount = {
+      id: discountData.id || `disc_${Date.now()}`,
+      storeId: activeStore?.id || 'store_apex',
+      ruleType: discountData.ruleType || discountData.type || 'percentage',
+      isActive: true,
+      ...discountData
+    };
+    try {
+      await apiClient.createDiscount(newDiscount);
+    } catch (e) {
+      console.warn('API createDiscount fallback:', e);
+    }
+    mutateActiveStore((store) => ({
+      ...store,
+      discounts: [newDiscount, ...(store.discounts || [])]
+    }));
+    return newDiscount;
+  };
+
+  const updateDiscount = async (id, updatedFields) => {
+    try {
+      await apiClient.updateDiscount(id, { ...updatedFields, storeId: activeStore?.id });
+    } catch (e) {
+      console.warn('API updateDiscount fallback:', e);
+    }
+    mutateActiveStore((store) => ({
+      ...store,
+      discounts: (store.discounts || []).map((d) => (d.id === id ? { ...d, ...updatedFields } : d))
+    }));
+  };
+
+  const deleteDiscount = async (id) => {
+    try {
+      await apiClient.deleteDiscount(id, activeStore?.id);
+    } catch (e) {
+      console.warn('API deleteDiscount fallback:', e);
+    }
+    mutateActiveStore((store) => ({
+      ...store,
+      discounts: (store.discounts || []).filter((d) => d.id !== id)
     }));
   };
 
@@ -1608,6 +1664,16 @@ export function StoreProvider({ children }) {
         amountToFreeShipping,
         isFreeShipping,
         appliedDiscount,
+        isAutoAppliedDiscount,
+        volumeTierSavings,
+        totalCartSavings,
+        thresholdProgress,
+        bogoDetails,
+        availablePromotions,
+        promoEvaluation,
+        addDiscount,
+        updateDiscount,
+        deleteDiscount,
         addToCart,
         updateCartItemQty,
         removeFromCart,

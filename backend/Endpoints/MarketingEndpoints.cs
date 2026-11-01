@@ -28,6 +28,20 @@ public static class MarketingEndpoints
         }).WithName("CreateDiscount")
           .WithSummary("Create promotional discount coupon");
 
+        group.MapPut("/discounts/{id}", (string id, Discount discount, StoreService store) =>
+        {
+            var updated = store.UpdateDiscount(id, discount);
+            return updated != null ? Results.Ok(updated) : Results.NotFound(new { error = $"Discount '{id}' not found" });
+        }).WithName("UpdateDiscount")
+          .WithSummary("Update promotional discount or campaign rule");
+
+        group.MapDelete("/discounts/{id}", (string id, StoreService store) =>
+        {
+            var deleted = store.DeleteDiscount(id);
+            return deleted ? Results.Ok(new { success = true, id }) : Results.NotFound(new { error = $"Discount '{id}' not found" });
+        }).WithName("DeleteDiscount")
+          .WithSummary("Delete promotional discount rule");
+
         // Categories
         group.MapGet("/categories", (string? storeId, StoreService store) =>
             Results.Ok(store.GetCategories(storeId)))

@@ -187,6 +187,19 @@ public static class DatabaseMigrator
                 ALTER TABLE customers ADD COLUMN IF NOT EXISTS ""WishlistJson"" text NOT NULL DEFAULT '[]';
                 ALTER TABLE customers ADD COLUMN IF NOT EXISTS ""AuthProvider"" text NOT NULL DEFAULT 'email';
                 ALTER TABLE customers ADD COLUMN IF NOT EXISTS ""Avatar"" text;
+
+                ALTER TABLE discounts ADD COLUMN IF NOT EXISTS ""RuleType"" text NOT NULL DEFAULT 'percentage';
+                ALTER TABLE discounts ADD COLUMN IF NOT EXISTS ""IsAutoApplied"" boolean NOT NULL DEFAULT false;
+                ALTER TABLE discounts ADD COLUMN IF NOT EXISTS ""BuyQuantity"" integer;
+                ALTER TABLE discounts ADD COLUMN IF NOT EXISTS ""GetQuantity"" integer;
+                ALTER TABLE discounts ADD COLUMN IF NOT EXISTS ""GetDiscountPercent"" numeric DEFAULT 100;
+                ALTER TABLE discounts ADD COLUMN IF NOT EXISTS ""ApplicableCategory"" text DEFAULT 'all';
+                ALTER TABLE discounts ADD COLUMN IF NOT EXISTS ""ApplicableProductId"" text;
+                ALTER TABLE discounts ADD COLUMN IF NOT EXISTS ""TierPricingJson"" text DEFAULT '[]';
+                ALTER TABLE discounts ADD COLUMN IF NOT EXISTS ""UsageCount"" integer NOT NULL DEFAULT 0;
+                ALTER TABLE discounts ADD COLUMN IF NOT EXISTS ""IsActive"" boolean NOT NULL DEFAULT true;
+                ALTER TABLE discounts ADD COLUMN IF NOT EXISTS ""StartsAt"" text;
+                ALTER TABLE discounts ADD COLUMN IF NOT EXISTS ""EndsAt"" text;
             ");
             logger.LogInformation("Database tables and multi-tenant schema partitions verified successfully.");
         }

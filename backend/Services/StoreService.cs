@@ -144,14 +144,73 @@ public class StoreService
                 _db.SaveChanges();
             }
 
-            // 4. Ensure Discounts seeded (bypassing query filter for seed verification)
-            if (!_db.Discounts.IgnoreQueryFilters().Any())
+            // 4. Ensure Discounts & Advanced Promotional Rules seeded
+            if (!_db.Discounts.IgnoreQueryFilters().Any(d => d.Code == "BOGO21"))
             {
-                _db.Discounts.AddRange(
-                    new DbDiscount { Id = "disc_1", StoreId = "store_apex", Code = "WELCOME20", Type = "percentage", Value = 20, Description = "20% off all orders" },
-                    new DbDiscount { Id = "disc_2", StoreId = "store_apex", Code = "FREESHIP", Type = "shipping", Value = 100, Description = "Free Express Shipping" },
-                    new DbDiscount { Id = "disc_3", StoreId = "store_aura", Code = "AURA10", Type = "percentage", Value = 10, Description = "10% off Audio Gear" }
-                );
+                var promoList = new List<DbDiscount>
+                {
+                    new DbDiscount { Id = "disc_1", StoreId = "store_apex", Code = "WELCOME20", Type = "percentage", Value = 20, Description = "20% off all orders", RuleType = "percentage", IsActive = true },
+                    new DbDiscount { Id = "disc_2", StoreId = "store_apex", Code = "FREESHIP", Type = "shipping", Value = 100, Description = "Free Express Shipping on orders", RuleType = "shipping", IsActive = true },
+                    new DbDiscount { Id = "disc_3", StoreId = "store_aura", Code = "AURA10", Type = "percentage", Value = 10, Description = "10% off Audio Gear", RuleType = "percentage", IsActive = true },
+                    new DbDiscount
+                    {
+                        Id = "disc_bogo_1",
+                        StoreId = "store_apex",
+                        Code = "BOGO21",
+                        Type = "bogo",
+                        RuleType = "bogo",
+                        BuyQuantity = 2,
+                        GetQuantity = 1,
+                        GetDiscountPercent = 100,
+                        ApplicableCategory = "Apparel",
+                        Description = "Buy 2 T-Shirts, Get 1 Free (BOGO)",
+                        IsActive = true
+                    },
+                    new DbDiscount
+                    {
+                        Id = "disc_thresh_1",
+                        StoreId = "store_apex",
+                        Code = "FLAT500",
+                        Type = "fixed",
+                        RuleType = "threshold",
+                        Value = 500,
+                        MinSubtotal = 2999,
+                        Description = "Get ₹500 off on orders above ₹2,999",
+                        IsActive = true
+                    },
+                    new DbDiscount
+                    {
+                        Id = "disc_auto_1",
+                        StoreId = "store_apex",
+                        Code = "AUTOFIT",
+                        Type = "percentage",
+                        RuleType = "threshold",
+                        Value = 10,
+                        MinSubtotal = 1999,
+                        IsAutoApplied = true,
+                        Description = "Auto 10% Off Orders over ₹1,999",
+                        IsActive = true
+                    },
+                    new DbDiscount
+                    {
+                        Id = "disc_tier_1",
+                        StoreId = "store_apex",
+                        Code = "VOLUMETIER",
+                        Type = "percentage",
+                        RuleType = "volume_tier",
+                        TierPricingJson = "[{\"minQty\":2,\"discountPercent\":10,\"label\":\"Buy 2 Save 10%\"},{\"minQty\":3,\"discountPercent\":15,\"label\":\"Buy 3+ Save 15%\"}]",
+                        Description = "Buy 2 Save 10%, Buy 3+ Save 15% Volume Tier",
+                        IsActive = true
+                    }
+                };
+
+                foreach (var p in promoList)
+                {
+                    if (!_db.Discounts.IgnoreQueryFilters().Any(d => d.Code == p.Code))
+                    {
+                        _db.Discounts.Add(p);
+                    }
+                }
                 _db.SaveChanges();
             }
 
@@ -1159,7 +1218,19 @@ public class StoreService
             Type = d.Type,
             Value = d.Value,
             MinSubtotal = d.MinSubtotal,
-            Description = d.Description
+            Description = d.Description,
+            RuleType = d.RuleType,
+            IsAutoApplied = d.IsAutoApplied,
+            BuyQuantity = d.BuyQuantity,
+            GetQuantity = d.GetQuantity,
+            GetDiscountPercent = d.GetDiscountPercent,
+            ApplicableCategory = d.ApplicableCategory,
+            ApplicableProductId = d.ApplicableProductId,
+            TierPricingJson = d.TierPricingJson,
+            UsageCount = d.UsageCount,
+            IsActive = d.IsActive,
+            StartsAt = d.StartsAt,
+            EndsAt = d.EndsAt
         }).ToList();
     }
 
@@ -1182,10 +1253,80 @@ public class StoreService
             Type = discount.Type,
             Value = discount.Value,
             MinSubtotal = discount.MinSubtotal,
-            Description = discount.Description
+            Description = discount.Description,
+            RuleType = discount.RuleType ?? "percentage",
+            IsAutoApplied = discount.IsAutoApplied,
+            BuyQuantity = discount.BuyQuantity,
+            GetQuantity = discount.GetQuantity,
+            GetDiscountPercent = discount.GetDiscountPercent ?? 100m,
+            ApplicableCategory = discount.ApplicableCategory ?? "all",
+            ApplicableProductId = discount.ApplicableProductId,
+            TierPricingJson = discount.TierPricingJson ?? "[]",
+            UsageCount = discount.UsageCount,
+            IsActive = discount.IsActive,
+            StartsAt = discount.StartsAt,
+            EndsAt = discount.EndsAt
         });
         _db.SaveChanges();
         return discount;
+    }
+
+    public Discount? UpdateDiscount(string id, Discount updated)
+    {
+        var existing = _db.Discounts.FirstOrDefault(d => d.Id == id);
+        if (existing == null) return null;
+
+        if (!string.IsNullOrWhiteSpace(updated.Code)) existing.Code = updated.Code;
+        if (!string.IsNullOrWhiteSpace(updated.Type)) existing.Type = updated.Type;
+        existing.Value = updated.Value;
+        existing.MinSubtotal = updated.MinSubtotal;
+        if (!string.IsNullOrWhiteSpace(updated.Description)) existing.Description = updated.Description;
+        if (!string.IsNullOrWhiteSpace(updated.RuleType)) existing.RuleType = updated.RuleType;
+        existing.IsAutoApplied = updated.IsAutoApplied;
+        existing.BuyQuantity = updated.BuyQuantity;
+        existing.GetQuantity = updated.GetQuantity;
+        if (updated.GetDiscountPercent.HasValue) existing.GetDiscountPercent = updated.GetDiscountPercent.Value;
+        if (!string.IsNullOrWhiteSpace(updated.ApplicableCategory)) existing.ApplicableCategory = updated.ApplicableCategory;
+        existing.ApplicableProductId = updated.ApplicableProductId;
+        if (!string.IsNullOrWhiteSpace(updated.TierPricingJson)) existing.TierPricingJson = updated.TierPricingJson;
+        existing.UsageCount = updated.UsageCount;
+        existing.IsActive = updated.IsActive;
+        existing.StartsAt = updated.StartsAt;
+        existing.EndsAt = updated.EndsAt;
+
+        _db.SaveChanges();
+
+        return new Discount
+        {
+            Id = existing.Id,
+            StoreId = existing.StoreId,
+            Code = existing.Code,
+            Type = existing.Type,
+            Value = existing.Value,
+            MinSubtotal = existing.MinSubtotal,
+            Description = existing.Description,
+            RuleType = existing.RuleType,
+            IsAutoApplied = existing.IsAutoApplied,
+            BuyQuantity = existing.BuyQuantity,
+            GetQuantity = existing.GetQuantity,
+            GetDiscountPercent = existing.GetDiscountPercent,
+            ApplicableCategory = existing.ApplicableCategory,
+            ApplicableProductId = existing.ApplicableProductId,
+            TierPricingJson = existing.TierPricingJson,
+            UsageCount = existing.UsageCount,
+            IsActive = existing.IsActive,
+            StartsAt = existing.StartsAt,
+            EndsAt = existing.EndsAt
+        };
+    }
+
+    public bool DeleteDiscount(string id)
+    {
+        var existing = _db.Discounts.FirstOrDefault(d => d.Id == id);
+        if (existing == null) return false;
+        _db.Discounts.Remove(existing);
+        _db.SaveChanges();
+        return true;
     }
 
     public List<ProductReview> GetReviews(string? storeId = null, string? productId = null)
@@ -1466,37 +1607,133 @@ public class StoreService
 
         response.Subtotal = subtotal;
 
-        // Server-Side Coupon / Discount Validation
+        // Calculate Volume Tier Savings across line items
+        decimal volumeSavings = 0m;
+        foreach (var lineItem in response.Items)
+        {
+            if (lineItem.Quantity >= 3)
+            {
+                volumeSavings += Math.Round(lineItem.UnitPrice * lineItem.Quantity * 0.15m, 2);
+            }
+            else if (lineItem.Quantity == 2)
+            {
+                volumeSavings += Math.Round(lineItem.UnitPrice * lineItem.Quantity * 0.10m, 2);
+            }
+        }
+        response.VolumeSavings = volumeSavings;
+
+        // Server-Side Coupon / Promotional Engine Validation
         decimal discountAmount = 0m;
+        decimal bogoSavings = 0m;
         bool isFreeShippingDiscount = false;
+
+        DbDiscount? discountToApply = null;
+        bool isAutoApplied = false;
 
         if (!string.IsNullOrWhiteSpace(req.DiscountCode))
         {
             var cleanCode = req.DiscountCode.Trim().ToUpperInvariant();
-            var discount = _db.Discounts.FirstOrDefault(d => d.StoreId == tenantId && d.Code.ToUpper() == cleanCode);
+            discountToApply = _db.Discounts.FirstOrDefault(d => d.StoreId == tenantId && d.Code.ToUpper() == cleanCode && d.IsActive);
 
-            if (discount == null)
+            if (discountToApply == null)
             {
                 response.Errors.Add($"Discount code '{req.DiscountCode}' is invalid or expired.");
             }
-            else if (subtotal < discount.MinSubtotal)
+        }
+        else
+        {
+            // Evaluate Auto-Applied Promotions
+            var autoPromos = _db.Discounts
+                .Where(d => d.StoreId == tenantId && d.IsActive && d.IsAutoApplied)
+                .ToList();
+
+            foreach (var auto in autoPromos)
             {
-                response.Errors.Add($"Promo code '{discount.Code}' requires a minimum subtotal of {response.CurrencySymbol}{discount.MinSubtotal:N2}.");
+                if (auto.RuleType == "threshold" && subtotal >= auto.MinSubtotal)
+                {
+                    discountToApply = auto;
+                    isAutoApplied = true;
+                    break;
+                }
+                else if (auto.RuleType == "bogo")
+                {
+                    int totalUnits = response.Items.Sum(i => i.Quantity);
+                    int buyQ = auto.BuyQuantity ?? 2;
+                    int getQ = auto.GetQuantity ?? 1;
+                    if (totalUnits >= (buyQ + getQ))
+                    {
+                        discountToApply = auto;
+                        isAutoApplied = true;
+                        break;
+                    }
+                }
+            }
+        }
+
+        if (discountToApply != null)
+        {
+            if (discountToApply.RuleType == "bogo" || discountToApply.Type.Equals("bogo", StringComparison.OrdinalIgnoreCase))
+            {
+                int buyQ = discountToApply.BuyQuantity ?? 2;
+                int getQ = discountToApply.GetQuantity ?? 1;
+                decimal discountPct = (discountToApply.GetDiscountPercent ?? 100m) / 100m;
+
+                // Expand line items to individual units sorted by unit price ascending (cheapest free)
+                var unitPrices = new List<decimal>();
+                foreach (var li in response.Items)
+                {
+                    for (int u = 0; u < li.Quantity; u++)
+                    {
+                        unitPrices.Add(li.UnitPrice);
+                    }
+                }
+                unitPrices.Sort();
+
+                int freeCount = (unitPrices.Count / (buyQ + getQ)) * getQ;
+                if (freeCount > 0)
+                {
+                    for (int i = 0; i < Math.Min(freeCount, unitPrices.Count); i++)
+                    {
+                        bogoSavings += Math.Round(unitPrices[i] * discountPct, 2);
+                    }
+                    discountAmount = bogoSavings;
+                    response.BogoSavings = bogoSavings;
+                    response.DiscountCode = discountToApply.Code;
+                    response.DiscountDescription = isAutoApplied ? $"[Auto-Applied] {discountToApply.Description}" : discountToApply.Description;
+                    response.IsAutoApplied = isAutoApplied;
+                    response.RuleType = "bogo";
+                }
+                else
+                {
+                    if (!isAutoApplied)
+                    {
+                        response.Errors.Add($"BOGO promo '{discountToApply.Code}' requires at least {buyQ + getQ} qualifying items in cart.");
+                    }
+                }
+            }
+            else if (subtotal < discountToApply.MinSubtotal)
+            {
+                if (!isAutoApplied)
+                {
+                    response.Errors.Add($"Promo code '{discountToApply.Code}' requires a minimum subtotal of {response.CurrencySymbol}{discountToApply.MinSubtotal:N2}.");
+                }
             }
             else
             {
-                response.DiscountCode = discount.Code;
-                response.DiscountDescription = discount.Description;
+                response.DiscountCode = discountToApply.Code;
+                response.DiscountDescription = isAutoApplied ? $"[Auto-Applied] {discountToApply.Description}" : discountToApply.Description;
+                response.IsAutoApplied = isAutoApplied;
+                response.RuleType = discountToApply.RuleType;
 
-                if (discount.Type.Equals("percentage", StringComparison.OrdinalIgnoreCase))
+                if (discountToApply.Type.Equals("percentage", StringComparison.OrdinalIgnoreCase) || discountToApply.RuleType == "percentage")
                 {
-                    discountAmount = Math.Round(subtotal * (discount.Value / 100m), 2);
+                    discountAmount = Math.Round(subtotal * (discountToApply.Value / 100m), 2);
                 }
-                else if (discount.Type.Equals("fixed", StringComparison.OrdinalIgnoreCase))
+                else if (discountToApply.Type.Equals("fixed", StringComparison.OrdinalIgnoreCase) || discountToApply.RuleType == "threshold" || discountToApply.RuleType == "fixed")
                 {
-                    discountAmount = Math.Min(discount.Value, subtotal);
+                    discountAmount = Math.Min(discountToApply.Value, subtotal);
                 }
-                else if (discount.Type.Equals("shipping", StringComparison.OrdinalIgnoreCase))
+                else if (discountToApply.Type.Equals("shipping", StringComparison.OrdinalIgnoreCase))
                 {
                     isFreeShippingDiscount = true;
                 }

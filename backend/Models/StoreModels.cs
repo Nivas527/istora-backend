@@ -423,7 +423,7 @@ public class Discount
     public string Code { get; set; } = string.Empty;
 
     [JsonPropertyName("type")]
-    public string Type { get; set; } = "percentage"; // percentage | fixed | shipping
+    public string Type { get; set; } = "percentage"; // percentage | fixed | shipping | bogo | threshold
 
     [JsonPropertyName("value")]
     public decimal Value { get; set; }
@@ -433,6 +433,42 @@ public class Discount
 
     [JsonPropertyName("description")]
     public string Description { get; set; } = string.Empty;
+
+    [JsonPropertyName("ruleType")]
+    public string RuleType { get; set; } = "percentage"; // percentage | fixed | shipping | bogo | threshold | volume_tier
+
+    [JsonPropertyName("isAutoApplied")]
+    public bool IsAutoApplied { get; set; } = false;
+
+    [JsonPropertyName("buyQuantity")]
+    public int? BuyQuantity { get; set; }
+
+    [JsonPropertyName("getQuantity")]
+    public int? GetQuantity { get; set; }
+
+    [JsonPropertyName("getDiscountPercent")]
+    public decimal? GetDiscountPercent { get; set; } = 100m;
+
+    [JsonPropertyName("applicableCategory")]
+    public string? ApplicableCategory { get; set; } = "all";
+
+    [JsonPropertyName("applicableProductId")]
+    public string? ApplicableProductId { get; set; }
+
+    [JsonPropertyName("tierPricingJson")]
+    public string? TierPricingJson { get; set; } = "[]";
+
+    [JsonPropertyName("usageCount")]
+    public int UsageCount { get; set; } = 0;
+
+    [JsonPropertyName("isActive")]
+    public bool IsActive { get; set; } = true;
+
+    [JsonPropertyName("startsAt")]
+    public string? StartsAt { get; set; }
+
+    [JsonPropertyName("endsAt")]
+    public string? EndsAt { get; set; }
 }
 
 public class ProductReview
@@ -854,6 +890,18 @@ public class ValidatedOrderResponse
 
     [JsonPropertyName("discountDescription")]
     public string? DiscountDescription { get; set; }
+
+    [JsonPropertyName("isAutoApplied")]
+    public bool IsAutoApplied { get; set; } = false;
+
+    [JsonPropertyName("ruleType")]
+    public string RuleType { get; set; } = "percentage";
+
+    [JsonPropertyName("volumeSavings")]
+    public decimal VolumeSavings { get; set; } = 0m;
+
+    [JsonPropertyName("bogoSavings")]
+    public decimal BogoSavings { get; set; } = 0m;
 
     [JsonPropertyName("taxAmount")]
     public decimal TaxAmount { get; set; }
