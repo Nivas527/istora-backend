@@ -10,11 +10,11 @@
         "projectUniqueName": "/Users/nivas/.gemini/antigravity/scratch/shopify-engine/backend/ShopifyEngine.Api.csproj",
         "projectName": "ShopifyEngine.Api",
         "projectPath": "/Users/nivas/.gemini/antigravity/scratch/shopify-engine/backend/ShopifyEngine.Api.csproj",
-        "packagesPath": "/Users/nivas/.nuget/packages/",
+        "packagesPath": "/tmp/.nuget/packages/",
         "outputPath": "/Users/nivas/.gemini/antigravity/scratch/shopify-engine/backend/obj/",
         "projectStyle": "PackageReference",
         "configFilePaths": [
-          "/Users/nivas/.nuget/NuGet/NuGet.Config"
+          "/tmp/.nuget/NuGet/NuGet.Config"
         ],
         "originalTargetFrameworks": [
           "net10.0"

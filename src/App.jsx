@@ -1,6 +1,9 @@
 import React, { useState, useRef } from 'react';
 import { StoreProvider, useStore } from './context/StoreContext';
 import { FitProvider, useFit } from './context/FitContext';
+import { CustomerAuthProvider } from './context/CustomerAuthContext';
+import CustomerAuthModal from './components/customer/CustomerAuthModal';
+import ShopperPortalModal from './components/customer/ShopperPortalModal';
 import { Sparkles } from 'lucide-react';
 import ShopperFitScanModal from './components/fit/ShopperFitScanModal';
 import LauncherHub from './components/hub/LauncherHub';
@@ -338,6 +341,17 @@ function MainApp() {
 
       {/* Zero-Friction Shopper Body Scan Modal */}
       <ShopperFitScanModal />
+
+      {/* Customer Account Authentication Modal */}
+      <CustomerAuthModal />
+
+      {/* Shopper Dashboard Portal Modal */}
+      <ShopperPortalModal
+        onTrackOrder={(ordNum) => {
+          setTrackingOrderNumber(ordNum);
+          setIsTrackingModalOpen(true);
+        }}
+      />
     </>
   );
 }
@@ -345,9 +359,11 @@ function MainApp() {
 export default function App() {
   return (
     <StoreProvider>
-      <FitProvider>
-        <MainApp />
-      </FitProvider>
+      <CustomerAuthProvider>
+        <FitProvider>
+          <MainApp />
+        </FitProvider>
+      </CustomerAuthProvider>
     </StoreProvider>
   );
 }

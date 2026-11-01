@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useStore } from '../../context/StoreContext';
+import { useCustomerAuth } from '../../context/CustomerAuthContext';
 import { apiClient } from '../../services/apiClient';
 import {
   Lock,
@@ -33,6 +34,19 @@ export default function CheckoutPage({ onBackToStore, onOrderPlaced }) {
     removeDiscount
   } = useStore();
 
+  const {
+    customer,
+    isAuthenticated,
+    openAuthModal,
+    savedAddresses,
+    defaultAddress,
+    linkPlacedOrder,
+    addAddress
+  } = useCustomerAuth();
+
+  const [saveAddressToAccount, setSaveAddressToAccount] = useState(false);
+  const [selectedAddressId, setSelectedAddressId] = useState(null);
+
   // Form State
   const [formData, setFormData] = useState({
     email: 'alex.rivera@example.com',
@@ -52,6 +66,37 @@ export default function CheckoutPage({ onBackToStore, onOrderPlaced }) {
     cardCvc: '888',
     cardName: 'Alex Rivera'
   });
+
+  // Auto-populate when authenticated customer is present
+  useEffect(() => {
+    if (customer) {
+      const def = savedAddresses.find((a) => a.isDefault) || savedAddresses[0];
+      setFormData((prev) => ({
+        ...prev,
+        email: customer.email || prev.email,
+        firstName: def?.firstName || customer.name?.split(' ')[0] || prev.firstName,
+        lastName: def?.lastName || customer.name?.split(' ').slice(1).join(' ') || prev.lastName,
+        address: def?.address || prev.address,
+        city: def?.city || prev.city,
+        state: def?.state || prev.state,
+        zip: def?.zip || prev.zip
+      }));
+      if (def) setSelectedAddressId(def.id);
+    }
+  }, [customer]);
+
+  const handleSelectAddress = (addr) => {
+    setSelectedAddressId(addr.id);
+    setFormData((prev) => ({
+      ...prev,
+      firstName: addr.firstName,
+      lastName: addr.lastName,
+      address: addr.address,
+      city: addr.city,
+      state: addr.state,
+      zip: addr.zip
+    }));
+  };
 
   const [couponInput, setCouponInput] = useState('');
   const [couponError, setCouponError] = useState('');
@@ -149,6 +194,26 @@ export default function CheckoutPage({ onBackToStore, onOrderPlaced }) {
     });
 
     setIsProcessing(false);
+
+    // Link order to customer account & optionally save new address
+    try {
+      if (linkPlacedOrder && createdOrder) {
+        linkPlacedOrder(createdOrder);
+      }
+      if (isAuthenticated && saveAddressToAccount) {
+        addAddress({
+          label: 'Home',
+          firstName: formData.firstName,
+          lastName: formData.lastName,
+          address: formData.address,
+          city: formData.city,
+          state: formData.state,
+          zip: formData.zip,
+          phone: customer?.phone || '+91 98765 43210'
+        }).catch(() => null);
+      }
+    } catch (_) {}
+
     onOrderPlaced(createdOrder);
   };
 
@@ -395,7 +460,20 @@ export default function CheckoutPage({ onBackToStore, onOrderPlaced }) {
             <div>
               <h3 className="text-sm font-bold text-zinc-900 mb-3 flex items-center justify-between">
                 <span>1. Contact Information</span>
-                <span className="text-xs font-normal text-zinc-500">Already have an account? Sign in</span>
+                {isAuthenticated && customer ? (
+                  <span className="text-xs font-semibold text-emerald-600 flex items-center gap-1">
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                    <span>Signed in as {customer.name}</span>
+                  </span>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => openAuthModal('signin')}
+                    className="text-xs font-semibold text-emerald-600 hover:text-emerald-700 underline cursor-pointer"
+                  >
+                    Already have an account? Sign in
+                  </button>
+                )}
               </h3>
               <div>
                 <input
@@ -416,9 +494,51 @@ export default function CheckoutPage({ onBackToStore, onOrderPlaced }) {
 
             {/* 2. Shipping Address */}
             <div>
-              <h3 className="text-sm font-bold text-zinc-900 mb-3">
-                2. Shipping Address
-              </h3>
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-sm font-bold text-zinc-900">
+                  2. Shipping Address
+                </h3>
+                {isAuthenticated && savedAddresses.length > 0 && (
+                  <span className="text-[11px] font-semibold text-emerald-600">
+                    ⚡ {savedAddresses.length} saved address{savedAddresses.length > 1 ? 'es' : ''} available
+                  </span>
+                )}
+              </div>
+
+              {/* Saved Address Chips for Sub-Second Checkout */}
+              {isAuthenticated && savedAddresses.length > 0 && (
+                <div className="mb-3.5 p-3 rounded-xl bg-emerald-50/50 border border-emerald-200/80">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs font-bold text-emerald-900 flex items-center gap-1.5">
+                      <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
+                      <span>Deliver to Saved Address (1-Click Switch):</span>
+                    </span>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {savedAddresses.map((addr) => (
+                      <button
+                        key={addr.id}
+                        type="button"
+                        onClick={() => handleSelectAddress(addr)}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-medium border text-left transition-all cursor-pointer ${
+                          selectedAddressId === addr.id
+                            ? 'border-emerald-600 bg-white text-emerald-800 font-bold shadow-xs ring-2 ring-emerald-500/20'
+                            : 'border-zinc-200 bg-white hover:bg-zinc-50 text-zinc-700'
+                        }`}
+                      >
+                        <span className="mr-1">{addr.label === 'Office' ? '🏢' : '🏠'} <strong>{addr.label}</strong>:</span>
+                        <span>{addr.address.slice(0, 24)}...</span>
+                        {addr.isDefault && (
+                          <span className="ml-1.5 text-[10px] bg-emerald-100 text-emerald-800 px-1 py-0.2 rounded font-bold">
+                            Default
+                          </span>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               <div className="grid grid-cols-2 gap-3">
                 <input
                   required
@@ -476,6 +596,18 @@ export default function CheckoutPage({ onBackToStore, onOrderPlaced }) {
                     className="px-3.5 py-2.5 border border-zinc-300 rounded-lg text-xs text-zinc-900 focus:outline-none focus:ring-2 focus:ring-[#008060]"
                   />
                 </div>
+
+                {isAuthenticated && (
+                  <label className="col-span-2 mt-1 flex items-center gap-2 text-xs text-zinc-600 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={saveAddressToAccount}
+                      onChange={(e) => setSaveAddressToAccount(e.target.checked)}
+                      className="rounded text-[#008060] focus:ring-[#008060]"
+                    />
+                    <span>Save this address to my account for sub-second checkout next time</span>
+                  </label>
+                )}
               </div>
             </div>
 

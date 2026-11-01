@@ -332,11 +332,20 @@ public class Customer
     [JsonPropertyName("phone")]
     public string? Phone { get; set; }
 
+    [JsonPropertyName("avatar")]
+    public string? Avatar { get; set; }
+
+    [JsonPropertyName("authProvider")]
+    public string AuthProvider { get; set; } = "email";
+
     [JsonPropertyName("ordersCount")]
     public int OrdersCount { get; set; }
 
     [JsonPropertyName("totalSpent")]
     public decimal TotalSpent { get; set; }
+
+    [JsonPropertyName("addresses")]
+    public List<SavedAddress> Addresses { get; set; } = new();
 
     [JsonPropertyName("createdAt")]
     public string CreatedAt { get; set; } = DateTime.UtcNow.ToString("o");
@@ -888,4 +897,167 @@ public class MerchantAuthResponse
     [JsonPropertyName("email")]
     public string Email { get; set; } = string.Empty;
 }
+
+// ==========================================
+// CUSTOMER & SHOPPER PORTAL DTOs
+// ==========================================
+public class SavedAddress
+{
+    [JsonPropertyName("id")]
+    public string Id { get; set; } = string.Empty;
+
+    [JsonPropertyName("label")]
+    public string Label { get; set; } = "Home"; // Home | Office | Other
+
+    [JsonPropertyName("firstName")]
+    public string FirstName { get; set; } = string.Empty;
+
+    [JsonPropertyName("lastName")]
+    public string LastName { get; set; } = string.Empty;
+
+    [JsonPropertyName("address")]
+    public string Address { get; set; } = string.Empty;
+
+    [JsonPropertyName("city")]
+    public string City { get; set; } = string.Empty;
+
+    [JsonPropertyName("state")]
+    public string State { get; set; } = string.Empty;
+
+    [JsonPropertyName("zip")]
+    public string Zip { get; set; } = string.Empty;
+
+    [JsonPropertyName("phone")]
+    public string Phone { get; set; } = string.Empty;
+
+    [JsonPropertyName("isDefault")]
+    public bool IsDefault { get; set; } = false;
+}
+
+public class CustomerProfile
+{
+    [JsonPropertyName("id")]
+    public string Id { get; set; } = string.Empty;
+
+    [JsonPropertyName("storeId")]
+    public string StoreId { get; set; } = "store_apex";
+
+    [JsonPropertyName("name")]
+    public string Name { get; set; } = string.Empty;
+
+    [JsonPropertyName("email")]
+    public string Email { get; set; } = string.Empty;
+
+    [JsonPropertyName("phone")]
+    public string? Phone { get; set; }
+
+    [JsonPropertyName("avatar")]
+    public string? Avatar { get; set; }
+
+    [JsonPropertyName("authProvider")]
+    public string AuthProvider { get; set; } = "email"; // email | google | otp
+
+    [JsonPropertyName("ordersCount")]
+    public int OrdersCount { get; set; }
+
+    [JsonPropertyName("totalSpent")]
+    public decimal TotalSpent { get; set; }
+
+    [JsonPropertyName("addresses")]
+    public List<SavedAddress> Addresses { get; set; } = new();
+
+    [JsonPropertyName("createdAt")]
+    public string CreatedAt { get; set; } = DateTime.UtcNow.ToString("o");
+}
+
+public class CustomerRegisterRequest
+{
+    [JsonPropertyName("storeId")]
+    public string? StoreId { get; set; }
+
+    [JsonPropertyName("name")]
+    public string Name { get; set; } = string.Empty;
+
+    [JsonPropertyName("email")]
+    public string Email { get; set; } = string.Empty;
+
+    [JsonPropertyName("password")]
+    public string Password { get; set; } = string.Empty;
+
+    [JsonPropertyName("phone")]
+    public string? Phone { get; set; }
+}
+
+public class CustomerLoginRequest
+{
+    [JsonPropertyName("storeId")]
+    public string? StoreId { get; set; }
+
+    [JsonPropertyName("email")]
+    public string Email { get; set; } = string.Empty;
+
+    [JsonPropertyName("password")]
+    public string Password { get; set; } = string.Empty;
+}
+
+public class CustomerOtpRequest
+{
+    [JsonPropertyName("storeId")]
+    public string? StoreId { get; set; }
+
+    [JsonPropertyName("phone")]
+    public string Phone { get; set; } = string.Empty;
+
+    [JsonPropertyName("channel")]
+    public string Channel { get; set; } = "sms"; // sms | whatsapp
+}
+
+public class CustomerOtpVerifyRequest
+{
+    [JsonPropertyName("storeId")]
+    public string? StoreId { get; set; }
+
+    [JsonPropertyName("phone")]
+    public string Phone { get; set; } = string.Empty;
+
+    [JsonPropertyName("otp")]
+    public string Otp { get; set; } = string.Empty;
+
+    [JsonPropertyName("name")]
+    public string? Name { get; set; }
+}
+
+public class CustomerGoogleAuthRequest
+{
+    [JsonPropertyName("storeId")]
+    public string? StoreId { get; set; }
+
+    [JsonPropertyName("email")]
+    public string Email { get; set; } = string.Empty;
+
+    [JsonPropertyName("name")]
+    public string Name { get; set; } = string.Empty;
+
+    [JsonPropertyName("avatar")]
+    public string? Avatar { get; set; }
+
+    [JsonPropertyName("googleId")]
+    public string? GoogleId { get; set; }
+}
+
+public class CustomerAuthResponse
+{
+    [JsonPropertyName("success")]
+    public bool Success { get; set; } = true;
+
+    [JsonPropertyName("message")]
+    public string Message { get; set; } = string.Empty;
+
+    [JsonPropertyName("token")]
+    public string Token { get; set; } = string.Empty;
+
+    [JsonPropertyName("customer")]
+    public CustomerProfile? Customer { get; set; }
+}
+
 

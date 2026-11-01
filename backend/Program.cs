@@ -49,6 +49,7 @@ app.MapStoreEndpoints()
    .MapUploadEndpoints()
    .MapFitEndpoints()
    .MapAuthEndpoints()
+   .MapCustomerEndpoints()
    .MapHealthEndpoints();
 
 // 8. Startup Telemetry Banner

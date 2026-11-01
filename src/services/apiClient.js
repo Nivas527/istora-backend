@@ -577,5 +577,189 @@ export const apiClient = {
       console.warn('[C# API] getDeploymentById fallback:', err.message);
       return null;
     }
+  },
+
+  // ==========================================
+  // 6. CUSTOMER & SHOPPER PORTAL APIS
+  // ==========================================
+  async customerRegister(payload, storeId = null) {
+    try {
+      const headers = getHeaders({ 'Content-Type': 'application/json' }, storeId);
+      const res = await fetch(getUrl('/api/customer/auth/register'), {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || `HTTP ${res.status}`);
+      return data;
+    } catch (err) {
+      console.error('[C# API] customerRegister error:', err);
+      throw err;
+    }
+  },
+
+  async customerLogin(payload, storeId = null) {
+    try {
+      const headers = getHeaders({ 'Content-Type': 'application/json' }, storeId);
+      const res = await fetch(getUrl('/api/customer/auth/login'), {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || `HTTP ${res.status}`);
+      return data;
+    } catch (err) {
+      console.error('[C# API] customerLogin error:', err);
+      throw err;
+    }
+  },
+
+  async customerSendOtp(payload, storeId = null) {
+    try {
+      const headers = getHeaders({ 'Content-Type': 'application/json' }, storeId);
+      const res = await fetch(getUrl('/api/customer/auth/send-otp'), {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || `HTTP ${res.status}`);
+      return data;
+    } catch (err) {
+      console.error('[C# API] customerSendOtp error:', err);
+      throw err;
+    }
+  },
+
+  async customerVerifyOtp(payload, storeId = null) {
+    try {
+      const headers = getHeaders({ 'Content-Type': 'application/json' }, storeId);
+      const res = await fetch(getUrl('/api/customer/auth/verify-otp'), {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || `HTTP ${res.status}`);
+      return data;
+    } catch (err) {
+      console.error('[C# API] customerVerifyOtp error:', err);
+      throw err;
+    }
+  },
+
+  async customerGoogleAuth(payload, storeId = null) {
+    try {
+      const headers = getHeaders({ 'Content-Type': 'application/json' }, storeId);
+      const res = await fetch(getUrl('/api/customer/auth/google'), {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || `HTTP ${res.status}`);
+      return data;
+    } catch (err) {
+      console.error('[C# API] customerGoogleAuth error:', err);
+      throw err;
+    }
+  },
+
+  async getCustomerProfile({ email, customerId, storeId = null }) {
+    try {
+      const headers = getHeaders({}, storeId);
+      const params = new URLSearchParams();
+      if (email) params.append('email', email);
+      if (customerId) params.append('customerId', customerId);
+      if (storeId) params.append('storeId', storeId);
+
+      const res = await fetch(getUrl(`/api/customer/me?${params.toString()}`), { headers });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return await res.json();
+    } catch (err) {
+      console.warn('[C# API] getCustomerProfile fallback:', err.message);
+      return null;
+    }
+  },
+
+  async getCustomerOrders({ email, customerId, storeId = null }) {
+    try {
+      const headers = getHeaders({}, storeId);
+      const params = new URLSearchParams();
+      if (email) params.append('email', email);
+      if (customerId) params.append('customerId', customerId);
+      if (storeId) params.append('storeId', storeId);
+
+      const res = await fetch(getUrl(`/api/customer/orders?${params.toString()}`), { headers });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return await res.json();
+    } catch (err) {
+      console.warn('[C# API] getCustomerOrders fallback:', err.message);
+      return [];
+    }
+  },
+
+  async addCustomerAddress({ address, customerId, email, storeId = null }) {
+    try {
+      const headers = getHeaders({ 'Content-Type': 'application/json' }, storeId);
+      const params = new URLSearchParams();
+      if (customerId) params.append('customerId', customerId);
+      if (email) params.append('email', email);
+      if (storeId) params.append('storeId', storeId);
+
+      const res = await fetch(getUrl(`/api/customer/addresses?${params.toString()}`), {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(address)
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return await res.json();
+    } catch (err) {
+      console.warn('[C# API] addCustomerAddress fallback:', err.message);
+      return null;
+    }
+  },
+
+  async updateCustomerAddress({ id, address, customerId, email, storeId = null }) {
+    try {
+      const headers = getHeaders({ 'Content-Type': 'application/json' }, storeId);
+      const params = new URLSearchParams();
+      if (customerId) params.append('customerId', customerId);
+      if (email) params.append('email', email);
+      if (storeId) params.append('storeId', storeId);
+
+      const res = await fetch(getUrl(`/api/customer/addresses/${id}?${params.toString()}`), {
+        method: 'PUT',
+        headers,
+        body: JSON.stringify(address)
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return await res.json();
+    } catch (err) {
+      console.warn('[C# API] updateCustomerAddress fallback:', err.message);
+      return null;
+    }
+  },
+
+  async deleteCustomerAddress({ id, customerId, email, storeId = null }) {
+    try {
+      const headers = getHeaders({}, storeId);
+      const params = new URLSearchParams();
+      if (customerId) params.append('customerId', customerId);
+      if (email) params.append('email', email);
+      if (storeId) params.append('storeId', storeId);
+
+      const res = await fetch(getUrl(`/api/customer/addresses/${id}?${params.toString()}`), {
+        method: 'DELETE',
+        headers
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return await res.json();
+    } catch (err) {
+      console.warn('[C# API] deleteCustomerAddress fallback:', err.message);
+      return null;
+    }
   }
 };

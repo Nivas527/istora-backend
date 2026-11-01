@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useStore } from '../context/StoreContext';
 import { useFit } from '../context/FitContext';
+import { useCustomerAuth } from '../context/CustomerAuthContext';
 import GlobalHeader from './common/GlobalHeader';
 import StoreSelectorDropdown from './StoreSelectorDropdown';
 import {
@@ -9,7 +10,12 @@ import {
   Plus,
   Sliders,
   Truck,
-  Sparkles
+  Sparkles,
+  User,
+  Package,
+  MapPin,
+  LogOut,
+  ChevronDown
 } from 'lucide-react';
 
 export default function Navigation({ onSearchClick, onTrackClick }) {
@@ -23,6 +29,28 @@ export default function Navigation({ onSearchClick, onTrackClick }) {
     isDedicatedStore
   } = useStore();
   const { profile, openScanModal } = useFit();
+  const {
+    customer,
+    isAuthenticated,
+    openAuthModal,
+    openPortal,
+    logout,
+    customerOrders
+  } = useCustomerAuth();
+
+  const [isAccountMenuOpen, setIsAccountMenuOpen] = useState(false);
+  const accountMenuRef = useRef(null);
+
+  // Close dropdown on click outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (accountMenuRef.current && !accountMenuRef.current.contains(event.target)) {
+        setIsAccountMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const themeStyles = activeTheme?.styles || {};
   const isDark = themeStyles.isDark || false;
@@ -140,6 +168,117 @@ export default function Navigation({ onSearchClick, onTrackClick }) {
               <span className="font-bold">✨ Fit Check:</span>
               <span className="font-mono font-bold">{profile.chestCm}cm / {profile.waistCm}cm</span>
             </button>
+
+            {/* Customer Account & Shopper Portal Trigger */}
+            <div className="relative" ref={accountMenuRef}>
+              {isAuthenticated && customer ? (
+                <div>
+                  <button
+                    onClick={() => setIsAccountMenuOpen(!isAccountMenuOpen)}
+                    className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs font-semibold border transition-all cursor-pointer shadow-xs ${
+                      isDark
+                        ? 'bg-zinc-850 hover:bg-zinc-800 text-zinc-100 border-zinc-700'
+                        : 'bg-white hover:bg-zinc-50 text-zinc-800 border-zinc-200'
+                    }`}
+                    title="Shopper Account Menu"
+                  >
+                    {customer.avatar ? (
+                      <img
+                        src={customer.avatar}
+                        alt={customer.name}
+                        className="w-5 h-5 rounded-full object-cover ring-1 ring-emerald-500/40"
+                      />
+                    ) : (
+                      <div className="w-5 h-5 rounded-full bg-emerald-600 text-white text-[10px] font-bold flex items-center justify-center">
+                        {customer.name?.charAt(0)?.toUpperCase() || 'S'}
+                      </div>
+                    )}
+                    <span className="hidden lg:inline max-w-[100px] truncate">{customer.name.split(' ')[0]}</span>
+                    <ChevronDown className="w-3 h-3 text-zinc-400" />
+                  </button>
+
+                  {/* Dropdown Menu */}
+                  {isAccountMenuOpen && (
+                    <div className="absolute right-0 mt-1.5 w-56 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-xl py-1.5 z-50 text-xs animate-fade-in">
+                      {/* Customer Info Header */}
+                      <div className="px-3.5 py-2 border-b border-zinc-100 dark:border-zinc-800">
+                        <p className="font-bold text-zinc-900 dark:text-white truncate">
+                          {customer.name}
+                        </p>
+                        <p className="text-[11px] text-zinc-400 truncate">
+                          {customer.email}
+                        </p>
+                      </div>
+
+                      {/* Menu Items */}
+                      <button
+                        onClick={() => {
+                          setIsAccountMenuOpen(false);
+                          openPortal('orders');
+                        }}
+                        className="w-full text-left px-3.5 py-2 hover:bg-zinc-50 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-200 flex items-center justify-between cursor-pointer"
+                      >
+                        <span className="flex items-center gap-2">
+                          <Package className="w-3.5 h-3.5 text-emerald-500" />
+                          <span>My Orders</span>
+                        </span>
+                        <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-zinc-100 dark:bg-zinc-800 text-zinc-500 font-mono">
+                          {customerOrders.length}
+                        </span>
+                      </button>
+
+                      <button
+                        onClick={() => {
+                          setIsAccountMenuOpen(false);
+                          openPortal('addresses');
+                        }}
+                        className="w-full text-left px-3.5 py-2 hover:bg-zinc-50 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-200 flex items-center gap-2 cursor-pointer"
+                      >
+                        <MapPin className="w-3.5 h-3.5 text-blue-500" />
+                        <span>Saved Addresses</span>
+                      </button>
+
+                      <button
+                        onClick={() => {
+                          setIsAccountMenuOpen(false);
+                          openPortal('fit');
+                        }}
+                        className="w-full text-left px-3.5 py-2 hover:bg-zinc-50 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-200 flex items-center gap-2 cursor-pointer"
+                      >
+                        <Sparkles className="w-3.5 h-3.5 text-purple-500" />
+                        <span>My Fit Profile</span>
+                      </button>
+
+                      <div className="border-t border-zinc-100 dark:border-zinc-800 my-1" />
+
+                      <button
+                        onClick={() => {
+                          setIsAccountMenuOpen(false);
+                          logout();
+                        }}
+                        className="w-full text-left px-3.5 py-1.5 hover:bg-red-50 dark:hover:bg-red-950/30 text-red-600 dark:text-red-400 flex items-center gap-2 cursor-pointer"
+                      >
+                        <LogOut className="w-3.5 h-3.5" />
+                        <span>Sign Out</span>
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <button
+                  onClick={() => openAuthModal('signin')}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all cursor-pointer shadow-xs ${
+                    isDark
+                      ? 'bg-zinc-850 hover:bg-zinc-800 text-zinc-200 border-zinc-700 hover:text-white'
+                      : 'bg-white hover:bg-zinc-50 text-zinc-700 border-zinc-200 hover:text-zinc-950'
+                  }`}
+                  title="Sign In to Shopper Portal"
+                >
+                  <User className="w-3.5 h-3.5 text-emerald-600" />
+                  <span>Sign In</span>
+                </button>
+              )}
+            </div>
 
             {/* Cart Trigger Button */}
             <button
