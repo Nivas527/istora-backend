@@ -322,3 +322,4 @@ export default function WishlistDrawer({ onSelectProduct }) {
     </div>
   );
 }
+
