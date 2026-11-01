@@ -1209,5 +1209,19 @@ export const apiClient = {
       console.warn('[C# API] sendCarrierWebhook fallback:', err.message);
       return { success: true, payload };
     }
+  },
+
+  // Tax Reporting & Accounting (GSTR-1, Tally, Zoho Books)
+  async getGstr1Report(storeId = null, period = 'current_month') {
+    try {
+      const headers = getHeaders({}, storeId, true);
+      const targetStore = storeId || localStorage.getItem('active_store_id') || 'store_apex';
+      const res = await fetch(getUrl(`/api/reports/gstr1?storeId=${targetStore}&period=${encodeURIComponent(period)}`), { headers });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return await res.json();
+    } catch (err) {
+      console.warn('[C# API] getGstr1Report fallback:', err.message);
+      return null;
+    }
   }
 };

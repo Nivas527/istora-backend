@@ -38,6 +38,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<AbandonedCartService>();
         services.AddScoped<ReturnService>();
         services.AddScoped<ShippingService>();
+        services.AddScoped<TaxReportingService>();
 
         // 4. Register Singleton Engine Services
         services.AddSingleton<DeploymentService>();

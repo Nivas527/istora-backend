@@ -18,11 +18,13 @@ import {
   RotateCw,
   MapPin,
   ExternalLink,
-  ChevronRight
+  ChevronRight,
+  FileSpreadsheet
 } from 'lucide-react';
 import GstInvoiceModal from './GstInvoiceModal';
 import NotificationSettingsModal from './NotificationSettingsModal';
 import ShippingLabelModal from './ShippingLabelModal';
+import Gstr1ExportModal from './Gstr1ExportModal';
 import { downloadInvoicePdf } from '../../utils/invoicePdfUtils';
 import { apiClient } from '../../services/apiClient';
 
@@ -44,6 +46,9 @@ export default function OrdersView() {
   const [packageWeight, setPackageWeight] = useState(0.5);
   const [webhookSimulating, setWebhookSimulating] = useState(false);
   const [webhookSuccessMsg, setWebhookSuccessMsg] = useState(null);
+
+  // GSTR-1 & Accounting Export Modal State
+  const [isGstr1ModalOpen, setIsGstr1ModalOpen] = useState(false);
 
   const filteredOrders = orders.filter((ord) => {
     if (filter === 'unfulfilled') return ord.fulfillmentStatus === 'unfulfilled';
@@ -233,13 +238,24 @@ export default function OrdersView() {
           </button>
         </div>
 
-        <button
-          onClick={() => setIsNotifModalOpen(true)}
-          className="px-3 py-1.5 bg-zinc-900 hover:bg-black text-white text-xs font-bold rounded-lg shadow-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
-        >
-          <Bell className="w-3.5 h-3.5 text-emerald-400" />
-          <span>Notification Engine & Audit Log</span>
-        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            onClick={() => setIsGstr1ModalOpen(true)}
+            className="px-3.5 py-1.5 bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-700 hover:to-teal-800 text-white text-xs font-bold rounded-xl shadow-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer active:scale-95"
+            title="Export government-compliant GSTR-1 tables (B2B, B2CS, HSN) and Tally/Zoho import files"
+          >
+            <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-200" />
+            <span>GSTR-1 Monthly Return & Accounting Export</span>
+          </button>
+
+          <button
+            onClick={() => setIsNotifModalOpen(true)}
+            className="px-3 py-1.5 bg-zinc-900 hover:bg-black text-white text-xs font-bold rounded-xl shadow-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+          >
+            <Bell className="w-3.5 h-3.5 text-emerald-400" />
+            <span>Notification Engine & Audit Log</span>
+          </button>
+        </div>
       </div>
 
       {/* Orders Table */}
@@ -605,6 +621,14 @@ export default function OrdersView() {
         isOpen={isNotifModalOpen}
         onClose={() => setIsNotifModalOpen(false)}
         storeId={activeStore?.id || 'store_apex'}
+      />
+
+      {/* GSTR-1 Monthly Return & Accounting Export Modal */}
+      <Gstr1ExportModal
+        isOpen={isGstr1ModalOpen}
+        onClose={() => setIsGstr1ModalOpen(false)}
+        orders={orders}
+        store={activeStore}
       />
     </div>
   );

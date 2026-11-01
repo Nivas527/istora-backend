@@ -389,3 +389,4 @@ public class GenerateAwbResponse
     public ShippingLabelDto Label { get; set; } = new();
     public List<ShipmentScanEventDto> Timeline { get; set; } = new();
 }
+
