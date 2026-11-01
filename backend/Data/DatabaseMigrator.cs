@@ -99,6 +99,7 @@ public static class DatabaseMigrator
 
                 ALTER TABLE customers ADD COLUMN IF NOT EXISTS ""PasswordHash"" text;
                 ALTER TABLE customers ADD COLUMN IF NOT EXISTS ""SavedAddressesJson"" text NOT NULL DEFAULT '[]';
+                ALTER TABLE customers ADD COLUMN IF NOT EXISTS ""WishlistJson"" text NOT NULL DEFAULT '[]';
                 ALTER TABLE customers ADD COLUMN IF NOT EXISTS ""AuthProvider"" text NOT NULL DEFAULT 'email';
                 ALTER TABLE customers ADD COLUMN IF NOT EXISTS ""Avatar"" text;
             ");

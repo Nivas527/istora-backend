@@ -347,8 +347,53 @@ public class Customer
     [JsonPropertyName("addresses")]
     public List<SavedAddress> Addresses { get; set; } = new();
 
+    [JsonPropertyName("wishlist")]
+    public List<WishlistItem> Wishlist { get; set; } = new();
+
     [JsonPropertyName("createdAt")]
     public string CreatedAt { get; set; } = DateTime.UtcNow.ToString("o");
+}
+
+public class WishlistItem
+{
+    [JsonPropertyName("productId")]
+    public string ProductId { get; set; } = string.Empty;
+
+    [JsonPropertyName("variantId")]
+    public string? VariantId { get; set; }
+
+    [JsonPropertyName("title")]
+    public string Title { get; set; } = string.Empty;
+
+    [JsonPropertyName("price")]
+    public decimal Price { get; set; }
+
+    [JsonPropertyName("priceWhenAdded")]
+    public decimal PriceWhenAdded { get; set; }
+
+    [JsonPropertyName("compareAtPrice")]
+    public decimal? CompareAtPrice { get; set; }
+
+    [JsonPropertyName("image")]
+    public string? Image { get; set; }
+
+    [JsonPropertyName("variantTitle")]
+    public string? VariantTitle { get; set; }
+
+    [JsonPropertyName("inStock")]
+    public bool InStock { get; set; } = true;
+
+    [JsonPropertyName("stockQuantity")]
+    public int StockQuantity { get; set; } = 10;
+
+    [JsonPropertyName("addedAt")]
+    public string AddedAt { get; set; } = DateTime.UtcNow.ToString("o");
+
+    [JsonPropertyName("notifyPriceDrop")]
+    public bool NotifyPriceDrop { get; set; } = true;
+
+    [JsonPropertyName("notifyRestock")]
+    public bool NotifyRestock { get; set; } = true;
 }
 
 public class CategoryItem
@@ -965,6 +1010,9 @@ public class CustomerProfile
 
     [JsonPropertyName("addresses")]
     public List<SavedAddress> Addresses { get; set; } = new();
+
+    [JsonPropertyName("wishlist")]
+    public List<WishlistItem> Wishlist { get; set; } = new();
 
     [JsonPropertyName("createdAt")]
     public string CreatedAt { get; set; } = DateTime.UtcNow.ToString("o");

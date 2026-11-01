@@ -761,5 +761,43 @@ export const apiClient = {
       console.warn('[C# API] deleteCustomerAddress fallback:', err.message);
       return null;
     }
+  },
+
+  async getCustomerWishlist({ customerId, email, storeId = null }) {
+    try {
+      const headers = getHeaders({}, storeId);
+      const params = new URLSearchParams();
+      if (customerId) params.append('customerId', customerId);
+      if (email) params.append('email', email);
+      if (storeId) params.append('storeId', storeId);
+
+      const res = await fetch(getUrl(`/api/customer/wishlist?${params.toString()}`), { headers });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return await res.json();
+    } catch (err) {
+      console.warn('[C# API] getCustomerWishlist fallback:', err.message);
+      return [];
+    }
+  },
+
+  async updateCustomerWishlist({ wishlist, customerId, email, storeId = null }) {
+    try {
+      const headers = getHeaders({ 'Content-Type': 'application/json' }, storeId);
+      const params = new URLSearchParams();
+      if (customerId) params.append('customerId', customerId);
+      if (email) params.append('email', email);
+      if (storeId) params.append('storeId', storeId);
+
+      const res = await fetch(getUrl(`/api/customer/wishlist?${params.toString()}`), {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(wishlist)
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return await res.json();
+    } catch (err) {
+      console.warn('[C# API] updateCustomerWishlist fallback:', err.message);
+      return wishlist;
+    }
   }
 };

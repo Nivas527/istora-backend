@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useStore } from '../../context/StoreContext';
 import { useFit } from '../../context/FitContext';
+import { useWishlist } from '../../context/WishlistContext';
 import ProductReviews from './ProductReviews';
 import FitVerificationWidget from '../fit/FitVerificationWidget';
 import {
@@ -15,12 +16,14 @@ import {
   ChevronDown,
   ChevronUp,
   Star,
-  Sparkles
+  Sparkles,
+  Heart
 } from 'lucide-react';
 
 export default function ProductDetailModal({ product, onClose }) {
   const { addToCart } = useStore();
   const { profile, openScanModal } = useFit();
+  const { isInWishlist, toggleWishlist } = useWishlist();
 
   // Selected image index
   const [activeImageIndex, setActiveImageIndex] = useState(0);
@@ -72,6 +75,7 @@ export default function ProductDetailModal({ product, onClose }) {
   const compareAtPrice = currentVariant ? currentVariant.compareAtPrice : product.compareAtPrice;
   const stockAvailable = currentVariant ? currentVariant.inventoryQuantity : 0;
   const isSoldOut = stockAvailable <= 0;
+  const isWishlisted = isInWishlist(product.id, currentVariant?.id);
 
   const handleOptionChange = (optionName, value) => {
     setSelectedOptions((prev) => ({
@@ -95,14 +99,28 @@ export default function ProductDetailModal({ product, onClose }) {
     <div className="fixed inset-0 z-50 overflow-y-auto bg-black/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-6 animate-fadeIn">
       {/* Modal Dialog Container */}
       <div className="relative bg-white rounded-2xl max-w-4xl w-full max-h-[92vh] overflow-y-auto shadow-2xl border border-zinc-200">
-        {/* Close Button */}
-        <button
-          onClick={onClose}
-          className="absolute top-4 right-4 z-20 p-2 rounded-full bg-zinc-100 hover:bg-zinc-200 text-zinc-600 hover:text-zinc-900 transition-colors"
-          title="Close"
-        >
-          <X className="w-5 h-5" />
-        </button>
+        {/* Action Controls: Wishlist & Close */}
+        <div className="absolute top-4 right-4 z-20 flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => toggleWishlist(product, currentVariant)}
+            className={`p-2 rounded-full transition-all cursor-pointer shadow-xs ${
+              isWishlisted
+                ? 'bg-red-50 text-red-500 border border-red-200 ring-2 ring-red-400/20'
+                : 'bg-zinc-100 hover:bg-zinc-200 text-zinc-600 hover:text-red-500'
+            }`}
+            title={isWishlisted ? 'Remove from Wishlist' : 'Save for Later'}
+          >
+            <Heart className={`w-4 h-4 ${isWishlisted ? 'fill-current text-red-500' : ''}`} />
+          </button>
+          <button
+            onClick={onClose}
+            className="p-2 rounded-full bg-zinc-100 hover:bg-zinc-200 text-zinc-600 hover:text-zinc-900 transition-colors cursor-pointer"
+            title="Close"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 p-6 sm:p-8">
           {/* Left Column: Image Gallery */}
@@ -318,6 +336,20 @@ export default function ProductDetailModal({ product, onClose }) {
                       <span>Add to Cart • ${((currentPrice || 0) * (quantity || 1)).toFixed(2)}</span>
                     </>
                   )}
+                </button>
+                {/* Save to Wishlist Button */}
+                <button
+                  type="button"
+                  onClick={() => toggleWishlist(product, currentVariant)}
+                  className={`py-3 px-4 rounded-xl font-bold text-sm border transition-all flex items-center justify-center gap-2 cursor-pointer shadow-xs active:scale-95 ${
+                    isWishlisted
+                      ? 'bg-red-50 border-red-300 text-red-600 ring-2 ring-red-400/20'
+                      : 'bg-white hover:bg-zinc-50 border-zinc-300 text-zinc-700 hover:text-red-500'
+                  }`}
+                  title={isWishlisted ? 'Remove from Wishlist' : 'Save for Later'}
+                >
+                  <Heart className={`w-4 h-4 ${isWishlisted ? 'fill-current text-red-500' : ''}`} />
+                  <span className="hidden sm:inline">{isWishlisted ? 'Wishlisted' : 'Save'}</span>
                 </button>
               </div>
             </div>

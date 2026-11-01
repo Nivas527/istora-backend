@@ -1,12 +1,16 @@
-import { Eye, Plus, ShoppingBag, Sparkles } from 'lucide-react';
+import { Eye, Plus, ShoppingBag, Sparkles, Heart } from 'lucide-react';
 import { useStore } from '../../context/StoreContext';
 import { useFit } from '../../context/FitContext';
+import { useWishlist } from '../../context/WishlistContext';
 
 export default function ProductCard({ product, onSelect }) {
   const { activeTheme } = useStore();
   const { profile, openScanModal } = useFit();
+  const { isInWishlist, toggleWishlist } = useWishlist();
   const themeStyles = activeTheme?.styles || {};
   const isDark = themeStyles.isDark || false;
+
+  const isWishlisted = isInWishlist(product.id);
 
   const primaryImage = product.images[0] || 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&w=400&q=80';
   const secondaryImage = product.images[1] || primaryImage;
@@ -46,6 +50,23 @@ export default function ProductCard({ product, onSelect }) {
           </span>
         ) : null}
       </div>
+
+      {/* Wishlist Heart Action Button */}
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          toggleWishlist(product);
+        }}
+        className={`absolute top-3 right-3 z-20 p-2 rounded-full backdrop-blur-md transition-all duration-200 cursor-pointer shadow-md ${
+          isWishlisted
+            ? 'bg-red-500 text-white scale-105 ring-2 ring-red-400'
+            : 'bg-white/85 hover:bg-white text-zinc-600 hover:text-red-500 hover:scale-110'
+        }`}
+        title={isWishlisted ? 'Remove from Wishlist' : 'Save for Later'}
+      >
+        <Heart className={`w-4 h-4 transition-transform ${isWishlisted ? 'fill-current scale-110' : ''}`} />
+      </button>
 
       {/* Product Image Container */}
       <div className="relative aspect-square w-full overflow-hidden bg-zinc-100">

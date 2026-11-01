@@ -2,8 +2,10 @@ import React, { useState, useRef } from 'react';
 import { StoreProvider, useStore } from './context/StoreContext';
 import { FitProvider, useFit } from './context/FitContext';
 import { CustomerAuthProvider } from './context/CustomerAuthContext';
+import { WishlistProvider } from './context/WishlistContext';
 import CustomerAuthModal from './components/customer/CustomerAuthModal';
 import ShopperPortalModal from './components/customer/ShopperPortalModal';
+import WishlistDrawer from './components/storefront/WishlistDrawer';
 import { Sparkles } from 'lucide-react';
 import ShopperFitScanModal from './components/fit/ShopperFitScanModal';
 import LauncherHub from './components/hub/LauncherHub';
@@ -352,6 +354,9 @@ function MainApp() {
           setIsTrackingModalOpen(true);
         }}
       />
+
+      {/* Saved for Later & Wishlist Drawer */}
+      <WishlistDrawer onSelectProduct={setSelectedProductForQuickView} />
     </>
   );
 }
@@ -360,9 +365,11 @@ export default function App() {
   return (
     <StoreProvider>
       <CustomerAuthProvider>
-        <FitProvider>
-          <MainApp />
-        </FitProvider>
+        <WishlistProvider>
+          <FitProvider>
+            <MainApp />
+          </FitProvider>
+        </WishlistProvider>
       </CustomerAuthProvider>
     </StoreProvider>
   );

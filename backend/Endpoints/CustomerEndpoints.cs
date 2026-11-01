@@ -26,11 +26,21 @@ public static class CustomerEndpoints
     private static CustomerProfile ToCustomerProfile(DbCustomer dbCust)
     {
         List<SavedAddress> addresses = new();
+        List<WishlistItem> wishlist = new();
         try
         {
             if (!string.IsNullOrWhiteSpace(dbCust.SavedAddressesJson))
             {
                 addresses = JsonSerializer.Deserialize<List<SavedAddress>>(dbCust.SavedAddressesJson) ?? new();
+            }
+        }
+        catch { }
+
+        try
+        {
+            if (!string.IsNullOrWhiteSpace(dbCust.WishlistJson))
+            {
+                wishlist = JsonSerializer.Deserialize<List<WishlistItem>>(dbCust.WishlistJson) ?? new();
             }
         }
         catch { }
@@ -47,6 +57,7 @@ public static class CustomerEndpoints
             OrdersCount = dbCust.OrdersCount,
             TotalSpent = dbCust.TotalSpent,
             Addresses = addresses,
+            Wishlist = wishlist,
             CreatedAt = dbCust.CreatedAt
         };
     }
@@ -625,6 +636,54 @@ public static class CustomerEndpoints
             return Results.Ok(orders);
         }).WithName("GetCustomerOrders")
           .WithSummary("Retrieve complete order history for authenticated shopper");
+
+        // 9. Customer Wishlist
+        group.MapGet("/wishlist", async (string? email, string? customerId, string? storeId, ShopifyDbContext db, ITenantProvider tenantProvider) =>
+        {
+            var targetStore = !string.IsNullOrWhiteSpace(storeId)
+                ? HttpTenantProvider.NormalizeStoreId(storeId)
+                : (tenantProvider.CurrentStoreId ?? "store_apex");
+
+            var customer = await db.Customers.IgnoreQueryFilters().FirstOrDefaultAsync(c =>
+                c.StoreId == targetStore &&
+                ((!string.IsNullOrEmpty(customerId) && c.Id == customerId) ||
+                 (!string.IsNullOrEmpty(email) && c.Email.ToLower() == email.Trim().ToLowerInvariant()))
+            );
+
+            if (customer == null) return Results.Ok(new List<WishlistItem>());
+
+            var list = new List<WishlistItem>();
+            try
+            {
+                if (!string.IsNullOrWhiteSpace(customer.WishlistJson))
+                    list = JsonSerializer.Deserialize<List<WishlistItem>>(customer.WishlistJson) ?? new();
+            }
+            catch { }
+
+            return Results.Ok(list);
+        }).WithName("GetCustomerWishlist")
+          .WithSummary("Retrieve customer wishlist");
+
+        group.MapPost("/wishlist", async (List<WishlistItem> wishlist, string? email, string? customerId, string? storeId, ShopifyDbContext db, ITenantProvider tenantProvider) =>
+        {
+            var targetStore = !string.IsNullOrWhiteSpace(storeId)
+                ? HttpTenantProvider.NormalizeStoreId(storeId)
+                : (tenantProvider.CurrentStoreId ?? "store_apex");
+
+            var customer = await db.Customers.IgnoreQueryFilters().FirstOrDefaultAsync(c =>
+                c.StoreId == targetStore &&
+                ((!string.IsNullOrEmpty(customerId) && c.Id == customerId) ||
+                 (!string.IsNullOrEmpty(email) && c.Email.ToLower() == email.Trim().ToLowerInvariant()))
+            );
+
+            if (customer == null) return Results.NotFound(new { error = "Customer not found." });
+
+            customer.WishlistJson = JsonSerializer.Serialize(wishlist);
+            await db.SaveChangesAsync();
+
+            return Results.Ok(wishlist);
+        }).WithName("UpdateCustomerWishlist")
+          .WithSummary("Sync and persist customer wishlist");
 
         return app;
     }

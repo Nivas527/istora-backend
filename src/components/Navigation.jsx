@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useStore } from '../context/StoreContext';
 import { useFit } from '../context/FitContext';
 import { useCustomerAuth } from '../context/CustomerAuthContext';
+import { useWishlist } from '../context/WishlistContext';
 import GlobalHeader from './common/GlobalHeader';
 import StoreSelectorDropdown from './StoreSelectorDropdown';
 import {
@@ -15,7 +16,8 @@ import {
   Package,
   MapPin,
   LogOut,
-  ChevronDown
+  ChevronDown,
+  Heart
 } from 'lucide-react';
 
 export default function Navigation({ onSearchClick, onTrackClick }) {
@@ -37,6 +39,7 @@ export default function Navigation({ onSearchClick, onTrackClick }) {
     logout,
     customerOrders
   } = useCustomerAuth();
+  const { wishlistCount, openWishlistDrawer } = useWishlist();
 
   const [isAccountMenuOpen, setIsAccountMenuOpen] = useState(false);
   const accountMenuRef = useRef(null);
@@ -241,6 +244,22 @@ export default function Navigation({ onSearchClick, onTrackClick }) {
                       <button
                         onClick={() => {
                           setIsAccountMenuOpen(false);
+                          openWishlistDrawer();
+                        }}
+                        className="w-full text-left px-3.5 py-2 hover:bg-zinc-50 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-200 flex items-center justify-between cursor-pointer"
+                      >
+                        <span className="flex items-center gap-2">
+                          <Heart className="w-3.5 h-3.5 text-red-500" />
+                          <span>Saved for Later</span>
+                        </span>
+                        <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-zinc-100 dark:bg-zinc-800 text-zinc-500 font-mono">
+                          {wishlistCount}
+                        </span>
+                      </button>
+
+                      <button
+                        onClick={() => {
+                          setIsAccountMenuOpen(false);
                           openPortal('fit');
                         }}
                         className="w-full text-left px-3.5 py-2 hover:bg-zinc-50 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-200 flex items-center gap-2 cursor-pointer"
@@ -279,6 +298,25 @@ export default function Navigation({ onSearchClick, onTrackClick }) {
                 </button>
               )}
             </div>
+
+            {/* Wishlist / Saved for Later Trigger Button */}
+            <button
+              onClick={openWishlistDrawer}
+              className={`relative flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all cursor-pointer shadow-xs ${
+                isDark
+                  ? 'bg-zinc-850 hover:bg-zinc-800 text-zinc-200 border-zinc-700'
+                  : 'bg-white hover:bg-zinc-50 text-zinc-700 border-zinc-200'
+              }`}
+              title="Saved for Later & Wishlist"
+            >
+              <Heart className={`w-3.5 h-3.5 transition-colors ${wishlistCount > 0 ? 'fill-red-500 text-red-500' : 'text-zinc-500'}`} />
+              <span className="hidden md:inline">Saved</span>
+              {wishlistCount > 0 && (
+                <span className="bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.2 rounded-full min-w-[18px] text-center">
+                  {wishlistCount}
+                </span>
+              )}
+            </button>
 
             {/* Cart Trigger Button */}
             <button

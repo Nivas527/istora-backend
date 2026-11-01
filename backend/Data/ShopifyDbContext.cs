@@ -135,6 +135,7 @@ public class DbCustomer : IMultiTenantEntity
     public string? Phone { get; set; }
     public string? PasswordHash { get; set; }
     public string SavedAddressesJson { get; set; } = "[]";
+    public string WishlistJson { get; set; } = "[]";
     public string AuthProvider { get; set; } = "email";
     public string? Avatar { get; set; }
     public int OrdersCount { get; set; }

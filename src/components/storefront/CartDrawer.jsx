@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useStore } from '../../context/StoreContext';
+import { useWishlist } from '../../context/WishlistContext';
 import AntiBracketingBanner from '../fit/AntiBracketingBanner';
 import {
   X,
@@ -11,7 +12,8 @@ import {
   Tag,
   CheckCircle2,
   AlertCircle,
-  Truck
+  Truck,
+  Heart
 } from 'lucide-react';
 
 export default function CartDrawer({ onProceedToCheckout }) {
@@ -26,12 +28,15 @@ export default function CartDrawer({ onProceedToCheckout }) {
     amountToFreeShipping,
     isFreeShipping,
     settings,
+    products,
     updateCartItemQty,
     removeFromCart,
     applyDiscount,
     removeDiscount,
     appliedDiscount
   } = useStore();
+
+  const { addToWishlist, wishlistCount, openWishlistDrawer } = useWishlist();
 
   const [promoInput, setPromoInput] = useState('');
   const [promoMessage, setPromoMessage] = useState(null);
@@ -176,11 +181,53 @@ export default function CartDrawer({ onProceedToCheckout }) {
                       ${(item.price * item.quantity).toFixed(2)}
                     </span>
                   </div>
+
+                  {/* Save for Later Action */}
+                  <div className="flex items-center justify-start pt-1.5">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const prod = products.find(p => p.id === item.productId) || {
+                          id: item.productId,
+                          title: item.title,
+                          price: item.price,
+                          images: [item.image],
+                          variants: [{ id: item.variantId, title: item.variantTitle, price: item.price, inventoryQuantity: item.maxStock || 10 }]
+                        };
+                        const v = prod.variants?.find(vx => vx.id === item.variantId);
+                        addToWishlist(prod, v);
+                        removeFromCart(item.variantId);
+                      }}
+                      className="text-[11px] text-zinc-500 hover:text-red-600 flex items-center gap-1 transition-colors cursor-pointer"
+                    >
+                      <Heart className="w-3 h-3 text-red-400" />
+                      <span>Save for later</span>
+                    </button>
+                  </div>
                 </div>
               </div>
             ))
           )}
         </div>
+
+        {/* Saved for Later Banner */}
+        {wishlistCount > 0 && (
+          <div className="px-4 py-2 bg-red-50/50 border-t border-red-100 flex items-center justify-between text-xs">
+            <span className="text-zinc-700 flex items-center gap-1.5 font-medium">
+              <Heart className="w-3.5 h-3.5 text-red-500 fill-current" />
+              <span>{wishlistCount} saved for later</span>
+            </span>
+            <button
+              onClick={() => {
+                setIsCartOpen(false);
+                openWishlistDrawer();
+              }}
+              className="text-emerald-700 hover:text-emerald-800 hover:underline font-semibold cursor-pointer"
+            >
+              View Wishlist →
+            </button>
+          </div>
+        )}
 
         {/* Footer (Discount Code, Subtotal, Checkout Button) */}
         {cart.items.length > 0 && (
