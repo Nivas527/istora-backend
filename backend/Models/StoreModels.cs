@@ -1432,4 +1432,214 @@ public class AbandonedCartSettings
     public string EmailSubject24Hour { get; set; } = "Still thinking it over? Enjoy 5% off to complete your order!";
 }
 
+// =========================================================================
+// 11. SELF-SERVICE RETURNS, RMA & GST CREDIT NOTE MODELS
+// =========================================================================
+public class ReturnItem
+{
+    [JsonPropertyName("productId")]
+    public string ProductId { get; set; } = string.Empty;
+
+    [JsonPropertyName("title")]
+    public string Title { get; set; } = string.Empty;
+
+    [JsonPropertyName("variantTitle")]
+    public string VariantTitle { get; set; } = string.Empty;
+
+    [JsonPropertyName("quantity")]
+    public int Quantity { get; set; } = 1;
+
+    [JsonPropertyName("price")]
+    public decimal Price { get; set; }
+
+    [JsonPropertyName("exchangeVariant")]
+    public string? ExchangeVariant { get; set; }
+
+    [JsonPropertyName("reason")]
+    public string Reason { get; set; } = "size_mismatch"; // size_mismatch | item_damaged | changed_mind | wrong_item | quality_issue
+}
+
+public class GstCreditNote
+{
+    [JsonPropertyName("creditNoteNumber")]
+    public string CreditNoteNumber { get; set; } = string.Empty;
+
+    [JsonPropertyName("originalInvoiceNumber")]
+    public string OriginalInvoiceNumber { get; set; } = string.Empty;
+
+    [JsonPropertyName("originalOrderNumber")]
+    public string OriginalOrderNumber { get; set; } = string.Empty;
+
+    [JsonPropertyName("creditNoteDate")]
+    public string CreditNoteDate { get; set; } = string.Empty;
+
+    [JsonPropertyName("sellerLegalName")]
+    public string SellerLegalName { get; set; } = "Apex Commerce India Pvt. Ltd.";
+
+    [JsonPropertyName("sellerGstin")]
+    public string SellerGstin { get; set; } = "29AABCU9603R1ZM";
+
+    [JsonPropertyName("sellerStateCode")]
+    public string SellerStateCode { get; set; } = "29";
+
+    [JsonPropertyName("sellerStateName")]
+    public string SellerStateName { get; set; } = "Karnataka";
+
+    [JsonPropertyName("buyerName")]
+    public string BuyerName { get; set; } = string.Empty;
+
+    [JsonPropertyName("buyerEmail")]
+    public string BuyerEmail { get; set; } = string.Empty;
+
+    [JsonPropertyName("buyerGstin")]
+    public string? BuyerGstin { get; set; }
+
+    [JsonPropertyName("buyerStateCode")]
+    public string BuyerStateCode { get; set; } = "29";
+
+    [JsonPropertyName("taxableAmountReversed")]
+    public decimal TaxableAmountReversed { get; set; }
+
+    [JsonPropertyName("cgstReversed")]
+    public decimal CgstReversed { get; set; }
+
+    [JsonPropertyName("sgstReversed")]
+    public decimal SgstReversed { get; set; }
+
+    [JsonPropertyName("igstReversed")]
+    public decimal IgstReversed { get; set; }
+
+    [JsonPropertyName("totalGstReversed")]
+    public decimal TotalGstReversed { get; set; }
+
+    [JsonPropertyName("totalCreditAmount")]
+    public decimal TotalCreditAmount { get; set; }
+
+    [JsonPropertyName("reason")]
+    public string Reason { get; set; } = "Sales Return / Defective Goods";
+
+    [JsonPropertyName("items")]
+    public List<ReturnItem> Items { get; set; } = new();
+}
+
+public class ReturnRequest
+{
+    [JsonPropertyName("id")]
+    public string Id { get; set; } = string.Empty;
+
+    [JsonPropertyName("storeId")]
+    public string StoreId { get; set; } = "store_apex";
+
+    [JsonPropertyName("orderId")]
+    public string OrderId { get; set; } = string.Empty;
+
+    [JsonPropertyName("orderNumber")]
+    public string OrderNumber { get; set; } = string.Empty;
+
+    [JsonPropertyName("customerName")]
+    public string CustomerName { get; set; } = string.Empty;
+
+    [JsonPropertyName("customerEmail")]
+    public string CustomerEmail { get; set; } = string.Empty;
+
+    [JsonPropertyName("customerPhone")]
+    public string CustomerPhone { get; set; } = string.Empty;
+
+    [JsonPropertyName("type")]
+    public string Type { get; set; } = "return_refund"; // return_refund | exchange
+
+    [JsonPropertyName("reason")]
+    public string Reason { get; set; } = "size_mismatch"; // size_mismatch | item_damaged | changed_mind | wrong_item | quality_issue
+
+    [JsonPropertyName("reasonDetails")]
+    public string ReasonDetails { get; set; } = string.Empty;
+
+    [JsonPropertyName("fitInsight")]
+    public string? FitInsight { get; set; }
+
+    [JsonPropertyName("items")]
+    public List<ReturnItem> Items { get; set; } = new();
+
+    [JsonPropertyName("totalRefundAmount")]
+    public decimal TotalRefundAmount { get; set; }
+
+    [JsonPropertyName("status")]
+    public string Status { get; set; } = "pending"; // pending | approved | rejected | replacement_issued | completed
+
+    [JsonPropertyName("creditNoteNumber")]
+    public string? CreditNoteNumber { get; set; }
+
+    [JsonPropertyName("creditNote")]
+    public GstCreditNote? CreditNote { get; set; }
+
+    [JsonPropertyName("adminNotes")]
+    public string? AdminNotes { get; set; }
+
+    [JsonPropertyName("pickupCourier")]
+    public string? PickupCourier { get; set; } = "Delhivery Reverse Logistics";
+
+    [JsonPropertyName("pickupTrackingNumber")]
+    public string? PickupTrackingNumber { get; set; }
+
+    [JsonPropertyName("createdAt")]
+    public string CreatedAt { get; set; } = string.Empty;
+
+    [JsonPropertyName("updatedAt")]
+    public string UpdatedAt { get; set; } = string.Empty;
+}
+
+public class CreateReturnRequest
+{
+    [JsonPropertyName("storeId")]
+    public string? StoreId { get; set; }
+
+    [JsonPropertyName("orderId")]
+    public string OrderId { get; set; } = string.Empty;
+
+    [JsonPropertyName("orderNumber")]
+    public string OrderNumber { get; set; } = string.Empty;
+
+    [JsonPropertyName("customerEmail")]
+    public string CustomerEmail { get; set; } = string.Empty;
+
+    [JsonPropertyName("customerName")]
+    public string CustomerName { get; set; } = string.Empty;
+
+    [JsonPropertyName("customerPhone")]
+    public string? CustomerPhone { get; set; }
+
+    [JsonPropertyName("type")]
+    public string Type { get; set; } = "return_refund"; // return_refund | exchange
+
+    [JsonPropertyName("reason")]
+    public string Reason { get; set; } = "size_mismatch";
+
+    [JsonPropertyName("reasonDetails")]
+    public string? ReasonDetails { get; set; }
+
+    [JsonPropertyName("fitInsight")]
+    public string? FitInsight { get; set; }
+
+    [JsonPropertyName("items")]
+    public List<ReturnItem> Items { get; set; } = new();
+}
+
+public class UpdateReturnStatusRequest
+{
+    [JsonPropertyName("storeId")]
+    public string? StoreId { get; set; }
+
+    [JsonPropertyName("status")]
+    public string Status { get; set; } = "approved"; // approved | rejected | replacement_issued | completed
+
+    [JsonPropertyName("adminNotes")]
+    public string? AdminNotes { get; set; }
+
+    [JsonPropertyName("pickupCourier")]
+    public string? PickupCourier { get; set; }
+
+    [JsonPropertyName("pickupTrackingNumber")]
+    public string? PickupTrackingNumber { get; set; }
+}
+
 

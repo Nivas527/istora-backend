@@ -11,13 +11,16 @@ import {
   ExternalLink,
   ShieldCheck,
   AlertCircle,
-  FileText
+  FileText,
+  RotateCcw
 } from 'lucide-react';
 import GstInvoiceModal from '../admin/GstInvoiceModal';
+import CustomerReturnModal from './CustomerReturnModal';
 
 export default function OrderTrackingModal({ initialOrderNumber = '', onClose }) {
   const { orders, settings } = useStore();
   const [showInvoiceModal, setShowInvoiceModal] = useState(false);
+  const [showReturnModal, setShowReturnModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState(initialOrderNumber);
   const [selectedOrder, setSelectedOrder] = useState(() => {
     if (initialOrderNumber) {
@@ -167,6 +170,14 @@ export default function OrderTrackingModal({ initialOrderNumber = '', onClose })
                   <span>Tax Invoice</span>
                 </button>
 
+                <button
+                  onClick={() => setShowReturnModal(true)}
+                  className="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 rounded-lg border border-rose-200 text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
+                >
+                  <RotateCcw className="w-3.5 h-3.5 text-rose-600" />
+                  <span>Return / Exchange</span>
+                </button>
+
                 {selectedOrder.trackingNumber && (
                   <div className="bg-white px-3 py-1.5 rounded-lg border border-zinc-200 text-right">
                     <span className="text-[10px] text-zinc-400 block font-semibold uppercase">AWB Courier ID</span>
@@ -281,6 +292,15 @@ export default function OrderTrackingModal({ initialOrderNumber = '', onClose })
           <GstInvoiceModal
             order={selectedOrder}
             onClose={() => setShowInvoiceModal(false)}
+          />
+        )}
+
+        {/* Self-Service Return / RMA Modal */}
+        {showReturnModal && selectedOrder && (
+          <CustomerReturnModal
+            order={selectedOrder}
+            isOpen={showReturnModal}
+            onClose={() => setShowReturnModal(false)}
           />
         )}
       </div>

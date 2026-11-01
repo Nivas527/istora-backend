@@ -114,11 +114,48 @@ public static class DatabaseMigrator
                 CREATE UNIQUE INDEX IF NOT EXISTS ix_abandoned_carts_token ON abandoned_carts (""StoreId"", ""RecoveryToken"");
                 CREATE INDEX IF NOT EXISTS ix_abandoned_carts_status ON abandoned_carts (""StoreId"", ""RecoveryStatus"");
 
+                CREATE TABLE IF NOT EXISTS returns (
+                    ""Id"" text PRIMARY KEY,
+                    ""StoreId"" text NOT NULL,
+                    ""OrderId"" text NOT NULL,
+                    ""OrderNumber"" text NOT NULL,
+                    ""CustomerName"" text NOT NULL DEFAULT '',
+                    ""CustomerEmail"" text NOT NULL DEFAULT '',
+                    ""CustomerPhone"" text NOT NULL DEFAULT '',
+                    ""Type"" text NOT NULL DEFAULT 'return_refund',
+                    ""Reason"" text NOT NULL DEFAULT 'size_mismatch',
+                    ""ReasonDetails"" text NOT NULL DEFAULT '',
+                    ""FitInsight"" text,
+                    ""ItemsJson"" jsonb NOT NULL DEFAULT '[]'::jsonb,
+                    ""TotalRefundAmount"" numeric NOT NULL DEFAULT 0,
+                    ""Status"" text NOT NULL DEFAULT 'pending',
+                    ""CreditNoteNumber"" text,
+                    ""CreditNoteJson"" jsonb,
+                    ""AdminNotes"" text,
+                    ""PickupCourier"" text DEFAULT 'Delhivery Reverse Logistics',
+                    ""PickupTrackingNumber"" text,
+                    ""CreatedAt"" text NOT NULL,
+                    ""UpdatedAt"" text NOT NULL
+                );
+
+                CREATE INDEX IF NOT EXISTS ix_returns_order ON returns (""StoreId"", ""OrderId"");
+                CREATE INDEX IF NOT EXISTS ix_returns_status ON returns (""StoreId"", ""Status"");
+
                 ALTER TABLE products ADD COLUMN IF NOT EXISTS ""StoreId"" text NOT NULL DEFAULT 'store_apex';
                 ALTER TABLE orders ADD COLUMN IF NOT EXISTS ""StoreId"" text NOT NULL DEFAULT 'store_apex';
                 ALTER TABLE orders ADD COLUMN IF NOT EXISTS ""PaymentMethod"" text NOT NULL DEFAULT 'UPI';
                 ALTER TABLE orders ADD COLUMN IF NOT EXISTS ""TrackingNumber"" text;
                 ALTER TABLE orders ADD COLUMN IF NOT EXISTS ""Carrier"" text;
+                ALTER TABLE orders ADD COLUMN IF NOT EXISTS ""InvoiceNumber"" text;
+                ALTER TABLE orders ADD COLUMN IF NOT EXISTS ""IsB2B"" boolean NOT NULL DEFAULT false;
+                ALTER TABLE orders ADD COLUMN IF NOT EXISTS ""CustomerGstin"" text;
+                ALTER TABLE orders ADD COLUMN IF NOT EXISTS ""CustomerCompanyName"" text;
+                ALTER TABLE orders ADD COLUMN IF NOT EXISTS ""BuyerStateCode"" text DEFAULT '29';
+                ALTER TABLE orders ADD COLUMN IF NOT EXISTS ""TaxableAmount"" numeric NOT NULL DEFAULT 0;
+                ALTER TABLE orders ADD COLUMN IF NOT EXISTS ""CgstAmount"" numeric NOT NULL DEFAULT 0;
+                ALTER TABLE orders ADD COLUMN IF NOT EXISTS ""SgstAmount"" numeric NOT NULL DEFAULT 0;
+                ALTER TABLE orders ADD COLUMN IF NOT EXISTS ""IgstAmount"" numeric NOT NULL DEFAULT 0;
+                ALTER TABLE orders ADD COLUMN IF NOT EXISTS ""TotalGst"" numeric NOT NULL DEFAULT 0;
 
                 ALTER TABLE stores ADD COLUMN IF NOT EXISTS ""Location"" text NOT NULL DEFAULT 'India';
                 ALTER TABLE stores ADD COLUMN IF NOT EXISTS ""Plan"" text NOT NULL DEFAULT 'monthly';

@@ -259,6 +259,38 @@ public class DbAbandonedCart : IMultiTenantEntity
     public string UpdatedAt { get; set; } = DateTime.UtcNow.ToString("o");
 }
 
+public class DbReturnRequest : IMultiTenantEntity
+{
+    [Key]
+    public string Id { get; set; } = string.Empty;
+    public string StoreId { get; set; } = "store_apex";
+    public string OrderId { get; set; } = string.Empty;
+    public string OrderNumber { get; set; } = string.Empty;
+    public string CustomerName { get; set; } = string.Empty;
+    public string CustomerEmail { get; set; } = string.Empty;
+    public string CustomerPhone { get; set; } = string.Empty;
+    public string Type { get; set; } = "return_refund"; // return_refund | exchange
+    public string Reason { get; set; } = "size_mismatch";
+    public string ReasonDetails { get; set; } = string.Empty;
+    public string? FitInsight { get; set; }
+
+    [Column(TypeName = "jsonb")]
+    public string ItemsJson { get; set; } = "[]";
+
+    public decimal TotalRefundAmount { get; set; }
+    public string Status { get; set; } = "pending"; // pending | approved | rejected | replacement_issued | completed
+    public string? CreditNoteNumber { get; set; }
+
+    [Column(TypeName = "jsonb")]
+    public string? CreditNoteJson { get; set; }
+
+    public string? AdminNotes { get; set; }
+    public string? PickupCourier { get; set; } = "Delhivery Reverse Logistics";
+    public string? PickupTrackingNumber { get; set; }
+    public string CreatedAt { get; set; } = DateTime.UtcNow.ToString("o");
+    public string UpdatedAt { get; set; } = DateTime.UtcNow.ToString("o");
+}
+
 public class ShopifyDbContext : DbContext
 {
     private readonly ITenantProvider? _tenantProvider;
@@ -281,6 +313,7 @@ public class ShopifyDbContext : DbContext
     public DbSet<DbDeployment> Deployments => Set<DbDeployment>();
     public DbSet<DbNotificationLog> NotificationLogs => Set<DbNotificationLog>();
     public DbSet<DbAbandonedCart> AbandonedCarts => Set<DbAbandonedCart>();
+    public DbSet<DbReturnRequest> Returns => Set<DbReturnRequest>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -297,6 +330,7 @@ public class ShopifyDbContext : DbContext
         modelBuilder.Entity<DbDeployment>().ToTable("deployments");
         modelBuilder.Entity<DbNotificationLog>().ToTable("notification_logs");
         modelBuilder.Entity<DbAbandonedCart>().ToTable("abandoned_carts");
+        modelBuilder.Entity<DbReturnRequest>().ToTable("returns");
 
         // Multi-tenant Indexes for high-performance scoped lookups
         modelBuilder.Entity<DbProduct>().HasIndex(p => p.StoreId);
@@ -309,6 +343,8 @@ public class ShopifyDbContext : DbContext
         modelBuilder.Entity<DbAbandonedCart>().HasIndex(a => new { a.StoreId, a.RecoveryToken }).IsUnique();
         modelBuilder.Entity<DbAbandonedCart>().HasIndex(a => new { a.StoreId, a.RecoveryStatus });
         modelBuilder.Entity<DbAbandonedCart>().HasIndex(a => new { a.StoreId, a.CustomerEmail });
+        modelBuilder.Entity<DbReturnRequest>().HasIndex(r => new { r.StoreId, r.OrderId });
+        modelBuilder.Entity<DbReturnRequest>().HasIndex(r => new { r.StoreId, r.Status });
 
         // EF Core Global Query Filters:
         // Automatically injects WHERE "StoreId" = @CurrentStoreId on EVERY query
@@ -341,6 +377,10 @@ public class ShopifyDbContext : DbContext
         modelBuilder.Entity<DbAbandonedCart>()
             .HasQueryFilter(a => (_tenantProvider != null && _tenantProvider.IsMasterPlatformAdmin) ||
                                  a.StoreId == (_tenantProvider != null && !string.IsNullOrEmpty(_tenantProvider.CurrentStoreId) ? _tenantProvider.CurrentStoreId : "store_apex"));
+
+        modelBuilder.Entity<DbReturnRequest>()
+            .HasQueryFilter(r => (_tenantProvider != null && _tenantProvider.IsMasterPlatformAdmin) ||
+                                 r.StoreId == (_tenantProvider != null && !string.IsNullOrEmpty(_tenantProvider.CurrentStoreId) ? _tenantProvider.CurrentStoreId : "store_apex"));
     }
 
     public override int SaveChanges()

@@ -3,6 +3,7 @@ import { useCustomerAuth } from '../../context/CustomerAuthContext';
 import { useStore } from '../../context/StoreContext';
 import { useFit } from '../../context/FitContext';
 import { downloadInvoicePdf } from '../../utils/invoicePdfUtils';
+import CustomerReturnModal from '../storefront/CustomerReturnModal';
 import {
   X,
   Package,
@@ -24,7 +25,8 @@ import {
   AlertTriangle,
   Building,
   Home,
-  ShieldAlert
+  ShieldAlert,
+  RotateCcw
 } from 'lucide-react';
 
 export default function ShopperPortalModal({ onTrackOrder }) {
@@ -50,6 +52,9 @@ export default function ShopperPortalModal({ onTrackOrder }) {
   // Invoice downloading state tracking per orderId
   const [downloadingInvoiceId, setDownloadingInvoiceId] = useState(null);
   const [invoiceSuccessId, setInvoiceSuccessId] = useState(null);
+
+  // Return modal state
+  const [returnOrder, setReturnOrder] = useState(null);
 
   // Address form modal/drawer state
   const [isEditingAddress, setIsEditingAddress] = useState(false);
@@ -412,6 +417,16 @@ export default function ShopperPortalModal({ onTrackOrder }) {
                           </div>
 
                           <div className="flex items-center space-x-2">
+                            {/* Return / Exchange Button */}
+                            <button
+                              onClick={() => setReturnOrder(order)}
+                              className="px-3 py-1.5 text-xs font-semibold rounded-xl border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-850 text-zinc-700 dark:text-zinc-300 transition-colors flex items-center gap-1.5 cursor-pointer shadow-xs"
+                              title="Initiate self-service return or exchange within 7 days"
+                            >
+                              <RotateCcw className="w-3.5 h-3.5 text-amber-500" />
+                              <span>Return / Exchange</span>
+                            </button>
+
                             {/* Track Delivery Button */}
                             {onTrackOrder && (
                               <button
@@ -896,6 +911,15 @@ export default function ShopperPortalModal({ onTrackOrder }) {
 
         </div>
       </div>
+
+      {/* Self-Service Return & RMA Modal */}
+      {returnOrder && (
+        <CustomerReturnModal
+          order={returnOrder}
+          isOpen={Boolean(returnOrder)}
+          onClose={() => setReturnOrder(null)}
+        />
+      )}
     </div>
   );
 }

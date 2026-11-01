@@ -15,3 +15,4 @@ backend/obj/
 .env.*
 !.env.example
 *.local
+Library/
