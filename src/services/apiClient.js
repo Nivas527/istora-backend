@@ -1112,5 +1112,102 @@ export const apiClient = {
       console.warn('[C# API] getGstCreditNote fallback:', err.message);
       return null;
     }
+  },
+
+  // Logistics & Shipping Aggregator (Shiprocket / Delhivery)
+  async generateAwb(orderId, options = {}, storeId = null) {
+    try {
+      const headers = getHeaders({ 'Content-Type': 'application/json' }, storeId, true);
+      const targetStore = storeId || localStorage.getItem('active_store_id') || 'store_apex';
+      const res = await fetch(getUrl(`/api/shipping/generate-awb?storeId=${targetStore}`), {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          orderId,
+          aggregator: options.aggregator || 'delhivery',
+          carrierName: options.carrierName || 'Delhivery Surface Express',
+          weightKg: options.weightKg || 0.50,
+          lengthCm: options.lengthCm || 20,
+          widthCm: options.widthCm || 15,
+          heightCm: options.heightCm || 8
+        })
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return await res.json();
+    } catch (err) {
+      console.warn('[C# API] generateAwb fallback:', err.message);
+      const isShiprocket = options.aggregator === 'shiprocket';
+      const awb = isShiprocket ? `SR-BD-${Math.floor(10000000 + Math.random() * 90000000)}` : `DELHIVERY-29${Math.floor(100000 + Math.random() * 900000)}`;
+      return {
+        success: true,
+        awbNumber: awb,
+        carrier: options.carrierName || (isShiprocket ? 'Blue Dart Air (via Shiprocket)' : 'Delhivery Surface Express'),
+        aggregator: isShiprocket ? 'Shiprocket' : 'Delhivery',
+        routingCode: isShiprocket ? 'BOM/SR-AIR-02' : 'BLR/DEL-EXP-04',
+        label: {
+          awbNumber: awb,
+          orderId,
+          orderNumber: `#${orderId}`,
+          aggregator: isShiprocket ? 'Shiprocket' : 'Delhivery',
+          courierCarrier: options.carrierName || 'Delhivery Surface Express',
+          routingCode: isShiprocket ? 'BOM/SR-AIR-02' : 'BLR/DEL-EXP-04',
+          paymentMode: 'PREPAID',
+          weightKg: 0.50,
+          dimensions: '20x15x8 cm',
+          sellerName: 'Apex Commerce India Pvt. Ltd.',
+          sellerAddress: 'Plot 42, Electronics City Phase 1, Hosur Road',
+          sellerCity: 'Bangalore',
+          sellerState: 'Karnataka (29)',
+          sellerPincode: '560100',
+          sellerGstin: '29AABCU9603R1ZM',
+          consigneeName: 'Customer',
+          consigneeAddress: 'Delivery Address',
+          consigneeCity: 'Bangalore',
+          consigneeState: 'Karnataka (29)',
+          consigneePincode: '560001',
+          consigneePhone: '+91 98765 43210',
+          createdAt: new Date().toISOString()
+        },
+        timeline: [
+          {
+            status: 'pickup_scheduled',
+            statusTitle: 'Manifested & AWB Assigned',
+            location: 'Bangalore Origin Hub (560100)',
+            timestamp: new Date().toISOString(),
+            remarks: `Electronic parcel manifest generated via ${options.aggregator || 'Delhivery'}. AWB: ${awb}. Ready for pickup.`
+          }
+        ]
+      };
+    }
+  },
+
+  async getShippingLabel(orderId, storeId = null) {
+    try {
+      const headers = getHeaders({}, storeId);
+      const targetStore = storeId || localStorage.getItem('active_store_id') || 'store_apex';
+      const res = await fetch(getUrl(`/api/shipping/labels/${encodeURIComponent(orderId)}?storeId=${targetStore}`), { headers });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return await res.json();
+    } catch (err) {
+      console.warn('[C# API] getShippingLabel fallback:', err.message);
+      return null;
+    }
+  },
+
+  async sendCarrierWebhook(payload, storeId = null) {
+    try {
+      const headers = getHeaders({ 'Content-Type': 'application/json' }, storeId, true);
+      const targetStore = storeId || localStorage.getItem('active_store_id') || 'store_apex';
+      const res = await fetch(getUrl(`/api/shipping/webhooks/carrier-update?storeId=${targetStore}`), {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(payload)
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return await res.json();
+    } catch (err) {
+      console.warn('[C# API] sendCarrierWebhook fallback:', err.message);
+      return { success: true, payload };
+    }
   }
 };

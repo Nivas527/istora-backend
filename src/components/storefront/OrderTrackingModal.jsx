@@ -12,7 +12,8 @@ import {
   ShieldCheck,
   AlertCircle,
   FileText,
-  RotateCcw
+  RotateCcw,
+  Radio
 } from 'lucide-react';
 import GstInvoiceModal from '../admin/GstInvoiceModal';
 import CustomerReturnModal from './CustomerReturnModal';
@@ -224,6 +225,39 @@ export default function OrderTrackingModal({ initialOrderNumber = '', onClose })
                 );
               })}
             </div>
+
+            {/* Live Courier Scan Checkpoints (Shiprocket / Delhivery Webhook Feed) */}
+            {selectedOrder.shipmentTimeline && selectedOrder.shipmentTimeline.length > 0 && (
+              <div className="p-3.5 bg-zinc-50 border border-zinc-200 rounded-xl space-y-2">
+                <div className="flex items-center justify-between text-xs font-bold text-zinc-900">
+                  <span className="flex items-center gap-1.5">
+                    <Radio className="w-3.5 h-3.5 text-emerald-600 animate-pulse" />
+                    <span>Live Courier Scan Checkpoints ({selectedOrder.carrier || 'Delhivery Express'})</span>
+                  </span>
+                  <span className="text-[10px] text-zinc-500 font-mono">
+                    AWB: {selectedOrder.trackingNumber}
+                  </span>
+                </div>
+
+                <div className="space-y-2 divide-y divide-zinc-200/60 text-xs">
+                  {selectedOrder.shipmentTimeline.map((scan, i) => (
+                    <div key={i} className="pt-2 first:pt-0 flex items-start justify-between gap-3">
+                      <div>
+                        <div className="font-bold text-zinc-900 flex items-center gap-1">
+                          <MapPin className="w-3 h-3 text-emerald-600 shrink-0" />
+                          <span>{scan.statusTitle || scan.status}</span>
+                          <span className="text-[10px] text-zinc-400 font-normal">@ {scan.location}</span>
+                        </div>
+                        <p className="text-[11px] text-zinc-600 mt-0.5">{scan.remarks}</p>
+                      </div>
+                      <span className="text-[10px] font-mono text-zinc-400 whitespace-nowrap">
+                        {new Date(scan.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* Items Summary in this Order */}
             <div className="border-t border-zinc-200 pt-4">

@@ -53,6 +53,7 @@ app.MapStoreEndpoints()
    .MapNotificationEndpoints()
    .MapAbandonedCartEndpoints()
    .MapReturnEndpoints()
+   .MapShippingEndpoints()
    .MapHealthEndpoints();
 
 // 8. Startup Telemetry Banner

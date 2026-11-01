@@ -126,6 +126,13 @@ public class DbOrder : IMultiTenantEntity
     public decimal SgstAmount { get; set; }
     public decimal IgstAmount { get; set; }
     public decimal TotalGst { get; set; }
+
+    // Shipping Aggregator (Shiprocket / Delhivery)
+    public string? CourierAggregator { get; set; } = "Delhivery";
+    public string? AwbNumber { get; set; }
+    public string? RoutingCode { get; set; }
+    public string? ShippingLabelJson { get; set; }
+    public string ShipmentTimelineJson { get; set; } = "[]";
 }
 
 public class DbCustomer : IMultiTenantEntity

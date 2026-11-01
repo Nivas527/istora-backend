@@ -1,8 +1,28 @@
 import React, { useState } from 'react';
 import { useStore } from '../../context/StoreContext';
-import { Package, Clock, CheckCircle, Truck, Search, Eye, FileText, Download, Loader2, Bell, CheckCircle2 } from 'lucide-react';
+import {
+  Package,
+  Clock,
+  CheckCircle,
+  Truck,
+  Search,
+  Eye,
+  FileText,
+  Download,
+  Loader2,
+  Bell,
+  CheckCircle2,
+  Printer,
+  Zap,
+  Radio,
+  RotateCw,
+  MapPin,
+  ExternalLink,
+  ChevronRight
+} from 'lucide-react';
 import GstInvoiceModal from './GstInvoiceModal';
 import NotificationSettingsModal from './NotificationSettingsModal';
+import ShippingLabelModal from './ShippingLabelModal';
 import { downloadInvoicePdf } from '../../utils/invoicePdfUtils';
 import { apiClient } from '../../services/apiClient';
 
@@ -12,11 +32,18 @@ export default function OrdersView() {
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [invoiceOrder, setInvoiceOrder] = useState(null);
   const [customTracking, setCustomTracking] = useState('');
-  const [selectedCarrier, setSelectedCarrier] = useState('Blue Dart Express');
+  const [selectedCarrier, setSelectedCarrier] = useState('Delhivery Surface Express');
   const [downloadingOrderId, setDownloadingOrderId] = useState(null);
   const [fulfilling, setFulfilling] = useState(false);
   const [isNotifModalOpen, setIsNotifModalOpen] = useState(false);
   const [fulfillmentAlert, setFulfillmentAlert] = useState(null);
+
+  // Shipping Aggregator (Shiprocket / Delhivery) State
+  const [shippingLabelData, setShippingLabelData] = useState(null);
+  const [aggregatorType, setAggregatorType] = useState('delhivery'); // 'delhivery' | 'shiprocket'
+  const [packageWeight, setPackageWeight] = useState(0.5);
+  const [webhookSimulating, setWebhookSimulating] = useState(false);
+  const [webhookSuccessMsg, setWebhookSuccessMsg] = useState(null);
 
   const filteredOrders = orders.filter((ord) => {
     if (filter === 'unfulfilled') return ord.fulfillmentStatus === 'unfulfilled';
@@ -49,6 +76,83 @@ export default function OrdersView() {
       setFulfilling(false);
       setCustomTracking('');
       setSelectedOrder(null);
+    }
+  };
+
+  // 1-Click Automated AWB Generation (Shiprocket / Delhivery)
+  const handleGenerateAwb = async (order, customAggregator = null) => {
+    setFulfilling(true);
+    const agg = customAggregator || aggregatorType || 'delhivery';
+    const carrierName = agg === 'shiprocket'
+      ? 'Blue Dart Air (via Shiprocket)'
+      : 'Delhivery Surface Express';
+
+    try {
+      const res = await apiClient.generateAwb(order.id, {
+        aggregator: agg,
+        carrierName,
+        weightKg: packageWeight
+      }, activeStore?.id);
+
+      fulfillOrder(order.id, res.awbNumber, res.carrier);
+
+      setFulfillmentAlert({
+        orderNumber: order.orderNumber,
+        carrier: res.carrier,
+        tracking: res.awbNumber,
+        aggregator: res.aggregator
+      });
+
+      if (res.label) {
+        setShippingLabelData(res.label);
+      }
+      setTimeout(() => setFulfillmentAlert(null), 6000);
+    } catch (err) {
+      console.error('Failed to generate AWB:', err);
+      alert('Could not push to shipping aggregator: ' + err.message);
+    } finally {
+      setFulfilling(false);
+      setSelectedOrder(null);
+    }
+  };
+
+  // View & Print 4x6 Thermal Shipping Label
+  const handleOpenLabel = async (order) => {
+    try {
+      const label = await apiClient.getShippingLabel(order.id, activeStore?.id);
+      if (label) {
+        setShippingLabelData(label);
+      } else {
+        alert('Shipping label not found for this order. Generate AWB first.');
+      }
+    } catch (err) {
+      console.error('Error fetching label:', err);
+    }
+  };
+
+  // Live Courier Scan Webhook Simulator
+  const handleSimulateWebhook = async (order, status) => {
+    setWebhookSimulating(true);
+    try {
+      const payload = {
+        awb: order.trackingNumber || order.awbNumber || `DLV-${order.id.slice(-6)}`,
+        orderNumber: order.orderNumber,
+        currentStatus: status,
+        location: status === 'in_transit' ? 'Bangalore Sorting Hub' : status === 'out_for_delivery' ? 'Koramangala Delivery Hub' : 'Customer Address Handover',
+        carrier: order.carrier || 'Delhivery',
+        remarks: status === 'delivered' ? 'Delivered with OTP signature verification' : status === 'out_for_delivery' ? 'Package loaded in delivery van' : 'Package sorted at regional hub'
+      };
+
+      await apiClient.sendCarrierWebhook(payload, activeStore?.id);
+
+      // Local update
+      fulfillOrder(order.id, payload.awb, payload.carrier);
+      setWebhookSuccessMsg(`Webhook received: Order updated to "${status.replace('_', ' ').toUpperCase()}"!`);
+      setTimeout(() => setWebhookSuccessMsg(null), 4000);
+    } catch (err) {
+      console.error('Webhook simulation failed:', err);
+    } finally {
+      setWebhookSimulating(false);
     }
   };
 
@@ -203,7 +307,28 @@ export default function OrdersView() {
                   </td>
 
                   <td className="py-3 px-4 text-right">
-                    <div className="flex items-center justify-end gap-1.5">
+                    <div className="flex items-center justify-end gap-1.5 flex-wrap">
+                      {ord.fulfillmentStatus === 'unfulfilled' ? (
+                        <button
+                          onClick={() => handleGenerateAwb(ord, 'delhivery')}
+                          disabled={fulfilling}
+                          className="px-2.5 py-1 text-xs font-bold bg-amber-500 hover:bg-amber-600 text-white rounded-lg transition-colors flex items-center gap-1 cursor-pointer shadow-xs disabled:opacity-50"
+                          title="1-Click Automated AWB Generation with Delhivery"
+                        >
+                          <Zap className="w-3 h-3 fill-current" />
+                          <span>1-Click AWB</span>
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => handleOpenLabel(ord)}
+                          className="px-2.5 py-1 text-xs font-semibold bg-zinc-900 hover:bg-zinc-800 text-white rounded-lg transition-colors flex items-center gap-1 cursor-pointer shadow-xs"
+                          title="Print 4x6 Thermal Shipping Label"
+                        >
+                          <Printer className="w-3 h-3" />
+                          <span>Label</span>
+                        </button>
+                      )}
+
                       <button
                         onClick={() => handleDirectDownload(ord)}
                         disabled={downloadingOrderId === ord.id}
@@ -215,21 +340,14 @@ export default function OrdersView() {
                         ) : (
                           <Download className="w-3 h-3 text-indigo-600" />
                         )}
-                        <span>{downloadingOrderId === ord.id ? 'PDF...' : 'Download'}</span>
+                        <span>{downloadingOrderId === ord.id ? 'PDF...' : 'Invoice'}</span>
                       </button>
-                      <button
-                        onClick={() => setInvoiceOrder(ord)}
-                        className="px-2.5 py-1 text-xs font-semibold bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 rounded transition-colors flex items-center gap-1 cursor-pointer"
-                        title="View & Print GST Tax Invoice"
-                      >
-                        <FileText className="w-3 h-3 text-emerald-600" />
-                        <span>View Invoice</span>
-                      </button>
+
                       <button
                         onClick={() => setSelectedOrder(ord)}
                         className="px-2.5 py-1 text-xs font-semibold bg-zinc-100 hover:bg-zinc-200 text-zinc-800 rounded transition-colors cursor-pointer"
                       >
-                        Inspect / Fulfill
+                        Inspect
                       </button>
                     </div>
                   </td>
@@ -302,70 +420,174 @@ export default function OrdersView() {
               </button>
             </div>
 
-            {/* Fulfillment Action */}
+            {/* Fulfillment Action & Shipping Aggregator */}
             {selectedOrder.fulfillmentStatus === 'unfulfilled' ? (
-              <div className="p-4 bg-amber-50/60 rounded-xl border border-amber-200 space-y-3">
+              <div className="p-4 bg-amber-50/70 rounded-2xl border border-amber-200 space-y-3.5">
                 <div className="flex items-center justify-between">
-                  <p className="text-xs font-bold text-amber-900 flex items-center gap-1.5">
-                    <Package className="w-4 h-4 text-amber-600" />
-                    Fulfill Order & Dispatch Automated Alerts
+                  <p className="text-xs font-bold text-amber-950 flex items-center gap-1.5">
+                    <Zap className="w-4 h-4 text-amber-600 fill-amber-500" />
+                    <span>Shipping Aggregator (1-Click AWB & Label)</span>
                   </p>
-                  <span className="text-[10px] font-bold text-amber-700 bg-amber-100 px-2 py-0.5 rounded-full">
-                    Email + WhatsApp
+                  <span className="text-[10px] font-extrabold uppercase text-amber-800 bg-amber-200/60 px-2 py-0.5 rounded-full border border-amber-300">
+                    Auto-Push
                   </span>
                 </div>
 
-                <div className="space-y-2">
-                  <label className="block text-[11px] font-bold text-zinc-700">Courier Carrier</label>
-                  <select
-                    value={selectedCarrier}
-                    onChange={(e) => setSelectedCarrier(e.target.value)}
-                    className="w-full px-3 py-2 bg-white border border-amber-300 rounded-lg text-xs text-zinc-900 font-semibold"
+                {/* Aggregator Selector Tabs */}
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setAggregatorType('delhivery')}
+                    className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer ${
+                      aggregatorType === 'delhivery'
+                        ? 'border-red-500 bg-red-50/80 shadow-xs ring-2 ring-red-500/20'
+                        : 'border-zinc-200 bg-white hover:border-zinc-300'
+                    }`}
                   >
-                    <option value="Blue Dart Express">Blue Dart Express (Air)</option>
-                    <option value="Delhivery Surface Express">Delhivery Surface Express</option>
-                    <option value="DTDC Express India">DTDC Express India</option>
-                    <option value="FedEx Priority India">FedEx Priority India</option>
-                    <option value="Shadowfax Logistics">Shadowfax Logistics</option>
-                  </select>
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-black text-red-700">DELHIVERY</span>
+                      <span className="text-[9px] font-bold uppercase bg-red-100 text-red-800 px-1.5 py-0.2 rounded">Surface</span>
+                    </div>
+                    <p className="text-[10px] text-zinc-500 mt-0.5">Automated AWB + 4x6 Label</p>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setAggregatorType('shiprocket')}
+                    className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer ${
+                      aggregatorType === 'shiprocket'
+                        ? 'border-blue-500 bg-blue-50/80 shadow-xs ring-2 ring-blue-500/20'
+                        : 'border-zinc-200 bg-white hover:border-zinc-300'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-black text-blue-700">SHIPROCKET</span>
+                      <span className="text-[9px] font-bold uppercase bg-blue-100 text-blue-800 px-1.5 py-0.2 rounded">Blue Dart Air</span>
+                    </div>
+                    <p className="text-[10px] text-zinc-500 mt-0.5">Air Cargo Priority Hub</p>
+                  </button>
                 </div>
 
-                <div className="space-y-1">
-                  <label className="block text-[11px] font-bold text-zinc-700">Tracking / AWB Number</label>
-                  <input
-                    type="text"
-                    value={customTracking}
-                    onChange={(e) => setCustomTracking(e.target.value)}
-                    placeholder="e.g. APX-982736184 (or leave blank to auto-generate)"
-                    className="w-full px-3 py-2 bg-white border border-amber-300 rounded-lg text-xs text-zinc-900 font-mono"
-                  />
-                  <p className="text-[10px] text-zinc-500">
-                    Live tracking URL with order timeline will be automatically sent to {selectedOrder.customer?.email || selectedOrder.customerEmail || 'the customer'}.
-                  </p>
+                {/* Dead Weight & Box Dimensions */}
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <div>
+                    <label className="block text-[10px] font-bold text-zinc-600 mb-0.5">Package Weight</label>
+                    <div className="flex items-center gap-1 bg-white border border-amber-300 rounded-lg px-2.5 py-1.5">
+                      <input
+                        type="number"
+                        step="0.1"
+                        min="0.1"
+                        value={packageWeight}
+                        onChange={(e) => setPackageWeight(parseFloat(e.target.value) || 0.5)}
+                        className="w-full text-xs font-mono font-bold focus:outline-none"
+                      />
+                      <span className="text-[10px] text-zinc-400 font-bold">KG</span>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-zinc-600 mb-0.5">Dimensions (LxWxH)</label>
+                    <div className="bg-white border border-amber-300 rounded-lg px-2.5 py-1.5 font-mono text-[11px] text-zinc-700">
+                      20 × 15 × 8 cm
+                    </div>
+                  </div>
                 </div>
 
+                {/* 1-Click Push to Aggregator Button */}
                 <button
                   disabled={fulfilling}
-                  onClick={() => handleFulfill(selectedOrder.id)}
-                  className="w-full py-2.5 bg-[#008060] hover:bg-[#006e52] text-white text-xs font-bold rounded-lg shadow-xs cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50"
+                  onClick={() => handleGenerateAwb(selectedOrder, aggregatorType)}
+                  className="w-full py-2.5 bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-700 hover:to-amber-800 text-white text-xs font-bold rounded-xl shadow-md shadow-amber-600/20 cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50 transition-all active:scale-98"
                 >
-                  {fulfilling ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Truck className="w-3.5 h-3.5" />}
-                  <span>{fulfilling ? 'Dispatching...' : 'Confirm Fulfillment & Dispatch Alerts'}</span>
+                  {fulfilling ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Zap className="w-4 h-4 fill-white" />
+                  )}
+                  <span>
+                    {fulfilling
+                      ? 'Contacting Aggregator API...'
+                      : `⚡ 1-Click Push to ${aggregatorType === 'shiprocket' ? 'Shiprocket' : 'Delhivery'} (Generate AWB & Label)`}
+                  </span>
                 </button>
               </div>
             ) : (
-              <div className="p-3 bg-emerald-50 rounded-xl border border-emerald-200 text-xs text-emerald-800 space-y-1">
-                <div className="flex items-center gap-2">
-                  <CheckCircle className="w-4 h-4 text-emerald-600" />
-                  <span>Order is fulfilled via <strong>{selectedOrder.carrier || 'Blue Dart Express'}</strong></span>
+              <div className="p-4 bg-emerald-50 rounded-2xl border border-emerald-200 text-xs space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <div>
+                      <span className="font-bold text-emerald-950">Fulfilled & Dispatched via {selectedOrder.carrier || 'Delhivery Express'}</span>
+                      <p className="text-[11px] text-emerald-700 font-mono">
+                        AWB: <strong>{selectedOrder.trackingNumber || selectedOrder.awbNumber}</strong>
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Print 4x6 Label Button */}
+                  <button
+                    onClick={() => handleOpenLabel(selectedOrder)}
+                    className="px-3 py-1.5 bg-zinc-900 hover:bg-zinc-800 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-xs transition-all active:scale-95"
+                  >
+                    <Printer className="w-3.5 h-3.5" />
+                    <span>Print 4×6 Label</span>
+                  </button>
                 </div>
-                <p className="text-[11px] text-emerald-700 ml-6">
-                  AWB Tracking: <strong className="font-mono">{selectedOrder.trackingNumber}</strong> (Dispatch Email & WhatsApp sent)
-                </p>
+
+                {/* Live Courier Tracking Webhook Simulator */}
+                <div className="pt-3 border-t border-emerald-200/80 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-bold text-emerald-900 flex items-center gap-1">
+                      <Radio className="w-3.5 h-3.5 text-emerald-600 animate-pulse" />
+                      <span>Live Courier Tracking Webhooks Simulator</span>
+                    </span>
+                    {webhookSimulating && <Loader2 className="w-3 h-3 text-emerald-700 animate-spin" />}
+                  </div>
+
+                  {webhookSuccessMsg && (
+                    <div className="p-2 bg-emerald-100 border border-emerald-300 rounded-lg text-[11px] font-bold text-emerald-900 animate-fadeIn">
+                      {webhookSuccessMsg}
+                    </div>
+                  )}
+
+                  <div className="grid grid-cols-3 gap-1.5 text-[11px]">
+                    <button
+                      type="button"
+                      disabled={webhookSimulating}
+                      onClick={() => handleSimulateWebhook(selectedOrder, 'in_transit')}
+                      className="px-2 py-1.5 rounded-lg border border-emerald-300 bg-white hover:bg-emerald-50 text-emerald-900 font-bold transition-colors cursor-pointer text-center"
+                    >
+                      📦 In-Transit
+                    </button>
+                    <button
+                      type="button"
+                      disabled={webhookSimulating}
+                      onClick={() => handleSimulateWebhook(selectedOrder, 'out_for_delivery')}
+                      className="px-2 py-1.5 rounded-lg border border-emerald-300 bg-white hover:bg-emerald-50 text-amber-900 font-bold transition-colors cursor-pointer text-center"
+                    >
+                      🚚 Out for Delivery
+                    </button>
+                    <button
+                      type="button"
+                      disabled={webhookSimulating}
+                      onClick={() => handleSimulateWebhook(selectedOrder, 'delivered')}
+                      className="px-2 py-1.5 rounded-lg border border-emerald-300 bg-white hover:bg-emerald-50 text-emerald-900 font-bold transition-colors cursor-pointer text-center"
+                    >
+                      ✅ Delivered
+                    </button>
+                  </div>
+                </div>
               </div>
             )}
           </div>
         </div>
+      )}
+
+      {/* 4x6 Thermal Shipping Label Modal */}
+      {shippingLabelData && (
+        <ShippingLabelModal
+          label={shippingLabelData}
+          onClose={() => setShippingLabelData(null)}
+        />
       )}
 
       {/* GST Tax Invoice Viewer & Print Modal */}

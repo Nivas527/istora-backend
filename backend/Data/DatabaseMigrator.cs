@@ -156,6 +156,11 @@ public static class DatabaseMigrator
                 ALTER TABLE orders ADD COLUMN IF NOT EXISTS ""SgstAmount"" numeric NOT NULL DEFAULT 0;
                 ALTER TABLE orders ADD COLUMN IF NOT EXISTS ""IgstAmount"" numeric NOT NULL DEFAULT 0;
                 ALTER TABLE orders ADD COLUMN IF NOT EXISTS ""TotalGst"" numeric NOT NULL DEFAULT 0;
+                ALTER TABLE orders ADD COLUMN IF NOT EXISTS ""CourierAggregator"" text DEFAULT 'Delhivery';
+                ALTER TABLE orders ADD COLUMN IF NOT EXISTS ""AwbNumber"" text;
+                ALTER TABLE orders ADD COLUMN IF NOT EXISTS ""RoutingCode"" text;
+                ALTER TABLE orders ADD COLUMN IF NOT EXISTS ""ShippingLabelJson"" text;
+                ALTER TABLE orders ADD COLUMN IF NOT EXISTS ""ShipmentTimelineJson"" text DEFAULT '[]';
 
                 ALTER TABLE stores ADD COLUMN IF NOT EXISTS ""Location"" text NOT NULL DEFAULT 'India';
                 ALTER TABLE stores ADD COLUMN IF NOT EXISTS ""Plan"" text NOT NULL DEFAULT 'monthly';

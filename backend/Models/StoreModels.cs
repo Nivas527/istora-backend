@@ -313,6 +313,169 @@ public class Order
 
     [JsonPropertyName("totalGst")]
     public decimal TotalGst { get; set; }
+
+    // Shipping Aggregator (Shiprocket / Delhivery)
+    [JsonPropertyName("courierAggregator")]
+    public string? CourierAggregator { get; set; }
+
+    [JsonPropertyName("awbNumber")]
+    public string? AwbNumber { get; set; }
+
+    [JsonPropertyName("routingCode")]
+    public string? RoutingCode { get; set; }
+
+    [JsonPropertyName("shippingLabel")]
+    public ShippingLabelDto? ShippingLabel { get; set; }
+
+    [JsonPropertyName("shipmentTimeline")]
+    public List<ShipmentScanEventDto> ShipmentTimeline { get; set; } = new();
+}
+
+public class GenerateAwbRequest
+{
+    [JsonPropertyName("orderId")]
+    public string OrderId { get; set; } = string.Empty;
+
+    [JsonPropertyName("aggregator")]
+    public string Aggregator { get; set; } = "delhivery"; // "delhivery" | "shiprocket"
+
+    [JsonPropertyName("carrierName")]
+    public string? CarrierName { get; set; } // "Delhivery Surface Express" | "Blue Dart Air" | "DTDC Express"
+
+    [JsonPropertyName("weightKg")]
+    public decimal WeightKg { get; set; } = 0.50m;
+
+    [JsonPropertyName("lengthCm")]
+    public decimal LengthCm { get; set; } = 20m;
+
+    [JsonPropertyName("widthCm")]
+    public decimal WidthCm { get; set; } = 15m;
+
+    [JsonPropertyName("heightCm")]
+    public decimal HeightCm { get; set; } = 8m;
+}
+
+public class ShippingLabelDto
+{
+    [JsonPropertyName("awbNumber")]
+    public string AwbNumber { get; set; } = string.Empty;
+
+    [JsonPropertyName("barcodeSvg")]
+    public string? BarcodeSvg { get; set; }
+
+    [JsonPropertyName("orderNumber")]
+    public string OrderNumber { get; set; } = string.Empty;
+
+    [JsonPropertyName("orderId")]
+    public string OrderId { get; set; } = string.Empty;
+
+    [JsonPropertyName("aggregator")]
+    public string Aggregator { get; set; } = "Delhivery";
+
+    [JsonPropertyName("courierCarrier")]
+    public string CourierCarrier { get; set; } = "Delhivery Surface Express";
+
+    [JsonPropertyName("routingCode")]
+    public string RoutingCode { get; set; } = "BLR/HUB-01";
+
+    [JsonPropertyName("paymentMode")]
+    public string PaymentMode { get; set; } = "PREPAID";
+
+    [JsonPropertyName("collectableAmount")]
+    public decimal CollectableAmount { get; set; } = 0m;
+
+    [JsonPropertyName("weightKg")]
+    public decimal WeightKg { get; set; } = 0.50m;
+
+    [JsonPropertyName("dimensions")]
+    public string Dimensions { get; set; } = "20x15x8 cm";
+
+    [JsonPropertyName("sellerName")]
+    public string SellerName { get; set; } = "Apex Commerce India Pvt. Ltd.";
+
+    [JsonPropertyName("sellerAddress")]
+    public string SellerAddress { get; set; } = "Plot 42, Electronics City Phase 1, Hosur Road";
+
+    [JsonPropertyName("sellerCity")]
+    public string SellerCity { get; set; } = "Bangalore";
+
+    [JsonPropertyName("sellerState")]
+    public string SellerState { get; set; } = "Karnataka (29)";
+
+    [JsonPropertyName("sellerPincode")]
+    public string SellerPincode { get; set; } = "560100";
+
+    [JsonPropertyName("sellerGstin")]
+    public string SellerGstin { get; set; } = "29AABCU9603R1ZM";
+
+    [JsonPropertyName("consigneeName")]
+    public string ConsigneeName { get; set; } = string.Empty;
+
+    [JsonPropertyName("consigneeAddress")]
+    public string ConsigneeAddress { get; set; } = string.Empty;
+
+    [JsonPropertyName("consigneeCity")]
+    public string ConsigneeCity { get; set; } = string.Empty;
+
+    [JsonPropertyName("consigneeState")]
+    public string ConsigneeState { get; set; } = string.Empty;
+
+    [JsonPropertyName("consigneePincode")]
+    public string ConsigneePincode { get; set; } = string.Empty;
+
+    [JsonPropertyName("consigneePhone")]
+    public string ConsigneePhone { get; set; } = string.Empty;
+
+    [JsonPropertyName("items")]
+    public List<CartItem> Items { get; set; } = new();
+
+    [JsonPropertyName("createdAt")]
+    public string CreatedAt { get; set; } = DateTime.UtcNow.ToString("o");
+}
+
+public class ShipmentScanEventDto
+{
+    [JsonPropertyName("status")]
+    public string Status { get; set; } = "in_transit"; // pickup_scheduled | in_transit | out_for_delivery | delivered
+
+    [JsonPropertyName("statusTitle")]
+    public string StatusTitle { get; set; } = "In Transit";
+
+    [JsonPropertyName("location")]
+    public string Location { get; set; } = "Bangalore Sorting Hub";
+
+    [JsonPropertyName("timestamp")]
+    public string Timestamp { get; set; } = DateTime.UtcNow.ToString("o");
+
+    [JsonPropertyName("remarks")]
+    public string Remarks { get; set; } = "Package sorted at regional transit hub";
+
+    [JsonPropertyName("carrier")]
+    public string Carrier { get; set; } = "Delhivery";
+}
+
+public class CarrierWebhookPayload
+{
+    [JsonPropertyName("awb")]
+    public string Awb { get; set; } = string.Empty;
+
+    [JsonPropertyName("orderNumber")]
+    public string? OrderNumber { get; set; }
+
+    [JsonPropertyName("currentStatus")]
+    public string CurrentStatus { get; set; } = "in_transit"; // pickup_scheduled | in_transit | out_for_delivery | delivered
+
+    [JsonPropertyName("location")]
+    public string Location { get; set; } = "Bangalore Central Hub";
+
+    [JsonPropertyName("timestamp")]
+    public string? Timestamp { get; set; }
+
+    [JsonPropertyName("remarks")]
+    public string? Remarks { get; set; }
+
+    [JsonPropertyName("carrier")]
+    public string? Carrier { get; set; }
 }
 
 public class Customer
