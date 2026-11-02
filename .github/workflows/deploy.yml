@@ -48,27 +48,27 @@ jobs:
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.LIGHTSAIL_HOST }}
-          username: ${{ secrets.LIGHTSAIL_USERNAME || 'ubuntu' }}
+          username: ${{ secrets.LIGHTSAIL_USERNAME || 'deployer' }}
           key: ${{ secrets.LIGHTSAIL_SSH_KEY }}
           port: ${{ secrets.LIGHTSAIL_PORT || 22 }}
           script_stop: true
           script: |
-            echo "🚀 [CI/CD] Starting automated deployment on AWS Lightsail..."
+            echo "🚀 [CI/CD] Starting automated deployment on AWS Lightsail as dedicated deployer..."
             cd /opt/shopify-engine
             
             echo "📦 [1/4] Pre-Deployment Safety: Exporting pg_dump & syncing to Cloudflare R2..."
             cd deploy
             chmod +x backup-to-r2.sh restore-backup.sh
-            sudo ./backup-to-r2.sh || (echo "❌ Database backup failed! Aborting deploy to prevent data loss." && exit 1)
+            ./backup-to-r2.sh || (echo "❌ Database backup failed! Aborting deploy to prevent data loss." && exit 1)
             
             echo "📥 [2/4] Pulling latest code from GitHub main..."
             cd /opt/shopify-engine
-            sudo git pull origin main
+            git pull origin main
             
             echo "🔨 [3/4] Rebuilding backend-api container with additive migrations..."
             cd deploy
-            sudo docker compose build --no-cache backend-api
-            sudo docker compose up -d backend-api
+            docker compose build --no-cache backend-api
+            docker compose up -d backend-api
             
             echo "🩺 [4/4] Performing health check..."
             sleep 4
