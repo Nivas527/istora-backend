@@ -1295,5 +1295,114 @@ export const apiClient = {
       console.warn('[C# API] convertCurrency fallback:', err.message);
       return null;
     }
+  },
+
+  // Customer Reviews, Star Ratings & UGC Uploads
+  async getReviews(productId = null, storeId = null, rating = null, withMedia = false) {
+    try {
+      const headers = getHeaders({}, storeId, true);
+      const targetStore = storeId || localStorage.getItem('active_store_id') || 'store_apex';
+      let url = `/api/reviews?storeId=${encodeURIComponent(targetStore)}`;
+      if (productId) url += `&productId=${encodeURIComponent(productId)}`;
+      if (rating) url += `&rating=${encodeURIComponent(rating)}`;
+      if (withMedia) url += `&withMedia=true`;
+
+      const res = await fetch(getUrl(url), { headers });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return await res.json();
+    } catch (err) {
+      console.warn('[C# API] getReviews fallback:', err.message);
+      return null;
+    }
+  },
+
+  async submitReview(reviewData, storeId = null) {
+    try {
+      const headers = getHeaders({ 'Content-Type': 'application/json' }, storeId, true);
+      const targetStore = storeId || localStorage.getItem('active_store_id') || 'store_apex';
+      const payload = { ...reviewData, storeId: targetStore };
+
+      const res = await fetch(getUrl('/api/reviews'), {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(payload)
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return await res.json();
+    } catch (err) {
+      console.warn('[C# API] submitReview fallback:', err.message);
+      return {
+        id: `rev_${Date.now()}`,
+        ...reviewData,
+        createdAt: new Date().toISOString(),
+        verifiedBuyer: true,
+        helpfulVotes: 0
+      };
+    }
+  },
+
+  async voteReviewHelpful(reviewId) {
+    try {
+      const res = await fetch(getUrl(`/api/reviews/${encodeURIComponent(reviewId)}/helpful`), {
+        method: 'POST'
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return await res.json();
+    } catch (err) {
+      console.warn('[C# API] voteReviewHelpful fallback:', err.message);
+      return { id: reviewId, helpfulVotes: 1 };
+    }
+  },
+
+  async addMerchantReply(reviewId, replyText, storeId = null) {
+    try {
+      const headers = getHeaders({ 'Content-Type': 'application/json' }, storeId, true);
+      const res = await fetch(getUrl(`/api/reviews/${encodeURIComponent(reviewId)}/reply`), {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ replyText })
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return await res.json();
+    } catch (err) {
+      console.warn('[C# API] addMerchantReply fallback:', err.message);
+      return { id: reviewId, merchantReply: replyText, merchantReplyAt: new Date().toISOString() };
+    }
+  },
+
+  async uploadReviewMedia(file) {
+    try {
+      const isVideo = file.type?.startsWith('video/') || /\.(mp4|webm|mov|m4v)$/i.test(file.name);
+      const formData = new FormData();
+      formData.append('file', file);
+      if (isVideo) formData.append('type', 'preview');
+
+      const endpoint = isVideo ? '/api/upload/video' : '/api/upload';
+      const res = await fetch(getUrl(endpoint), {
+        method: 'POST',
+        body: formData
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      return {
+        url: data.url,
+        type: isVideo ? 'video' : 'image',
+        caption: file.name
+      };
+    } catch (err) {
+      console.warn('[C# API] uploadReviewMedia fallback to data URL:', err.message);
+      return new Promise((resolve) => {
+        const reader = new FileReader();
+        const isVideo = file.type?.startsWith('video/');
+        reader.onload = (e) => {
+          resolve({
+            url: e.target.result,
+            type: isVideo ? 'video' : 'image',
+            caption: file.name
+          });
+        };
+        reader.readAsDataURL(file);
+      });
+    }
   }
 };

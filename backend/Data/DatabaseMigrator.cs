@@ -205,6 +205,14 @@ public static class DatabaseMigrator
                 ALTER TABLE discounts ADD COLUMN IF NOT EXISTS ""IsActive"" boolean NOT NULL DEFAULT true;
                 ALTER TABLE discounts ADD COLUMN IF NOT EXISTS ""StartsAt"" text;
                 ALTER TABLE discounts ADD COLUMN IF NOT EXISTS ""EndsAt"" text;
+
+                ALTER TABLE reviews ADD COLUMN IF NOT EXISTS ""CustomerEmail"" text DEFAULT '';
+                ALTER TABLE reviews ADD COLUMN IF NOT EXISTS ""MediaUrlsJson"" jsonb DEFAULT '[]'::jsonb;
+                ALTER TABLE reviews ADD COLUMN IF NOT EXISTS ""HelpfulVotes"" integer NOT NULL DEFAULT 0;
+                ALTER TABLE reviews ADD COLUMN IF NOT EXISTS ""MerchantReply"" text;
+                ALTER TABLE reviews ADD COLUMN IF NOT EXISTS ""MerchantReplyAt"" text;
+                ALTER TABLE reviews ADD COLUMN IF NOT EXISTS ""Status"" text NOT NULL DEFAULT 'published';
+                ALTER TABLE reviews ADD COLUMN IF NOT EXISTS ""CustomerFitRating"" text DEFAULT 'true_to_size';
             ");
             logger.LogInformation("Database tables and multi-tenant schema partitions verified successfully.");
         }

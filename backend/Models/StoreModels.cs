@@ -648,6 +648,9 @@ public class ProductReview
     [JsonPropertyName("customerName")]
     public string CustomerName { get; set; } = string.Empty;
 
+    [JsonPropertyName("customerEmail")]
+    public string CustomerEmail { get; set; } = string.Empty;
+
     [JsonPropertyName("rating")]
     public int Rating { get; set; } = 5;
 
@@ -662,6 +665,78 @@ public class ProductReview
 
     [JsonPropertyName("createdAt")]
     public string CreatedAt { get; set; } = DateTime.UtcNow.ToString("o");
+
+    [JsonPropertyName("mediaUrls")]
+    public List<ReviewMediaItem> MediaUrls { get; set; } = new();
+
+    [JsonPropertyName("helpfulVotes")]
+    public int HelpfulVotes { get; set; } = 0;
+
+    [JsonPropertyName("merchantReply")]
+    public string? MerchantReply { get; set; }
+
+    [JsonPropertyName("merchantReplyAt")]
+    public string? MerchantReplyAt { get; set; }
+
+    [JsonPropertyName("status")]
+    public string Status { get; set; } = "published";
+
+    [JsonPropertyName("customerFitRating")]
+    public string CustomerFitRating { get; set; } = "true_to_size";
+}
+
+public class ReviewMediaItem
+{
+    [JsonPropertyName("url")]
+    public string Url { get; set; } = string.Empty;
+
+    [JsonPropertyName("type")]
+    public string Type { get; set; } = "image"; // image | video
+
+    [JsonPropertyName("thumbnail")]
+    public string? Thumbnail { get; set; }
+
+    [JsonPropertyName("caption")]
+    public string? Caption { get; set; }
+}
+
+public class ReviewsSummaryResponse
+{
+    [JsonPropertyName("productId")]
+    public string ProductId { get; set; } = string.Empty;
+
+    [JsonPropertyName("averageRating")]
+    public double AverageRating { get; set; } = 5.0;
+
+    [JsonPropertyName("totalReviews")]
+    public int TotalReviews { get; set; } = 0;
+
+    [JsonPropertyName("ratingCounts")]
+    public Dictionary<int, int> RatingCounts { get; set; } = new();
+
+    [JsonPropertyName("ratingPercentages")]
+    public Dictionary<int, double> RatingPercentages { get; set; } = new();
+
+    [JsonPropertyName("fitFeedback")]
+    public FitFeedbackSummary FitFeedback { get; set; } = new();
+
+    [JsonPropertyName("mediaCount")]
+    public int MediaCount { get; set; } = 0;
+
+    [JsonPropertyName("reviews")]
+    public List<ProductReview> Reviews { get; set; } = new();
+}
+
+public class FitFeedbackSummary
+{
+    [JsonPropertyName("trueToSizePercent")]
+    public int TrueToSizePercent { get; set; } = 85;
+
+    [JsonPropertyName("runsSmallPercent")]
+    public int RunsSmallPercent { get; set; } = 10;
+
+    [JsonPropertyName("runsLargePercent")]
+    public int RunsLargePercent { get; set; } = 5;
 }
 
 public class ShopifyApiImportRequest

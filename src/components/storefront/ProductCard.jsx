@@ -1,4 +1,4 @@
-import { Eye, Plus, ShoppingBag, Sparkles, Heart } from 'lucide-react';
+import { Eye, Plus, ShoppingBag, Sparkles, Heart, Star } from 'lucide-react';
 import { useStore } from '../../context/StoreContext';
 import { useFit } from '../../context/FitContext';
 import { useWishlist } from '../../context/WishlistContext';
@@ -122,6 +122,19 @@ export default function ProductCard({ product, onSelect }) {
           <h3 className={`font-semibold text-sm transition-colors line-clamp-1 ${isDark ? 'text-white' : 'text-zinc-900'}`}>
             {product.title}
           </h3>
+
+          {/* Customer Rating & Star Score */}
+          <div className="flex items-center gap-1 mt-1 text-[11px]">
+            <div className="flex items-center text-amber-400">
+              <Star className="w-3.5 h-3.5 fill-amber-400" />
+            </div>
+            <span className="font-bold text-zinc-800 dark:text-zinc-200">
+              {product.rating || '4.9'}
+            </span>
+            <span className="text-zinc-400 text-[10px]">
+              ({product.reviewCount || 18})
+            </span>
+          </div>
 
           {/* Direct Biometric Fit & Volume Tier Badge */}
           <div className="mt-2 flex items-center justify-between gap-1 flex-wrap">

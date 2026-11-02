@@ -199,11 +199,22 @@ public class DbReview : IMultiTenantEntity
     public string StoreId { get; set; } = "store_apex";
     public string ProductId { get; set; } = string.Empty;
     public string CustomerName { get; set; } = string.Empty;
+    public string CustomerEmail { get; set; } = string.Empty;
     public int Rating { get; set; } = 5;
     public string Title { get; set; } = string.Empty;
     public string Comment { get; set; } = string.Empty;
     public bool VerifiedBuyer { get; set; } = true;
     public string CreatedAt { get; set; } = DateTime.UtcNow.ToString("o");
+
+    // UGC Photos and Videos
+    [Column(TypeName = "jsonb")]
+    public string MediaUrlsJson { get; set; } = "[]";
+
+    public int HelpfulVotes { get; set; } = 0;
+    public string? MerchantReply { get; set; }
+    public string? MerchantReplyAt { get; set; }
+    public string Status { get; set; } = "published"; // published | pending | hidden
+    public string CustomerFitRating { get; set; } = "true_to_size"; // true_to_size | runs_small | runs_large
 }
 
 public class DbDeployment

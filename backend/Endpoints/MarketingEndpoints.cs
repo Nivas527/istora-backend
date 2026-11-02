@@ -55,11 +55,14 @@ public static class MarketingEndpoints
         }).WithName("CreateCategory")
           .WithSummary("Add a product category");
 
-        // Reviews
-        group.MapGet("/reviews", (string? storeId, string? productId, StoreService store) =>
-            Results.Ok(store.GetReviews(storeId, productId)))
-            .WithName("GetReviews")
-            .WithSummary("List customer reviews and star ratings");
+        // Customer Reviews, Star Ratings & UGC Uploads
+        group.MapGet("/reviews", (string? storeId, string? productId, int? rating, bool? withMedia, StoreService store) =>
+        {
+            var summary = store.GetReviewsSummary(storeId, productId, rating, withMedia ?? false);
+            return Results.Ok(summary);
+        })
+        .WithName("GetReviewsSummary")
+        .WithSummary("List customer reviews, rating histogram, UGC media, and fit feedback summary");
 
         group.MapPost("/reviews", (ProductReview review, StoreService store) =>
         {
@@ -68,6 +71,41 @@ public static class MarketingEndpoints
         }).WithName("CreateReview")
           .WithSummary("Submit customer product review");
 
+        group.MapPost("/reviews/{id}/helpful", (string id, StoreService store) =>
+        {
+            var updated = store.VoteReviewHelpful(id);
+            if (updated == null) return Results.NotFound(new { error = "Review not found" });
+            return Results.Ok(updated);
+        })
+        .WithName("VoteReviewHelpful")
+        .WithSummary("Upvote review as helpful");
+
+        group.MapPost("/reviews/{id}/reply", (string id, MerchantReplyRequest request, StoreService store) =>
+        {
+            if (string.IsNullOrWhiteSpace(request?.ReplyText))
+            {
+                return Results.BadRequest(new { error = "Reply text cannot be empty" });
+            }
+            var updated = store.AddMerchantReply(id, request.ReplyText);
+            if (updated == null) return Results.NotFound(new { error = "Review not found" });
+            return Results.Ok(updated);
+        })
+        .WithName("AddMerchantReviewReply")
+        .WithSummary("Post official merchant response to a customer review");
+
+        group.MapDelete("/reviews/{id}", (string id, StoreService store) =>
+        {
+            var deleted = store.DeleteReview(id);
+            return deleted ? Results.Ok(new { success = true }) : Results.NotFound(new { error = "Review not found" });
+        })
+        .WithName("DeleteReview")
+        .WithSummary("Remove or moderate customer review");
+
         return app;
     }
+}
+
+public class MerchantReplyRequest
+{
+    public string ReplyText { get; set; } = string.Empty;
 }

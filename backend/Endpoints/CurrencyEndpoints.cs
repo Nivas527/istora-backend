@@ -71,3 +71,4 @@ public class ConvertCurrencyRequest
     public string FromCurrency { get; set; } = "INR";
     public string ToCurrency { get; set; } = "USD";
 }
+

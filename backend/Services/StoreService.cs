@@ -1331,6 +1331,11 @@ public class StoreService
 
     public List<ProductReview> GetReviews(string? storeId = null, string? productId = null)
     {
+        return GetReviewsSummary(storeId, productId).Reviews;
+    }
+
+    public ReviewsSummaryResponse GetReviewsSummary(string? storeId = null, string? productId = null, int? ratingFilter = null, bool withMediaOnly = false)
+    {
         var query = _db.Reviews.AsNoTracking().AsQueryable();
         if (!string.IsNullOrWhiteSpace(storeId))
         {
@@ -1342,18 +1347,96 @@ public class StoreService
             query = query.Where(r => r.ProductId == productId);
         }
 
-        return query.OrderByDescending(r => r.CreatedAt).Select(r => new ProductReview
+        var allReviews = query.Where(r => r.Status != "hidden").ToList();
+
+        // Calculate statistics
+        var ratingCounts = new Dictionary<int, int> { { 5, 0 }, { 4, 0 }, { 3, 0 }, { 2, 0 }, { 1, 0 } };
+        int trueToSizeCount = 0;
+        int runsSmallCount = 0;
+        int runsLargeCount = 0;
+        int totalMediaCount = 0;
+
+        foreach (var r in allReviews)
         {
-            Id = r.Id,
-            StoreId = r.StoreId,
-            ProductId = r.ProductId,
-            CustomerName = r.CustomerName,
-            Rating = r.Rating,
-            Title = r.Title,
-            Comment = r.Comment,
-            VerifiedBuyer = r.VerifiedBuyer,
-            CreatedAt = r.CreatedAt
+            if (ratingCounts.ContainsKey(r.Rating)) ratingCounts[r.Rating]++;
+            if (r.CustomerFitRating == "runs_small") runsSmallCount++;
+            else if (r.CustomerFitRating == "runs_large") runsLargeCount++;
+            else trueToSizeCount++;
+
+            if (!string.IsNullOrWhiteSpace(r.MediaUrlsJson) && r.MediaUrlsJson != "[]") totalMediaCount++;
+        }
+
+        int totalCount = allReviews.Count;
+        double avg = totalCount > 0 ? Math.Round(allReviews.Average(r => r.Rating), 1) : 5.0;
+
+        var ratingPercentages = new Dictionary<int, double>();
+        foreach (var kvp in ratingCounts)
+        {
+            ratingPercentages[kvp.Key] = totalCount > 0 ? Math.Round((double)kvp.Value / totalCount * 100, 1) : 0;
+        }
+
+        var fitFeedback = new FitFeedbackSummary
+        {
+            TrueToSizePercent = totalCount > 0 ? (int)Math.Round((double)trueToSizeCount / totalCount * 100) : 88,
+            RunsSmallPercent = totalCount > 0 ? (int)Math.Round((double)runsSmallCount / totalCount * 100) : 8,
+            RunsLargePercent = totalCount > 0 ? (int)Math.Round((double)runsLargeCount / totalCount * 100) : 4
+        };
+
+        // Filter for display
+        var filtered = allReviews.AsEnumerable();
+        if (ratingFilter.HasValue && ratingFilter.Value >= 1 && ratingFilter.Value <= 5)
+        {
+            filtered = filtered.Where(r => r.Rating == ratingFilter.Value);
+        }
+        if (withMediaOnly)
+        {
+            filtered = filtered.Where(r => !string.IsNullOrWhiteSpace(r.MediaUrlsJson) && r.MediaUrlsJson != "[]");
+        }
+
+        var reviewDtos = filtered.OrderByDescending(r => r.CreatedAt).Select(r =>
+        {
+            List<ReviewMediaItem> mediaList = new();
+            try
+            {
+                if (!string.IsNullOrWhiteSpace(r.MediaUrlsJson))
+                {
+                    mediaList = JsonSerializer.Deserialize<List<ReviewMediaItem>>(r.MediaUrlsJson) ?? new();
+                }
+            }
+            catch {}
+
+            return new ProductReview
+            {
+                Id = r.Id,
+                StoreId = r.StoreId,
+                ProductId = r.ProductId,
+                CustomerName = r.CustomerName,
+                CustomerEmail = r.CustomerEmail,
+                Rating = r.Rating,
+                Title = r.Title,
+                Comment = r.Comment,
+                VerifiedBuyer = r.VerifiedBuyer,
+                CreatedAt = r.CreatedAt,
+                MediaUrls = mediaList,
+                HelpfulVotes = r.HelpfulVotes,
+                MerchantReply = r.MerchantReply,
+                MerchantReplyAt = r.MerchantReplyAt,
+                Status = r.Status,
+                CustomerFitRating = r.CustomerFitRating
+            };
         }).ToList();
+
+        return new ReviewsSummaryResponse
+        {
+            ProductId = productId ?? string.Empty,
+            AverageRating = avg,
+            TotalReviews = totalCount,
+            RatingCounts = ratingCounts,
+            RatingPercentages = ratingPercentages,
+            FitFeedback = fitFeedback,
+            MediaCount = totalMediaCount,
+            Reviews = reviewDtos
+        };
     }
 
     public ProductReview CreateReview(ProductReview review)
@@ -1367,20 +1450,132 @@ public class StoreService
         }
 
         review.StoreId = HttpTenantProvider.NormalizeStoreId(review.StoreId);
-        _db.Reviews.Add(new DbReview
+
+        // Automatic Verified Buyer Check
+        bool isVerified = review.VerifiedBuyer;
+        if (!isVerified && !string.IsNullOrWhiteSpace(review.CustomerEmail))
+        {
+            var emailLower = review.CustomerEmail.Trim().ToLowerInvariant();
+            var customerOrders = _db.Orders.AsNoTracking()
+                .Where(o => o.StoreId == review.StoreId && o.CustomerEmail.ToLower() == emailLower)
+                .ToList();
+
+            foreach (var ord in customerOrders)
+            {
+                if (!string.IsNullOrWhiteSpace(ord.ItemsJson) && ord.ItemsJson.Contains(review.ProductId))
+                {
+                    isVerified = true;
+                    break;
+                }
+            }
+        }
+
+        // If author name is known in orders, also check
+        if (!isVerified && !string.IsNullOrWhiteSpace(review.CustomerName))
+        {
+            var nameLower = review.CustomerName.Trim().ToLowerInvariant();
+            var matchedOrder = _db.Orders.AsNoTracking().FirstOrDefault(o =>
+                o.StoreId == review.StoreId &&
+                o.CustomerName.ToLower() == nameLower &&
+                o.ItemsJson.Contains(review.ProductId));
+            if (matchedOrder != null) isVerified = true;
+        }
+
+        review.VerifiedBuyer = isVerified;
+
+        string mediaJson = "[]";
+        if (review.MediaUrls != null && review.MediaUrls.Count > 0)
+        {
+            mediaJson = JsonSerializer.Serialize(review.MediaUrls);
+        }
+
+        var dbEntity = new DbReview
         {
             Id = review.Id,
             StoreId = review.StoreId,
             ProductId = review.ProductId,
             CustomerName = review.CustomerName,
-            Rating = review.Rating,
+            CustomerEmail = review.CustomerEmail ?? string.Empty,
+            Rating = Math.Clamp(review.Rating, 1, 5),
             Title = review.Title,
             Comment = review.Comment,
             VerifiedBuyer = review.VerifiedBuyer,
-            CreatedAt = DateTime.UtcNow.ToString("o")
-        });
+            CreatedAt = DateTime.UtcNow.ToString("o"),
+            MediaUrlsJson = mediaJson,
+            HelpfulVotes = review.HelpfulVotes,
+            MerchantReply = review.MerchantReply,
+            MerchantReplyAt = review.MerchantReplyAt,
+            Status = string.IsNullOrWhiteSpace(review.Status) ? "published" : review.Status,
+            CustomerFitRating = string.IsNullOrWhiteSpace(review.CustomerFitRating) ? "true_to_size" : review.CustomerFitRating
+        };
+
+        _db.Reviews.Add(dbEntity);
         _db.SaveChanges();
         return review;
+    }
+
+    public ProductReview? VoteReviewHelpful(string reviewId)
+    {
+        var rev = _db.Reviews.FirstOrDefault(r => r.Id == reviewId);
+        if (rev == null) return null;
+        rev.HelpfulVotes++;
+        _db.SaveChanges();
+
+        return new ProductReview
+        {
+            Id = rev.Id,
+            StoreId = rev.StoreId,
+            ProductId = rev.ProductId,
+            CustomerName = rev.CustomerName,
+            CustomerEmail = rev.CustomerEmail,
+            Rating = rev.Rating,
+            Title = rev.Title,
+            Comment = rev.Comment,
+            VerifiedBuyer = rev.VerifiedBuyer,
+            CreatedAt = rev.CreatedAt,
+            HelpfulVotes = rev.HelpfulVotes,
+            MerchantReply = rev.MerchantReply,
+            MerchantReplyAt = rev.MerchantReplyAt,
+            Status = rev.Status,
+            CustomerFitRating = rev.CustomerFitRating
+        };
+    }
+
+    public ProductReview? AddMerchantReply(string reviewId, string replyText)
+    {
+        var rev = _db.Reviews.FirstOrDefault(r => r.Id == reviewId);
+        if (rev == null) return null;
+        rev.MerchantReply = replyText.Trim();
+        rev.MerchantReplyAt = DateTime.UtcNow.ToString("o");
+        _db.SaveChanges();
+
+        return new ProductReview
+        {
+            Id = rev.Id,
+            StoreId = rev.StoreId,
+            ProductId = rev.ProductId,
+            CustomerName = rev.CustomerName,
+            CustomerEmail = rev.CustomerEmail,
+            Rating = rev.Rating,
+            Title = rev.Title,
+            Comment = rev.Comment,
+            VerifiedBuyer = rev.VerifiedBuyer,
+            CreatedAt = rev.CreatedAt,
+            HelpfulVotes = rev.HelpfulVotes,
+            MerchantReply = rev.MerchantReply,
+            MerchantReplyAt = rev.MerchantReplyAt,
+            Status = rev.Status,
+            CustomerFitRating = rev.CustomerFitRating
+        };
+    }
+
+    public bool DeleteReview(string reviewId)
+    {
+        var rev = _db.Reviews.FirstOrDefault(r => r.Id == reviewId);
+        if (rev == null) return false;
+        _db.Reviews.Remove(rev);
+        _db.SaveChanges();
+        return true;
     }
 
     public StoreSettings GetSettings()
