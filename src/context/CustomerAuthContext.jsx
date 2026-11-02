@@ -14,6 +14,30 @@ const DEFAULT_DEMO_SHOPPER = {
   authProvider: 'email',
   ordersCount: 2,
   totalSpent: 4850.00,
+  loyaltyPoints: 350,
+  loyaltyTier: 'Gold',
+  referralCode: 'REF-ALEX-882',
+  isAffiliate: true,
+  affiliateBalance: 485.00,
+  totalEarnedCommission: 485.00,
+  referralClicksCount: 14,
+  loyaltyLedger: [
+    {
+      id: 'led_welcome',
+      type: 'signup_bonus',
+      points: 100,
+      description: 'Welcome bonus points for joining Istora!',
+      createdAt: '2026-10-15T10:00:00Z'
+    },
+    {
+      id: 'led_order1',
+      type: 'earned',
+      points: 250,
+      description: 'Earned from purchase #ORD-84192',
+      orderNumber: 'ORD-84192',
+      createdAt: '2026-10-20T14:30:00Z'
+    }
+  ],
   addresses: [
     {
       id: 'addr_demo_home',
@@ -51,8 +75,59 @@ export function CustomerAuthProvider({ children }) {
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [authModalTab, setAuthModalTab] = useState('signin'); // 'signin' | 'signup' | 'otp' | 'google'
   const [isPortalModalOpen, setIsPortalModalOpen] = useState(false);
-  const [portalActiveTab, setPortalActiveTab] = useState('orders'); // 'orders' | 'addresses' | 'fit' | 'profile'
+  const [portalActiveTab, setPortalActiveTab] = useState('orders'); // 'orders' | 'addresses' | 'fit' | 'profile' | 'loyalty' | 'referral'
+  const [isAffiliateModalOpen, setIsAffiliateModalOpen] = useState(false);
   const [customerOrders, setCustomerOrders] = useState([]);
+
+  // Referral and Inbound Affiliate detection
+  const [activeReferralCode, setActiveReferralCode] = useState(() => {
+    try {
+      return typeof window !== 'undefined' ? (localStorage.getItem('istora_referral_code') || null) : null;
+    } catch {
+      return null;
+    }
+  });
+  const [referralBanner, setReferralBanner] = useState(null);
+
+  // Auto-detect referral code from URL queries ?ref= or ?aff=
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const params = new URLSearchParams(window.location.search);
+        const ref = params.get('ref') || params.get('aff');
+        if (ref) {
+          const cleanRef = ref.trim().toUpperCase();
+          setActiveReferralCode(cleanRef);
+          localStorage.setItem('istora_referral_code', cleanRef);
+          setReferralBanner({
+            code: cleanRef,
+            discountAmount: 200,
+            minSubtotal: 999
+          });
+          // Non-blocking tracking
+          apiClient.trackAffiliateClick({ referralCode: cleanRef });
+        } else {
+          const savedRef = localStorage.getItem('istora_referral_code');
+          if (savedRef) {
+            setReferralBanner({
+              code: savedRef,
+              discountAmount: 200,
+              minSubtotal: 999
+            });
+          }
+        }
+      } catch (err) {
+        console.warn('[CustomerAuth] URL param parse notice:', err.message);
+      }
+    }
+  }, []);
+
+  const dismissReferralBanner = () => {
+    setReferralBanner(null);
+  };
+
+  const openAffiliateModal = () => setIsAffiliateModalOpen(true);
+  const closeAffiliateModal = () => setIsAffiliateModalOpen(false);
 
   // Initialize from LocalStorage
   useEffect(() => {
@@ -404,6 +479,29 @@ export function CustomerAuthProvider({ children }) {
     return updateAddress(id, { isDefault: true });
   };
 
+  // Refresh customer loyalty points and ledger from server
+  const refreshLoyalty = useCallback(async () => {
+    if (!customer?.email) return;
+    try {
+      const data = await apiClient.getCustomerLoyalty({
+        email: customer.email,
+        customerId: customer.id,
+        storeId: customer.storeId
+      });
+      if (data && typeof data.points === 'number') {
+        const updated = {
+          ...customer,
+          loyaltyPoints: data.points,
+          loyaltyTier: data.tier || customer.loyaltyTier,
+          loyaltyLedger: data.ledger || customer.loyaltyLedger
+        };
+        persistSession(updated, token);
+      }
+    } catch (err) {
+      console.warn('[CustomerAuth] refreshLoyalty notice:', err.message);
+    }
+  }, [customer, token]);
+
   // Called when an order is completed at checkout to link order to customer account
   const linkPlacedOrder = (newOrder) => {
     if (!newOrder) return;
@@ -414,10 +512,39 @@ export function CustomerAuthProvider({ children }) {
     });
 
     if (customer) {
+      const earned = newOrder.pointsEarned || Math.floor((newOrder.total || 0) / 10);
+      const redeemed = newOrder.pointsRedeemed || 0;
+      const currentPts = customer.loyaltyPoints || 0;
+      const newPoints = Math.max(0, currentPts - redeemed + earned);
+
+      const newLedger = [...(customer.loyaltyLedger || [])];
+      if (redeemed > 0) {
+        newLedger.unshift({
+          id: Math.random().toString(36).substring(2, 9),
+          type: 'redeemed',
+          points: -redeemed,
+          description: `Redeemed at checkout on #${newOrder.orderNumber}`,
+          orderNumber: newOrder.orderNumber,
+          createdAt: new Date().toISOString()
+        });
+      }
+      if (earned > 0) {
+        newLedger.unshift({
+          id: Math.random().toString(36).substring(2, 9),
+          type: 'earned',
+          points: earned,
+          description: `Earned from purchase #${newOrder.orderNumber}`,
+          orderNumber: newOrder.orderNumber,
+          createdAt: new Date().toISOString()
+        });
+      }
+
       const updatedCustomer = {
         ...customer,
         ordersCount: (customer.ordersCount || 0) + 1,
-        totalSpent: (customer.totalSpent || 0) + (newOrder.total || 0)
+        totalSpent: (customer.totalSpent || 0) + (newOrder.total || 0),
+        loyaltyPoints: newPoints,
+        loyaltyLedger: newLedger
       };
       persistSession(updatedCustomer, token);
     }
@@ -444,6 +571,13 @@ export function CustomerAuthProvider({ children }) {
         setPortalActiveTab,
         openPortal,
         closePortal,
+        isAffiliateModalOpen,
+        openAffiliateModal,
+        closeAffiliateModal,
+        activeReferralCode,
+        referralBanner,
+        dismissReferralBanner,
+        refreshLoyalty,
         customerOrders,
         savedAddresses,
         defaultAddress,

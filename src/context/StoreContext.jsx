@@ -1171,7 +1171,12 @@ export function StoreProvider({ children }) {
         cgstAmount,
         sgstAmount,
         igstAmount,
-        totalGst
+        totalGst,
+        // Affiliate, Referral & Loyalty Points
+        referralCode: checkoutDetails.referralCode || null,
+        pointsRedeemed: checkoutDetails.pointsRedeemed || 0,
+        pointsDiscount: checkoutDetails.pointsDiscount || 0,
+        pointsEarned: checkoutDetails.pointsEarned || Math.floor((taxableAmount + (checkoutDetails.shippingMethod === 'express' ? store.expressShippingRate : cartShippingCost) + cartTax) / 10)
       };
 
       // 3. Update customer CRM
@@ -1226,6 +1231,10 @@ export function StoreProvider({ children }) {
         sgstAmount: createdOrder.sgstAmount,
         igstAmount: createdOrder.igstAmount,
         totalGst: createdOrder.totalGst,
+        referralCode: createdOrder.referralCode,
+        pointsRedeemed: createdOrder.pointsRedeemed,
+        pointsDiscount: createdOrder.pointsDiscount,
+        pointsEarned: createdOrder.pointsEarned,
         items: (createdOrder.items || []).map(i => ({
           product: { id: i.productId, title: i.title, price: i.price, category: 'General' },
           variant: { id: i.variantId, name: i.variantTitle, price: i.price, sku: i.sku },

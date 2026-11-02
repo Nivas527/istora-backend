@@ -18,7 +18,9 @@ import {
   MapPin,
   LogOut,
   ChevronDown,
-  Heart
+  Heart,
+  Award,
+  Gift
 } from 'lucide-react';
 
 export default function Navigation({ onSearchClick, onTrackClick }) {
@@ -37,6 +39,7 @@ export default function Navigation({ onSearchClick, onTrackClick }) {
     isAuthenticated,
     openAuthModal,
     openPortal,
+    openAffiliateModal,
     logout,
     customerOrders
   } = useCustomerAuth();
@@ -256,6 +259,49 @@ export default function Navigation({ onSearchClick, onTrackClick }) {
                         <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-zinc-100 dark:bg-zinc-800 text-zinc-500 font-mono">
                           {wishlistCount}
                         </span>
+                      </button>
+
+                      <button
+                        onClick={() => {
+                          setIsAccountMenuOpen(false);
+                          openPortal('loyalty');
+                        }}
+                        className="w-full text-left px-3.5 py-2 hover:bg-zinc-50 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-200 flex items-center justify-between cursor-pointer"
+                      >
+                        <span className="flex items-center gap-2">
+                          <Award className="w-3.5 h-3.5 text-amber-500" />
+                          <span>Loyalty Points</span>
+                        </span>
+                        <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 font-bold font-mono">
+                          {customer.loyaltyPoints ?? 100} pts
+                        </span>
+                      </button>
+
+                      <button
+                        onClick={() => {
+                          setIsAccountMenuOpen(false);
+                          openPortal('referral');
+                        }}
+                        className="w-full text-left px-3.5 py-2 hover:bg-zinc-50 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-200 flex items-center justify-between cursor-pointer"
+                      >
+                        <span className="flex items-center gap-2">
+                          <Gift className="w-3.5 h-3.5 text-indigo-500" />
+                          <span>Refer a Friend</span>
+                        </span>
+                        <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-indigo-100 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 font-bold">
+                          ₹200
+                        </span>
+                      </button>
+
+                      <button
+                        onClick={() => {
+                          setIsAccountMenuOpen(false);
+                          if (openAffiliateModal) openAffiliateModal();
+                        }}
+                        className="w-full text-left px-3.5 py-2 hover:bg-zinc-50 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-200 flex items-center gap-2 cursor-pointer"
+                      >
+                        <Award className="w-3.5 h-3.5 text-purple-500" />
+                        <span>Influencer Affiliate Portal</span>
                       </button>
 
                       <button

@@ -329,6 +329,19 @@ public class Order
 
     [JsonPropertyName("shipmentTimeline")]
     public List<ShipmentScanEventDto> ShipmentTimeline { get; set; } = new();
+
+    // Affiliate, Referral & Loyalty Points
+    [JsonPropertyName("referralCode")]
+    public string? ReferralCode { get; set; }
+
+    [JsonPropertyName("pointsRedeemed")]
+    public int PointsRedeemed { get; set; }
+
+    [JsonPropertyName("pointsDiscount")]
+    public decimal PointsDiscount { get; set; }
+
+    [JsonPropertyName("pointsEarned")]
+    public int PointsEarned { get; set; }
 }
 
 public class GenerateAwbRequest
@@ -1086,6 +1099,12 @@ public class ValidateOrderRequest
 
     [JsonPropertyName("shippingMethod")]
     public string ShippingMethod { get; set; } = "standard"; // standard | express
+
+    [JsonPropertyName("pointsRedeemed")]
+    public int PointsRedeemed { get; set; } = 0;
+
+    [JsonPropertyName("customerEmail")]
+    public string? CustomerEmail { get; set; }
 }
 
 public class ValidateOrderItemDto
@@ -1155,6 +1174,15 @@ public class ValidatedOrderResponse
 
     [JsonPropertyName("total")]
     public decimal Total { get; set; }
+
+    [JsonPropertyName("pointsDiscount")]
+    public decimal PointsDiscount { get; set; } = 0m;
+
+    [JsonPropertyName("pointsWillEarn")]
+    public int PointsWillEarn { get; set; } = 0;
+
+    [JsonPropertyName("customerPointsBalance")]
+    public int CustomerPointsBalance { get; set; } = 0;
 
     [JsonPropertyName("verifiedAt")]
     public DateTime VerifiedAt { get; set; } = DateTime.UtcNow;
@@ -1300,8 +1328,205 @@ public class CustomerProfile
     [JsonPropertyName("wishlist")]
     public List<WishlistItem> Wishlist { get; set; } = new();
 
+    // Loyalty Rewards & Referral Engine
+    [JsonPropertyName("referralCode")]
+    public string ReferralCode { get; set; } = string.Empty;
+
+    [JsonPropertyName("referredBy")]
+    public string? ReferredBy { get; set; }
+
+    [JsonPropertyName("loyaltyPoints")]
+    public int LoyaltyPoints { get; set; } = 100;
+
+    [JsonPropertyName("loyaltyTier")]
+    public string LoyaltyTier { get; set; } = "Silver"; // Silver | Gold | Platinum
+
+    [JsonPropertyName("loyaltyLedger")]
+    public List<LoyaltyLedgerItem> LoyaltyLedger { get; set; } = new();
+
+    // Influencer / Affiliate Portal
+    [JsonPropertyName("isAffiliate")]
+    public bool IsAffiliate { get; set; } = false;
+
+    [JsonPropertyName("affiliateBalance")]
+    public decimal AffiliateBalance { get; set; } = 0m;
+
+    [JsonPropertyName("totalEarnedCommission")]
+    public decimal TotalEarnedCommission { get; set; } = 0m;
+
+    [JsonPropertyName("referralClicksCount")]
+    public int ReferralClicksCount { get; set; } = 0;
+
     [JsonPropertyName("createdAt")]
     public string CreatedAt { get; set; } = DateTime.UtcNow.ToString("o");
+}
+
+public class LoyaltyLedgerItem
+{
+    [JsonPropertyName("id")]
+    public string Id { get; set; } = Guid.NewGuid().ToString("N")[..8];
+
+    [JsonPropertyName("type")]
+    public string Type { get; set; } = "earned"; // earned | redeemed | referral_bonus | signup_bonus
+
+    [JsonPropertyName("points")]
+    public int Points { get; set; }
+
+    [JsonPropertyName("description")]
+    public string Description { get; set; } = string.Empty;
+
+    [JsonPropertyName("orderNumber")]
+    public string? OrderNumber { get; set; }
+
+    [JsonPropertyName("createdAt")]
+    public string CreatedAt { get; set; } = DateTime.UtcNow.ToString("o");
+}
+
+public class AffiliateStatsDto
+{
+    [JsonPropertyName("referralCode")]
+    public string ReferralCode { get; set; } = string.Empty;
+
+    [JsonPropertyName("referralLink")]
+    public string ReferralLink { get; set; } = string.Empty;
+
+    [JsonPropertyName("isAffiliate")]
+    public bool IsAffiliate { get; set; } = false;
+
+    [JsonPropertyName("totalClicks")]
+    public int TotalClicks { get; set; }
+
+    [JsonPropertyName("totalOrders")]
+    public int TotalOrders { get; set; }
+
+    [JsonPropertyName("grossSales")]
+    public decimal GrossSales { get; set; }
+
+    [JsonPropertyName("commissionRate")]
+    public decimal CommissionRate { get; set; } = 10m; // 10%
+
+    [JsonPropertyName("totalCommissionEarned")]
+    public decimal TotalCommissionEarned { get; set; }
+
+    [JsonPropertyName("unpaidBalance")]
+    public decimal UnpaidBalance { get; set; }
+
+    [JsonPropertyName("payoutHistory")]
+    public List<AffiliatePayoutItemDto> PayoutHistory { get; set; } = new();
+}
+
+public class AffiliatePayoutItemDto
+{
+    [JsonPropertyName("id")]
+    public string Id { get; set; } = string.Empty;
+
+    [JsonPropertyName("amount")]
+    public decimal Amount { get; set; }
+
+    [JsonPropertyName("method")]
+    public string Method { get; set; } = "UPI"; // UPI | bank_transfer | store_credit
+
+    [JsonPropertyName("details")]
+    public string Details { get; set; } = string.Empty;
+
+    [JsonPropertyName("status")]
+    public string Status { get; set; } = "pending"; // pending | approved | rejected | completed
+
+    [JsonPropertyName("createdAt")]
+    public string CreatedAt { get; set; } = DateTime.UtcNow.ToString("o");
+}
+
+public class RequestPayoutRequest
+{
+    [JsonPropertyName("amount")]
+    public decimal Amount { get; set; }
+
+    [JsonPropertyName("method")]
+    public string Method { get; set; } = "UPI";
+
+    [JsonPropertyName("details")]
+    public string Details { get; set; } = string.Empty;
+
+    [JsonPropertyName("customerId")]
+    public string? CustomerId { get; set; }
+
+    [JsonPropertyName("email")]
+    public string? Email { get; set; }
+
+    [JsonPropertyName("storeId")]
+    public string? StoreId { get; set; }
+}
+
+public class TrackAffiliateClickRequest
+{
+    [JsonPropertyName("referralCode")]
+    public string ReferralCode { get; set; } = string.Empty;
+
+    [JsonPropertyName("storeId")]
+    public string? StoreId { get; set; }
+}
+
+public class JoinAffiliateRequest
+{
+    [JsonPropertyName("customerId")]
+    public string? CustomerId { get; set; }
+
+    [JsonPropertyName("email")]
+    public string? Email { get; set; }
+
+    [JsonPropertyName("socialHandle")]
+    public string? SocialHandle { get; set; }
+
+    [JsonPropertyName("preferredPayoutMethod")]
+    public string? PreferredPayoutMethod { get; set; }
+
+    [JsonPropertyName("payoutDetails")]
+    public string? PayoutDetails { get; set; }
+
+    [JsonPropertyName("storeId")]
+    public string? StoreId { get; set; }
+}
+
+public class AdminAffiliateListItemDto
+{
+    [JsonPropertyName("customerId")]
+    public string CustomerId { get; set; } = string.Empty;
+
+    [JsonPropertyName("name")]
+    public string Name { get; set; } = string.Empty;
+
+    [JsonPropertyName("email")]
+    public string Email { get; set; } = string.Empty;
+
+    [JsonPropertyName("referralCode")]
+    public string ReferralCode { get; set; } = string.Empty;
+
+    [JsonPropertyName("clicks")]
+    public int Clicks { get; set; }
+
+    [JsonPropertyName("ordersCount")]
+    public int OrdersCount { get; set; }
+
+    [JsonPropertyName("grossSales")]
+    public decimal GrossSales { get; set; }
+
+    [JsonPropertyName("totalCommission")]
+    public decimal TotalCommission { get; set; }
+
+    [JsonPropertyName("unpaidBalance")]
+    public decimal UnpaidBalance { get; set; }
+
+    [JsonPropertyName("payoutMethod")]
+    public string? PayoutMethod { get; set; }
+
+    [JsonPropertyName("payoutDetails")]
+    public string? PayoutDetails { get; set; }
+
+    [JsonPropertyName("isAffiliate")]
+    public bool IsAffiliate { get; set; }
+
+    [JsonPropertyName("pendingPayouts")]
+    public List<AffiliatePayoutItemDto> PendingPayouts { get; set; } = new();
 }
 
 public class CustomerRegisterRequest
@@ -1320,6 +1545,9 @@ public class CustomerRegisterRequest
 
     [JsonPropertyName("phone")]
     public string? Phone { get; set; }
+
+    [JsonPropertyName("referralCode")]
+    public string? ReferralCode { get; set; }
 }
 
 public class CustomerLoginRequest

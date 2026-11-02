@@ -5,8 +5,10 @@ import { FitProvider, useFit } from './context/FitContext';
 import { CustomerAuthProvider } from './context/CustomerAuthContext';
 import { WishlistProvider } from './context/WishlistContext';
 import { GeoIpDetectionBanner } from './components/storefront/CurrencySwitcher';
+import ReferralWelcomeBanner from './components/storefront/ReferralWelcomeBanner';
 import CustomerAuthModal from './components/customer/CustomerAuthModal';
 import ShopperPortalModal from './components/customer/ShopperPortalModal';
+import AffiliatePortalModal from './components/storefront/AffiliatePortalModal';
 import WishlistDrawer from './components/storefront/WishlistDrawer';
 import { Sparkles } from 'lucide-react';
 import ShopperFitScanModal from './components/fit/ShopperFitScanModal';
@@ -77,6 +79,9 @@ function MainApp() {
     <>
       {/* Geo-IP Auto-Detection Notification Banner */}
       <GeoIpDetectionBanner />
+
+      {/* Shopper Referral Welcome Banner */}
+      <ReferralWelcomeBanner />
 
       {/* View by Active Mode */}
       {effectiveMode === 'hub' ? (
@@ -359,6 +364,9 @@ function MainApp() {
           setIsTrackingModalOpen(true);
         }}
       />
+
+      {/* Influencer Affiliate Partner Portal */}
+      <AffiliatePortalModal />
 
       {/* Saved for Later & Wishlist Drawer */}
       <WishlistDrawer onSelectProduct={setSelectedProductForQuickView} />

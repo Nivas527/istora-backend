@@ -133,6 +133,12 @@ public class DbOrder : IMultiTenantEntity
     public string? RoutingCode { get; set; }
     public string? ShippingLabelJson { get; set; }
     public string ShipmentTimelineJson { get; set; } = "[]";
+
+    // Affiliate, Referral & Loyalty Points
+    public string? ReferralCode { get; set; }
+    public int PointsRedeemed { get; set; }
+    public decimal PointsDiscount { get; set; }
+    public int PointsEarned { get; set; }
 }
 
 public class DbCustomer : IMultiTenantEntity
@@ -152,6 +158,22 @@ public class DbCustomer : IMultiTenantEntity
     public int OrdersCount { get; set; }
     public decimal TotalSpent { get; set; }
     public string CreatedAt { get; set; } = DateTime.UtcNow.ToString("o");
+
+    // Loyalty Rewards & Referral Engine
+    public string ReferralCode { get; set; } = string.Empty;
+    public string? ReferredBy { get; set; }
+    public int LoyaltyPoints { get; set; } = 100;
+
+    [Column(TypeName = "jsonb")]
+    public string LoyaltyLedgerJson { get; set; } = "[]";
+
+    // Influencer / Affiliate Portal
+    public bool IsAffiliate { get; set; } = false;
+    public decimal AffiliateBalance { get; set; } = 0m;
+    public decimal TotalEarnedCommission { get; set; } = 0m;
+    public string? AffiliatePayoutMethod { get; set; }
+    public string? AffiliatePayoutDetails { get; set; }
+    public int ReferralClicksCount { get; set; } = 0;
 }
 
 public class DbCategory : IMultiTenantEntity
@@ -323,6 +345,26 @@ public class DbReturnRequest : IMultiTenantEntity
     public string UpdatedAt { get; set; } = DateTime.UtcNow.ToString("o");
 }
 
+public class DbAffiliateEvent : IMultiTenantEntity
+{
+    [Key]
+    public string Id { get; set; } = string.Empty;
+
+    public string StoreId { get; set; } = "store_apex";
+    public string ReferralCode { get; set; } = string.Empty;
+    public string CustomerId { get; set; } = string.Empty;
+    public string EventType { get; set; } = "click"; // click | order | payout_request | payout_approved
+    public string? OrderId { get; set; }
+    public string? OrderNumber { get; set; }
+    public decimal OrderAmount { get; set; }
+    public decimal CommissionAmount { get; set; }
+    public decimal PayoutAmount { get; set; }
+    public string? PayoutMethod { get; set; }
+    public string? PayoutDetails { get; set; }
+    public string Status { get; set; } = "completed"; // pending | approved | rejected | completed
+    public string CreatedAt { get; set; } = DateTime.UtcNow.ToString("o");
+}
+
 public class ShopifyDbContext : DbContext
 {
     private readonly ITenantProvider? _tenantProvider;
@@ -346,6 +388,7 @@ public class ShopifyDbContext : DbContext
     public DbSet<DbNotificationLog> NotificationLogs => Set<DbNotificationLog>();
     public DbSet<DbAbandonedCart> AbandonedCarts => Set<DbAbandonedCart>();
     public DbSet<DbReturnRequest> Returns => Set<DbReturnRequest>();
+    public DbSet<DbAffiliateEvent> AffiliateEvents => Set<DbAffiliateEvent>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -363,6 +406,7 @@ public class ShopifyDbContext : DbContext
         modelBuilder.Entity<DbNotificationLog>().ToTable("notification_logs");
         modelBuilder.Entity<DbAbandonedCart>().ToTable("abandoned_carts");
         modelBuilder.Entity<DbReturnRequest>().ToTable("returns");
+        modelBuilder.Entity<DbAffiliateEvent>().ToTable("affiliate_events");
 
         // Multi-tenant Indexes for high-performance scoped lookups
         modelBuilder.Entity<DbProduct>().HasIndex(p => p.StoreId);
@@ -377,6 +421,9 @@ public class ShopifyDbContext : DbContext
         modelBuilder.Entity<DbAbandonedCart>().HasIndex(a => new { a.StoreId, a.CustomerEmail });
         modelBuilder.Entity<DbReturnRequest>().HasIndex(r => new { r.StoreId, r.OrderId });
         modelBuilder.Entity<DbReturnRequest>().HasIndex(r => new { r.StoreId, r.Status });
+        modelBuilder.Entity<DbAffiliateEvent>().HasIndex(a => new { a.StoreId, a.ReferralCode });
+        modelBuilder.Entity<DbAffiliateEvent>().HasIndex(a => new { a.StoreId, a.CustomerId });
+        modelBuilder.Entity<DbAffiliateEvent>().HasIndex(a => new { a.StoreId, a.EventType });
 
         // EF Core Global Query Filters:
         // Automatically injects WHERE "StoreId" = @CurrentStoreId on EVERY query
@@ -413,6 +460,10 @@ public class ShopifyDbContext : DbContext
         modelBuilder.Entity<DbReturnRequest>()
             .HasQueryFilter(r => (_tenantProvider != null && _tenantProvider.IsMasterPlatformAdmin) ||
                                  r.StoreId == (_tenantProvider != null && !string.IsNullOrEmpty(_tenantProvider.CurrentStoreId) ? _tenantProvider.CurrentStoreId : "store_apex"));
+
+        modelBuilder.Entity<DbAffiliateEvent>()
+            .HasQueryFilter(a => (_tenantProvider != null && _tenantProvider.IsMasterPlatformAdmin) ||
+                                 a.StoreId == (_tenantProvider != null && !string.IsNullOrEmpty(_tenantProvider.CurrentStoreId) ? _tenantProvider.CurrentStoreId : "store_apex"));
     }
 
     public override int SaveChanges()

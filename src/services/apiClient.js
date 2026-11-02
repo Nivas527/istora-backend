@@ -1404,5 +1404,144 @@ export const apiClient = {
         reader.readAsDataURL(file);
       });
     }
+  },
+
+  // =========================================================================
+  // 15. AFFILIATE, REFERRAL & LOYALTY POINTS ENGINE APIS
+  // =========================================================================
+  async getCustomerLoyalty({ customerId, email, storeId = null }) {
+    try {
+      const headers = getHeaders({}, storeId);
+      const params = new URLSearchParams();
+      if (customerId) params.append('customerId', customerId);
+      if (email) params.append('email', email);
+      if (storeId) params.append('storeId', storeId);
+
+      const res = await fetch(getUrl(`/api/customer/loyalty?${params.toString()}`), { headers });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return await res.json();
+    } catch (err) {
+      console.warn('[C# API] getCustomerLoyalty fallback:', err.message);
+      return { points: 100, tier: 'Silver', cashValue: 100, ledger: [] };
+    }
+  },
+
+  async getCustomerReferral({ customerId, email, storeId = null }) {
+    try {
+      const headers = getHeaders({}, storeId);
+      const params = new URLSearchParams();
+      if (customerId) params.append('customerId', customerId);
+      if (email) params.append('email', email);
+      if (storeId) params.append('storeId', storeId);
+
+      const res = await fetch(getUrl(`/api/customer/referral?${params.toString()}`), { headers });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return await res.json();
+    } catch (err) {
+      console.warn('[C# API] getCustomerReferral fallback:', err.message);
+      return {
+        referralCode: 'REF-ALEX-882',
+        referralLink: 'https://istora.online/?ref=REF-ALEX-882',
+        invitedFriendsCount: 0,
+        completedOrdersCount: 0,
+        rewardsEarned: 0,
+        rewardPerReferral: 200,
+        friendDiscount: 200,
+        recentReferrals: []
+      };
+    }
+  },
+
+  async getAffiliatePortal({ customerId, email, storeId = null }) {
+    try {
+      const headers = getHeaders({}, storeId);
+      const params = new URLSearchParams();
+      if (customerId) params.append('customerId', customerId);
+      if (email) params.append('email', email);
+      if (storeId) params.append('storeId', storeId);
+
+      const res = await fetch(getUrl(`/api/affiliate/portal?${params.toString()}`), { headers });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return await res.json();
+    } catch (err) {
+      console.warn('[C# API] getAffiliatePortal fallback:', err.message);
+      return {
+        referralCode: 'REF-ALEX-882',
+        referralLink: 'https://istora.online/?ref=REF-ALEX-882',
+        isAffiliate: false,
+        totalClicks: 0,
+        totalOrders: 0,
+        grossSales: 0,
+        commissionRate: 10,
+        totalCommissionEarned: 0,
+        unpaidBalance: 0,
+        payoutHistory: []
+      };
+    }
+  },
+
+  async joinAffiliateProgram({ customerId, email, socialHandle, preferredPayoutMethod, payoutDetails, storeId = null }) {
+    const headers = getHeaders({ 'Content-Type': 'application/json' }, storeId);
+    const res = await fetch(getUrl('/api/affiliate/join'), {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ customerId, email, socialHandle, preferredPayoutMethod, payoutDetails, storeId })
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return await res.json();
+  },
+
+  async trackAffiliateClick({ referralCode, storeId = null }) {
+    try {
+      const headers = getHeaders({ 'Content-Type': 'application/json' }, storeId);
+      const res = await fetch(getUrl('/api/affiliate/track-click'), {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ referralCode, storeId })
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return await res.json();
+    } catch (err) {
+      console.warn('[C# API] trackAffiliateClick notice:', err.message);
+      return { success: true };
+    }
+  },
+
+  async requestAffiliatePayout({ customerId, email, amount, method, details, storeId = null }) {
+    const headers = getHeaders({ 'Content-Type': 'application/json' }, storeId);
+    const res = await fetch(getUrl('/api/affiliate/request-payout'), {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ customerId, email, amount, method, details, storeId })
+    });
+    if (!res.ok) {
+      const errorData = await res.json().catch(() => ({}));
+      throw new Error(errorData.error || `HTTP ${res.status}`);
+    }
+    return await res.json();
+  },
+
+  async getAdminAffiliates(storeId = null) {
+    try {
+      const headers = getHeaders({}, storeId, true);
+      const target = storeId || localStorage.getItem('active_store_id') || 'store_apex';
+      const res = await fetch(getUrl(`/api/admin/affiliates?storeId=${encodeURIComponent(target)}`), { headers });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return await res.json();
+    } catch (err) {
+      console.warn('[C# API] getAdminAffiliates fallback:', err.message);
+      return [];
+    }
+  },
+
+  async approveAdminAffiliatePayout(payoutId, storeId = null) {
+    const headers = getHeaders({}, storeId, true);
+    const target = storeId || localStorage.getItem('active_store_id') || 'store_apex';
+    const res = await fetch(getUrl(`/api/admin/affiliates/payouts/${payoutId}/approve?storeId=${encodeURIComponent(target)}`), {
+      method: 'POST',
+      headers
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return await res.json();
   }
 };

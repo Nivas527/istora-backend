@@ -48,8 +48,12 @@ export default function CheckoutPage({ onBackToStore, onOrderPlaced }) {
     savedAddresses,
     defaultAddress,
     linkPlacedOrder,
-    addAddress
+    addAddress,
+    activeReferralCode,
+    referralBanner
   } = useCustomerAuth();
+
+  const [pointsToRedeem, setPointsToRedeem] = useState(0);
 
   const [saveAddressToAccount, setSaveAddressToAccount] = useState(false);
   const [selectedAddressId, setSelectedAddressId] = useState(null);
@@ -172,6 +176,13 @@ export default function CheckoutPage({ onBackToStore, onOrderPlaced }) {
 
   const taxableAmount = Math.max(0, cartSubtotal - cartDiscountAmount);
 
+  // Loyalty Rewards Points Calculation
+  const availablePoints = customer?.loyaltyPoints || 0;
+  const maxRedeemablePoints = Math.min(availablePoints, Math.floor(taxableAmount));
+  const effectivePointsRedeemed = Math.min(pointsToRedeem, maxRedeemablePoints);
+  const pointsDiscountAmount = effectivePointsRedeemed; // 1 point = ₹1
+  const netTaxableAfterPoints = Math.max(0, taxableAmount - pointsDiscountAmount);
+
   // GST Compliance Calculation
   const gstDetails = useMemo(() => {
     const merchantState = settings.stateCode || '29';
@@ -179,16 +190,17 @@ export default function CheckoutPage({ onBackToStore, onOrderPlaced }) {
     return calculateGstTax({
       cartItems: cart.items || [],
       shippingCost,
-      taxableAmount,
+      taxableAmount: netTaxableAfterPoints,
       merchantStateCode: merchantState,
       buyerStateCode,
       gstRatePercent: settings.gstRatePercent ?? 18,
       pricesIncludeGst: !!settings.pricesIncludeGst
     });
-  }, [cart.items, shippingCost, taxableAmount, settings.stateCode, settings.gstRatePercent, settings.pricesIncludeGst, formData.state]);
+  }, [cart.items, shippingCost, netTaxableAfterPoints, settings.stateCode, settings.gstRatePercent, settings.pricesIncludeGst, formData.state]);
 
-  const taxAmount = settings.gstEnabled !== false ? gstDetails.totalTax : taxableAmount * (settings.taxRate || 0.08);
-  const grandTotal = settings.pricesIncludeGst ? (taxableAmount + shippingCost) : (taxableAmount + shippingCost + taxAmount);
+  const taxAmount = settings.gstEnabled !== false ? gstDetails.totalTax : netTaxableAfterPoints * (settings.taxRate || 0.08);
+  const grandTotal = Math.max(0, settings.pricesIncludeGst ? (netTaxableAfterPoints + shippingCost) : (netTaxableAfterPoints + shippingCost + taxAmount));
+  const pointsWillEarn = Math.floor(grandTotal / 10);
 
   // Real-time Drop-off Capture (Debounced on Step 1)
   useEffect(() => {
@@ -252,7 +264,12 @@ export default function CheckoutPage({ onBackToStore, onOrderPlaced }) {
       cgstAmount: gstDetails.totalCgst,
       sgstAmount: gstDetails.totalSgst,
       igstAmount: gstDetails.totalIgst,
-      totalGst: gstDetails.totalTax
+      totalGst: gstDetails.totalTax,
+      // Referral & Loyalty Points
+      referralCode: activeReferralCode || (typeof window !== 'undefined' ? localStorage.getItem('istora_referral_code') : null),
+      pointsRedeemed: effectivePointsRedeemed,
+      pointsDiscount: pointsDiscountAmount,
+      pointsEarned: pointsWillEarn
     });
 
     setIsProcessing(false);
@@ -1036,6 +1053,136 @@ export default function CheckoutPage({ onBackToStore, onOrderPlaced }) {
             ))}
           </div>
 
+          {/* Referral Bonus Notification (Give ₹200, Get ₹200) */}
+          {referralBanner && !appliedDiscount && (
+            <div className="mt-6 p-3.5 bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-300 rounded-xl flex items-center justify-between text-xs animate-fadeIn">
+              <div className="flex items-center gap-2.5">
+                <span className="text-xl">🎁</span>
+                <div>
+                  <p className="font-bold text-amber-950">
+                    Referral Welcome Bonus: ₹{referralBanner.discountAmount} Off
+                  </p>
+                  <p className="text-[11px] text-amber-800">
+                    Invited via code <strong className="font-mono bg-amber-100 text-amber-900 px-1 py-0.5 rounded">{referralBanner.code}</strong> (Min order ₹{referralBanner.minSubtotal})
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => applyDiscount('GIVE200')}
+                className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-bold transition-all shadow-xs shrink-0 cursor-pointer"
+              >
+                Claim ₹200
+              </button>
+            </div>
+          )}
+
+          {/* Interactive Loyalty Points Redemption Slider */}
+          <div className="mt-5 p-4 rounded-2xl bg-gradient-to-br from-amber-500/10 via-amber-500/5 to-emerald-500/10 border border-amber-500/30">
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2">
+                <span className="text-base">⭐</span>
+                <div>
+                  <h4 className="text-xs font-bold text-zinc-900 flex items-center gap-1.5">
+                    <span>Loyalty Rewards Points</span>
+                    {customer?.loyaltyTier && (
+                      <span className="text-[10px] uppercase font-extrabold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-300">
+                        {customer.loyaltyTier}
+                      </span>
+                    )}
+                  </h4>
+                  <p className="text-[11px] text-zinc-500">
+                    {isAuthenticated ? (
+                      <>Available: <strong className="text-amber-800 font-mono">{availablePoints} pts</strong> ({formatPrice(availablePoints)} cash discount)</>
+                    ) : (
+                      <>Sign in to redeem your loyalty rewards</>
+                    )}
+                  </p>
+                </div>
+              </div>
+
+              {isAuthenticated && effectivePointsRedeemed > 0 && (
+                <span className="text-xs font-extrabold text-emerald-800 bg-emerald-100 border border-emerald-300 px-2 py-0.5 rounded-lg font-mono">
+                  -{formatPrice(pointsDiscountAmount)}
+                </span>
+              )}
+            </div>
+
+            {isAuthenticated ? (
+              availablePoints > 0 ? (
+                <div className="space-y-3 mt-3 pt-3 border-t border-amber-200/60">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-zinc-600 font-medium">Slide to redeem points:</span>
+                    <span className="font-bold text-zinc-900 font-mono">
+                      {pointsToRedeem} / {maxRedeemablePoints} pts
+                    </span>
+                  </div>
+
+                  <input
+                    type="range"
+                    min="0"
+                    max={maxRedeemablePoints}
+                    step="10"
+                    value={pointsToRedeem}
+                    onChange={(e) => setPointsToRedeem(Number(e.target.value))}
+                    className="w-full accent-amber-600 h-2 bg-amber-100 rounded-lg cursor-pointer"
+                  />
+
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-1.5">
+                      {[
+                        { label: '0%', val: 0 },
+                        { label: '25%', val: Math.floor(maxRedeemablePoints * 0.25) },
+                        { label: '50%', val: Math.floor(maxRedeemablePoints * 0.50) },
+                        { label: 'Max', val: maxRedeemablePoints }
+                      ].map((btn) => (
+                        <button
+                          key={btn.label}
+                          type="button"
+                          onClick={() => setPointsToRedeem(btn.val)}
+                          className={`px-2 py-0.5 rounded text-[10px] font-bold transition-all cursor-pointer ${
+                            pointsToRedeem === btn.val
+                              ? 'bg-amber-600 text-white'
+                              : 'bg-white border border-zinc-200 text-zinc-700 hover:bg-zinc-100'
+                          }`}
+                        >
+                          {btn.label}
+                        </button>
+                      ))}
+                    </div>
+
+                    <span className="text-[10px] text-zinc-500 italic">1 Point = ₹1</span>
+                  </div>
+                </div>
+              ) : (
+                <div className="mt-2 text-[11px] text-zinc-500 bg-white/70 p-2 rounded-lg border border-zinc-200/60">
+                  You have 0 points currently. Complete this purchase to start earning!
+                </div>
+              )
+            ) : (
+              <div className="mt-2 flex items-center justify-between bg-white/80 p-2.5 rounded-xl border border-amber-200/80">
+                <span className="text-[11px] text-zinc-600">Have an account? Log in to use your points</span>
+                <button
+                  type="button"
+                  onClick={openAuthModal}
+                  className="text-xs font-bold text-amber-700 hover:text-amber-800 underline cursor-pointer"
+                >
+                  Sign In
+                </button>
+              </div>
+            )}
+
+            {/* Points preview */}
+            <div className="mt-3 pt-2.5 border-t border-amber-200/60 flex items-center justify-between text-[11px]">
+              <span className="text-zinc-600 flex items-center gap-1">
+                <span>🎉</span> You'll earn on this order:
+              </span>
+              <span className="font-bold text-emerald-800 font-mono">
+                +{pointsWillEarn} Loyalty Points
+              </span>
+            </div>
+          </div>
+
           {/* Coupon Code Input */}
           <div className="mt-6 pt-6 border-t border-zinc-200">
             {appliedDiscount ? (
@@ -1064,7 +1211,7 @@ export default function CheckoutPage({ onBackToStore, onOrderPlaced }) {
                   type="text"
                   value={couponInput}
                   onChange={(e) => setCouponInput(e.target.value)}
-                  placeholder="Discount code (try WELCOME20, BOGO21, FLAT500)"
+                  placeholder="Discount code (try WELCOME20, BOGO21, GIVE200)"
                   className="flex-1 bg-white border border-zinc-300 rounded-lg px-3 py-2 text-xs text-zinc-800 focus:outline-none focus:ring-1 focus:ring-[#008060]"
                 />
                 <button
@@ -1102,6 +1249,15 @@ export default function CheckoutPage({ onBackToStore, onOrderPlaced }) {
                   {isAutoAppliedDiscount && <span className="ml-1 text-[10px] font-bold text-emerald-800">(Auto)</span>}
                 </span>
                 <span>-{formatPrice(cartDiscountAmount || 0)}</span>
+              </div>
+            )}
+
+            {pointsDiscountAmount > 0 && (
+              <div className="flex justify-between text-amber-700 font-semibold">
+                <span className="flex items-center gap-1">
+                  <span>⭐</span> Loyalty Points Discount ({pointsDiscountAmount} pts)
+                </span>
+                <span>-{formatPrice(pointsDiscountAmount)}</span>
               </div>
             )}
 

@@ -201,6 +201,18 @@ public class StoreService
                         TierPricingJson = "[{\"minQty\":2,\"discountPercent\":10,\"label\":\"Buy 2 Save 10%\"},{\"minQty\":3,\"discountPercent\":15,\"label\":\"Buy 3+ Save 15%\"}]",
                         Description = "Buy 2 Save 10%, Buy 3+ Save 15% Volume Tier",
                         IsActive = true
+                    },
+                    new DbDiscount
+                    {
+                        Id = "disc_give200",
+                        StoreId = "store_apex",
+                        Code = "GIVE200",
+                        Type = "fixed",
+                        RuleType = "fixed",
+                        Value = 200,
+                        MinSubtotal = 999,
+                        Description = "Referral Friend Bonus: ₹200 off orders above ₹999",
+                        IsActive = true
                     }
                 };
 
@@ -975,7 +987,11 @@ public class StoreService
             SgstAmount = o.SgstAmount,
             IgstAmount = o.IgstAmount,
             TotalGst = o.TotalGst,
-            Items = DeserializeCartItems(o.ItemsJson)
+            Items = DeserializeCartItems(o.ItemsJson),
+            ReferralCode = o.ReferralCode,
+            PointsRedeemed = o.PointsRedeemed,
+            PointsDiscount = o.PointsDiscount,
+            PointsEarned = o.PointsEarned
         }).ToList();
     }
 
@@ -1037,6 +1053,10 @@ public class StoreService
             }
         }
 
+        // Calculate loyalty points earned (1 point per ₹10 spent)
+        int pointsEarned = (int)Math.Floor(order.Total / 10m);
+        order.PointsEarned = pointsEarned;
+
         var dbOrder = new DbOrder
         {
             Id = order.Id,
@@ -1060,30 +1080,165 @@ public class StoreService
             SgstAmount = order.SgstAmount,
             IgstAmount = order.IgstAmount,
             TotalGst = order.TotalGst,
-            ItemsJson = JsonSerializer.Serialize(order.Items ?? new List<CartItem>())
+            ItemsJson = JsonSerializer.Serialize(order.Items ?? new List<CartItem>()),
+            ReferralCode = order.ReferralCode,
+            PointsRedeemed = order.PointsRedeemed,
+            PointsDiscount = order.PointsDiscount,
+            PointsEarned = pointsEarned
         };
 
         _db.Orders.Add(dbOrder);
 
-        // Update or add customer record automatically
+        // Update or add customer record automatically with Loyalty Points & Ledger
         var existingCust = _db.Customers.FirstOrDefault(c => c.StoreId == normalizedStore && c.Email.ToLower() == order.CustomerEmail.ToLower());
         if (existingCust != null)
         {
             existingCust.OrdersCount += 1;
             existingCust.TotalSpent += order.Total;
+
+            // Generate referral code for customer if not present
+            if (string.IsNullOrWhiteSpace(existingCust.ReferralCode))
+            {
+                existingCust.ReferralCode = "REF-" + existingCust.Id.Substring(Math.Max(0, existingCust.Id.Length - 4)).ToUpper() + "-" + Random.Shared.Next(100, 999);
+            }
+
+            // Manage Loyalty Points Ledger
+            List<LoyaltyLedgerItem> ledger = new();
+            try
+            {
+                if (!string.IsNullOrWhiteSpace(existingCust.LoyaltyLedgerJson))
+                {
+                    ledger = JsonSerializer.Deserialize<List<LoyaltyLedgerItem>>(existingCust.LoyaltyLedgerJson) ?? new();
+                }
+            }
+            catch { }
+
+            // Deduct redeemed points
+            if (order.PointsRedeemed > 0)
+            {
+                existingCust.LoyaltyPoints = Math.Max(0, existingCust.LoyaltyPoints - order.PointsRedeemed);
+                ledger.Insert(0, new LoyaltyLedgerItem
+                {
+                    Id = Guid.NewGuid().ToString("N")[..8],
+                    Type = "redeemed",
+                    Points = -order.PointsRedeemed,
+                    Description = $"Redeemed at checkout on #{order.OrderNumber}",
+                    OrderNumber = order.OrderNumber,
+                    CreatedAt = DateTime.UtcNow.ToString("o")
+                });
+            }
+
+            // Award earned points
+            if (pointsEarned > 0)
+            {
+                existingCust.LoyaltyPoints += pointsEarned;
+                ledger.Insert(0, new LoyaltyLedgerItem
+                {
+                    Id = Guid.NewGuid().ToString("N")[..8],
+                    Type = "earned",
+                    Points = pointsEarned,
+                    Description = $"Earned from purchase #{order.OrderNumber}",
+                    OrderNumber = order.OrderNumber,
+                    CreatedAt = DateTime.UtcNow.ToString("o")
+                });
+            }
+
+            existingCust.LoyaltyLedgerJson = JsonSerializer.Serialize(ledger);
         }
         else
         {
+            var newCustId = "cust_" + DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+            var newRefCode = "REF-" + newCustId.Substring(Math.Max(0, newCustId.Length - 4)).ToUpper() + "-" + Random.Shared.Next(100, 999);
+            var initialLedger = new List<LoyaltyLedgerItem>
+            {
+                new LoyaltyLedgerItem
+                {
+                    Id = Guid.NewGuid().ToString("N")[..8],
+                    Type = "signup_bonus",
+                    Points = 100,
+                    Description = "Welcome bonus points for joining Istora!",
+                    CreatedAt = DateTime.UtcNow.ToString("o")
+                }
+            };
+            if (pointsEarned > 0)
+            {
+                initialLedger.Insert(0, new LoyaltyLedgerItem
+                {
+                    Id = Guid.NewGuid().ToString("N")[..8],
+                    Type = "earned",
+                    Points = pointsEarned,
+                    Description = $"Earned from purchase #{order.OrderNumber}",
+                    OrderNumber = order.OrderNumber,
+                    CreatedAt = DateTime.UtcNow.ToString("o")
+                });
+            }
+
             _db.Customers.Add(new DbCustomer
             {
-                Id = "cust_" + DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
+                Id = newCustId,
                 StoreId = normalizedStore,
                 Name = order.CustomerName,
                 Email = order.CustomerEmail,
                 OrdersCount = 1,
                 TotalSpent = order.Total,
-                CreatedAt = DateTime.UtcNow.ToString("o")
+                CreatedAt = DateTime.UtcNow.ToString("o"),
+                ReferralCode = newRefCode,
+                LoyaltyPoints = 100 + pointsEarned,
+                LoyaltyLedgerJson = JsonSerializer.Serialize(initialLedger)
             });
+        }
+
+        // Referral & Affiliate Attribution
+        if (!string.IsNullOrWhiteSpace(order.ReferralCode))
+        {
+            var cleanRef = order.ReferralCode.Trim().ToUpperInvariant();
+            var referrer = _db.Customers.FirstOrDefault(c => c.StoreId == normalizedStore && c.ReferralCode.ToUpper() == cleanRef);
+            if (referrer != null && !referrer.Email.Equals(order.CustomerEmail, StringComparison.OrdinalIgnoreCase))
+            {
+                // Give 200 Loyalty Points to Referrer ("Give ₹200, Get ₹200")
+                referrer.LoyaltyPoints += 200;
+                List<LoyaltyLedgerItem> refLedger = new();
+                try
+                {
+                    if (!string.IsNullOrWhiteSpace(referrer.LoyaltyLedgerJson))
+                        refLedger = JsonSerializer.Deserialize<List<LoyaltyLedgerItem>>(referrer.LoyaltyLedgerJson) ?? new();
+                }
+                catch { }
+
+                refLedger.Insert(0, new LoyaltyLedgerItem
+                {
+                    Id = Guid.NewGuid().ToString("N")[..8],
+                    Type = "referral_bonus",
+                    Points = 200,
+                    Description = $"Referral reward for inviting {order.CustomerName} (#{order.OrderNumber})",
+                    OrderNumber = order.OrderNumber,
+                    CreatedAt = DateTime.UtcNow.ToString("o")
+                });
+                referrer.LoyaltyLedgerJson = JsonSerializer.Serialize(refLedger);
+
+                // If Referrer is an Affiliate, also award 10% cash commission
+                decimal commission = Math.Round(order.Total * 0.10m, 2);
+                if (referrer.IsAffiliate)
+                {
+                    referrer.AffiliateBalance += commission;
+                    referrer.TotalEarnedCommission += commission;
+                }
+
+                _db.AffiliateEvents.Add(new DbAffiliateEvent
+                {
+                    Id = "affev_" + DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() + "_" + Random.Shared.Next(100, 999),
+                    StoreId = normalizedStore,
+                    ReferralCode = cleanRef,
+                    CustomerId = referrer.Id,
+                    EventType = "order",
+                    OrderId = order.Id,
+                    OrderNumber = order.OrderNumber,
+                    OrderAmount = order.Total,
+                    CommissionAmount = commission,
+                    Status = "completed",
+                    CreatedAt = DateTime.UtcNow.ToString("o")
+                });
+            }
         }
 
         _db.SaveChanges();
@@ -1830,6 +1985,23 @@ public class StoreService
             var cleanCode = req.DiscountCode.Trim().ToUpperInvariant();
             discountToApply = _db.Discounts.FirstOrDefault(d => d.StoreId == tenantId && d.Code.ToUpper() == cleanCode && d.IsActive);
 
+            // Check if it matches GIVE200 or any customer referral code
+            if (discountToApply == null && (cleanCode == "GIVE200" || cleanCode.StartsWith("REF-") || _db.Customers.Any(c => c.StoreId == tenantId && c.ReferralCode.ToUpper() == cleanCode)))
+            {
+                discountToApply = new DbDiscount
+                {
+                    Id = "dynamic_ref",
+                    StoreId = tenantId,
+                    Code = cleanCode,
+                    Type = "fixed",
+                    RuleType = "fixed",
+                    Value = 200m,
+                    MinSubtotal = 999m,
+                    Description = "Referral Friend Bonus: ₹200 off orders above ₹999",
+                    IsActive = true
+                };
+            }
+
             if (discountToApply == null)
             {
                 response.Errors.Add($"Discount code '{req.DiscountCode}' is invalid or expired.");
@@ -1939,6 +2111,24 @@ public class StoreService
         decimal taxableSubtotal = Math.Max(0m, subtotal - discountAmount);
         response.TaxAmount = Math.Round(taxableSubtotal * response.TaxRate, 2);
 
+        // Loyalty Points Redemption Evaluation
+        if (!string.IsNullOrWhiteSpace(req.CustomerEmail))
+        {
+            var cust = _db.Customers.FirstOrDefault(c => c.StoreId == tenantId && c.Email.ToLower() == req.CustomerEmail.Trim().ToLower());
+            if (cust != null)
+            {
+                response.CustomerPointsBalance = cust.LoyaltyPoints;
+                if (req.PointsRedeemed > 0)
+                {
+                    decimal remainingAfterDiscounts = Math.Max(0m, taxableSubtotal);
+                    int maxAllowedPoints = Math.Min(cust.LoyaltyPoints, (int)Math.Floor(remainingAfterDiscounts));
+                    int appliedPoints = Math.Clamp(req.PointsRedeemed, 0, Math.Max(0, maxAllowedPoints));
+                    response.PointsDiscount = (decimal)appliedPoints;
+                    taxableSubtotal = Math.Max(0m, taxableSubtotal - response.PointsDiscount);
+                }
+            }
+        }
+
         // Shipping Rate Calculation
         decimal freeThreshold = store?.FreeShippingThreshold ?? 75.00m;
         decimal standardRate = store?.StandardShippingRate ?? 6.99m;
@@ -1957,7 +2147,8 @@ public class StoreService
             response.ShippingAmount = standardRate;
         }
 
-        response.Total = taxableSubtotal + response.TaxAmount + response.ShippingAmount;
+        response.Total = Math.Max(0m, taxableSubtotal + response.TaxAmount + response.ShippingAmount);
+        response.PointsWillEarn = (int)Math.Floor(response.Total / 10m);
         response.IsValid = (response.Errors.Count == 0);
 
         return response;

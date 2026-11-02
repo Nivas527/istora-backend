@@ -213,6 +213,44 @@ public static class DatabaseMigrator
                 ALTER TABLE reviews ADD COLUMN IF NOT EXISTS ""MerchantReplyAt"" text;
                 ALTER TABLE reviews ADD COLUMN IF NOT EXISTS ""Status"" text NOT NULL DEFAULT 'published';
                 ALTER TABLE reviews ADD COLUMN IF NOT EXISTS ""CustomerFitRating"" text DEFAULT 'true_to_size';
+
+                -- Affiliate & Referral Program Migrations
+                CREATE TABLE IF NOT EXISTS affiliate_events (
+                    ""Id"" text PRIMARY KEY,
+                    ""StoreId"" text NOT NULL,
+                    ""ReferralCode"" text NOT NULL,
+                    ""CustomerId"" text NOT NULL,
+                    ""EventType"" text NOT NULL,
+                    ""OrderId"" text,
+                    ""OrderNumber"" text,
+                    ""OrderAmount"" numeric NOT NULL DEFAULT 0,
+                    ""CommissionAmount"" numeric NOT NULL DEFAULT 0,
+                    ""PayoutAmount"" numeric NOT NULL DEFAULT 0,
+                    ""PayoutMethod"" text,
+                    ""PayoutDetails"" text,
+                    ""Status"" text NOT NULL DEFAULT 'completed',
+                    ""CreatedAt"" text NOT NULL
+                );
+
+                CREATE INDEX IF NOT EXISTS ix_affiliate_events_ref ON affiliate_events (""StoreId"", ""ReferralCode"");
+                CREATE INDEX IF NOT EXISTS ix_affiliate_events_cust ON affiliate_events (""StoreId"", ""CustomerId"");
+                CREATE INDEX IF NOT EXISTS ix_affiliate_events_type ON affiliate_events (""StoreId"", ""EventType"");
+
+                ALTER TABLE customers ADD COLUMN IF NOT EXISTS ""ReferralCode"" text NOT NULL DEFAULT '';
+                ALTER TABLE customers ADD COLUMN IF NOT EXISTS ""ReferredBy"" text;
+                ALTER TABLE customers ADD COLUMN IF NOT EXISTS ""LoyaltyPoints"" integer NOT NULL DEFAULT 100;
+                ALTER TABLE customers ADD COLUMN IF NOT EXISTS ""LoyaltyLedgerJson"" text NOT NULL DEFAULT '[]';
+                ALTER TABLE customers ADD COLUMN IF NOT EXISTS ""IsAffiliate"" boolean NOT NULL DEFAULT false;
+                ALTER TABLE customers ADD COLUMN IF NOT EXISTS ""AffiliateBalance"" numeric NOT NULL DEFAULT 0;
+                ALTER TABLE customers ADD COLUMN IF NOT EXISTS ""TotalEarnedCommission"" numeric NOT NULL DEFAULT 0;
+                ALTER TABLE customers ADD COLUMN IF NOT EXISTS ""AffiliatePayoutMethod"" text;
+                ALTER TABLE customers ADD COLUMN IF NOT EXISTS ""AffiliatePayoutDetails"" text;
+                ALTER TABLE customers ADD COLUMN IF NOT EXISTS ""ReferralClicksCount"" integer NOT NULL DEFAULT 0;
+
+                ALTER TABLE orders ADD COLUMN IF NOT EXISTS ""ReferralCode"" text;
+                ALTER TABLE orders ADD COLUMN IF NOT EXISTS ""PointsRedeemed"" integer NOT NULL DEFAULT 0;
+                ALTER TABLE orders ADD COLUMN IF NOT EXISTS ""PointsDiscount"" numeric NOT NULL DEFAULT 0;
+                ALTER TABLE orders ADD COLUMN IF NOT EXISTS ""PointsEarned"" integer NOT NULL DEFAULT 0;
             ");
             logger.LogInformation("Database tables and multi-tenant schema partitions verified successfully.");
         }

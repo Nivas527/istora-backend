@@ -26,7 +26,15 @@ import {
   Building,
   Home,
   ShieldAlert,
-  RotateCcw
+  RotateCcw,
+  Award,
+  Gift,
+  Share2,
+  Copy,
+  DollarSign,
+  Star,
+  TrendingUp,
+  Users
 } from 'lucide-react';
 
 export default function ShopperPortalModal({ onTrackOrder }) {
@@ -43,6 +51,7 @@ export default function ShopperPortalModal({ onTrackOrder }) {
     updateAddress,
     deleteAddress,
     setDefaultAddress,
+    openAffiliateModal,
     logout
   } = useCustomerAuth();
 
@@ -52,6 +61,9 @@ export default function ShopperPortalModal({ onTrackOrder }) {
   // Invoice downloading state tracking per orderId
   const [downloadingInvoiceId, setDownloadingInvoiceId] = useState(null);
   const [invoiceSuccessId, setInvoiceSuccessId] = useState(null);
+
+  // Referral copy feedback
+  const [copiedRefLink, setCopiedRefLink] = useState(false);
 
   // Return modal state
   const [returnOrder, setReturnOrder] = useState(null);
@@ -213,6 +225,36 @@ export default function ShopperPortalModal({ onTrackOrder }) {
             <span>Saved Addresses</span>
             <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-zinc-200 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300">
               {savedAddresses.length}
+            </span>
+          </button>
+
+          <button
+            onClick={() => setPortalActiveTab('loyalty')}
+            className={`flex items-center gap-2 px-3 py-2.5 border-b-2 whitespace-nowrap transition-all cursor-pointer ${
+              portalActiveTab === 'loyalty'
+                ? 'border-amber-500 text-amber-600 dark:text-amber-400 font-bold'
+                : 'border-transparent text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-300'
+            }`}
+          >
+            <Award className="w-4 h-4 text-amber-500" />
+            <span>Loyalty Rewards</span>
+            <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 font-mono font-bold">
+              {customer.loyaltyPoints ?? 100} pts
+            </span>
+          </button>
+
+          <button
+            onClick={() => setPortalActiveTab('referral')}
+            className={`flex items-center gap-2 px-3 py-2.5 border-b-2 whitespace-nowrap transition-all cursor-pointer ${
+              portalActiveTab === 'referral'
+                ? 'border-indigo-500 text-indigo-600 dark:text-indigo-400 font-bold'
+                : 'border-transparent text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-300'
+            }`}
+          >
+            <Gift className="w-4 h-4 text-indigo-500" />
+            <span>Refer a Friend</span>
+            <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-indigo-100 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 font-bold">
+              ₹200
             </span>
           </button>
 
@@ -849,6 +891,318 @@ export default function ShopperPortalModal({ onTrackOrder }) {
                 >
                   <Trash2 className="w-3.5 h-3.5" />
                   <span>Right to Erasure (Delete Measurements)</span>
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* ======================================================== */}
+          {/* TAB: LOYALTY REWARDS & POINTS ENGINE                     */}
+          {/* ======================================================== */}
+          {portalActiveTab === 'loyalty' && (
+            <div className="space-y-6 animate-fadeIn">
+              {/* VIP Member Gold Card */}
+              <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-amber-500 via-amber-600 to-yellow-600 text-white p-6 sm:p-8 shadow-xl">
+                <div className="absolute top-0 right-0 -mt-8 -mr-8 w-40 h-40 bg-white/10 rounded-full blur-2xl pointer-events-none" />
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 relative z-10">
+                  <div>
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-black/25 backdrop-blur-md border border-white/20">
+                        {customer.loyaltyTier || 'Silver'} Member
+                      </span>
+                      <span className="text-amber-100 text-xs font-semibold">★ Istora VIP Rewards</span>
+                    </div>
+                    <h3 className="text-3xl sm:text-4xl font-extrabold tracking-tight font-mono">
+                      {(customer.loyaltyPoints ?? 100).toLocaleString('en-IN')} <span className="text-xl font-normal text-amber-100">pts</span>
+                    </h3>
+                    <p className="text-amber-100 text-xs mt-1">
+                      Equivalent to <strong className="text-white underline">₹{(customer.loyaltyPoints ?? 100).toLocaleString('en-IN')} instant cash discount</strong> at checkout
+                    </p>
+                  </div>
+
+                  <div className="flex flex-col sm:items-end gap-2">
+                    <button
+                      onClick={() => {
+                        closePortal();
+                        const catalog = document.getElementById('catalog-section');
+                        if (catalog) catalog.scrollIntoView({ behavior: 'smooth' });
+                      }}
+                      className="px-5 py-2.5 rounded-xl bg-white text-zinc-950 font-bold text-xs hover:bg-amber-50 transition-all shadow-md cursor-pointer flex items-center gap-1.5"
+                    >
+                      <span>Redeem on Next Order</span>
+                      <ChevronRight className="w-4 h-4" />
+                    </button>
+                    <span className="text-[10px] text-amber-200">100% points redeemable with 0 hidden fees</span>
+                  </div>
+                </div>
+
+                {/* VIP Progression Bar */}
+                <div className="mt-6 pt-4 border-t border-white/20 relative z-10">
+                  <div className="flex justify-between text-xs mb-1.5 text-amber-100 font-semibold">
+                    <span>VIP Tier: {customer.loyaltyTier || 'Silver'}</span>
+                    <span>
+                      {(customer.loyaltyPoints ?? 100) >= 1000
+                        ? '★ Top Tier VIP reached!'
+                        : `${1000 - (customer.loyaltyPoints ?? 100)} pts to Platinum`}
+                    </span>
+                  </div>
+                  <div className="w-full bg-black/20 rounded-full h-2.5 overflow-hidden p-0.5">
+                    <div
+                      className="bg-white rounded-full h-full transition-all duration-500"
+                      style={{
+                        width: `${Math.min(100, Math.max(10, ((customer.loyaltyPoints ?? 100) / 1000) * 100))}%`
+                      }}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* How it Works 3-Col Grid */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="p-4 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-850/50 space-y-1.5">
+                  <div className="w-8 h-8 rounded-xl bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-400 flex items-center justify-center font-bold text-sm">
+                    10%
+                  </div>
+                  <h4 className="text-xs font-bold text-zinc-900 dark:text-white">Earn Points on Orders</h4>
+                  <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                    Earn 1 loyalty point for every ₹10 spent across the entire store catalog.
+                  </p>
+                </div>
+
+                <div className="p-4 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-850/50 space-y-1.5">
+                  <div className="w-8 h-8 rounded-xl bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400 flex items-center justify-center font-bold text-sm">
+                    ₹1
+                  </div>
+                  <h4 className="text-xs font-bold text-zinc-900 dark:text-white">1 Point = ₹1 Discount</h4>
+                  <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                    Use the interactive checkout slider to convert points into instant cash off.
+                  </p>
+                </div>
+
+                <div className="p-4 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-850/50 space-y-1.5">
+                  <div className="w-8 h-8 rounded-xl bg-indigo-100 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-400 flex items-center justify-center font-bold text-sm">
+                    ♾️
+                  </div>
+                  <h4 className="text-xs font-bold text-zinc-900 dark:text-white">Never Expire</h4>
+                  <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                    Your points balance never expires and stacks with promotional coupon codes.
+                  </p>
+                </div>
+              </div>
+
+              {/* Points Ledger History */}
+              <div className="space-y-3">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400 flex items-center justify-between">
+                  <span>Loyalty Points Ledger History</span>
+                  <span className="text-[11px] font-normal lowercase">{(customer.loyaltyLedger || []).length} transactions</span>
+                </h4>
+
+                {(customer.loyaltyLedger && customer.loyaltyLedger.length > 0) ? (
+                  <div className="border border-zinc-200 dark:border-zinc-800 rounded-2xl overflow-hidden bg-white dark:bg-zinc-850/50">
+                    <div className="divide-y divide-zinc-100 dark:divide-zinc-800">
+                      {customer.loyaltyLedger.map((entry) => (
+                        <div key={entry.id} className="p-3.5 flex items-center justify-between text-xs">
+                          <div className="flex items-center gap-3">
+                            <div className={`w-8 h-8 rounded-xl flex items-center justify-center font-bold text-sm shrink-0 ${
+                              entry.type === 'earned'
+                                ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-400'
+                                : entry.type === 'referral_bonus'
+                                ? 'bg-indigo-100 text-indigo-800 dark:bg-indigo-950/60 dark:text-indigo-400'
+                                : entry.type === 'signup_bonus'
+                                ? 'bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-400'
+                                : 'bg-red-100 text-red-800 dark:bg-red-950/60 dark:text-red-400'
+                            }`}>
+                              {entry.type === 'redeemed' ? '−' : '+'}
+                            </div>
+                            <div>
+                              <p className="font-bold text-zinc-900 dark:text-white">
+                                {entry.description}
+                              </p>
+                              <p className="text-[11px] text-zinc-400">
+                                {new Date(entry.createdAt).toLocaleDateString('en-IN', {
+                                  day: 'numeric',
+                                  month: 'short',
+                                  year: 'numeric',
+                                  hour: '2-digit',
+                                  minute: '2-digit'
+                                })}
+                                {entry.orderNumber && ` • Order #${entry.orderNumber}`}
+                              </p>
+                            </div>
+                          </div>
+
+                          <span className={`font-mono font-bold text-sm ${
+                            entry.type === 'redeemed' || entry.points < 0
+                              ? 'text-red-600 dark:text-red-400'
+                              : 'text-emerald-600 dark:text-emerald-400'
+                          }`}>
+                            {entry.points > 0 ? `+${entry.points}` : entry.points} pts
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="p-8 text-center rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900 text-zinc-400 text-xs">
+                    No points transactions yet. Place an order to earn points!
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* ======================================================== */}
+          {/* TAB: REFER A FRIEND ("GIVE ₹200, GET ₹200")              */}
+          {/* ======================================================== */}
+          {portalActiveTab === 'referral' && (
+            <div className="space-y-6 animate-fadeIn">
+              {/* Hero Referral Card */}
+              <div className="rounded-3xl bg-gradient-to-br from-indigo-600 via-indigo-700 to-purple-800 text-white p-6 sm:p-8 shadow-xl relative overflow-hidden">
+                <div className="absolute top-0 right-0 -mt-6 -mr-6 w-36 h-36 bg-white/10 rounded-full blur-xl pointer-events-none" />
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 relative z-10">
+                  <div>
+                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-white/20 backdrop-blur-md">
+                      Viral Referral Program
+                    </span>
+                    <h3 className="text-2xl sm:text-3xl font-extrabold tracking-tight mt-2">
+                      Give ₹200, Get ₹200
+                    </h3>
+                    <p className="text-indigo-100 text-xs mt-1 max-w-md">
+                      Share your unique invite link with friends. They get <strong>₹200 off</strong> their first purchase, and you get <strong>200 loyalty points (₹200)</strong> as soon as they complete their order!
+                    </p>
+                  </div>
+
+                  <div className="text-center sm:text-right bg-white/10 backdrop-blur-md p-4 rounded-2xl border border-white/20 shrink-0">
+                    <span className="text-[10px] uppercase font-bold text-indigo-200 block">Your Referral Code</span>
+                    <span className="text-xl font-extrabold font-mono tracking-wider text-yellow-300">
+                      {customer.referralCode || 'REF-ISTORA'}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Shareable Link Box */}
+                <div className="mt-6 pt-4 border-t border-white/20 relative z-10">
+                  <label className="text-[11px] font-bold text-indigo-200 block mb-1.5">
+                    Your Shareable Invite Link:
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      readOnly
+                      value={`https://istora.online/?ref=${customer.referralCode || 'REF-ISTORA'}`}
+                      className="flex-1 bg-black/30 border border-white/20 text-white text-xs px-3.5 py-2.5 rounded-xl font-mono focus:outline-none"
+                    />
+                    <button
+                      onClick={() => {
+                        const url = `https://istora.online/?ref=${customer.referralCode || 'REF-ISTORA'}`;
+                        navigator.clipboard?.writeText(url);
+                        setCopiedRefLink(true);
+                        setTimeout(() => setCopiedRefLink(false), 2500);
+                      }}
+                      className="px-4 py-2.5 rounded-xl bg-white text-indigo-900 font-bold text-xs hover:bg-indigo-50 transition-all flex items-center gap-1.5 shrink-0 cursor-pointer shadow-sm"
+                    >
+                      {copiedRefLink ? (
+                        <>
+                          <Check className="w-4 h-4 text-emerald-600" />
+                          <span className="text-emerald-700">Copied!</span>
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="w-4 h-4" />
+                          <span>Copy Link</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Social Share Buttons */}
+                <div className="mt-4 flex items-center gap-2 flex-wrap text-xs">
+                  <span className="text-[11px] text-indigo-200">Share directly:</span>
+                  <a
+                    href={`https://api.whatsapp.com/send?text=${encodeURIComponent(
+                      `Hey! Use my referral link to get ₹200 off your first fashion order at Istora: https://istora.online/?ref=${customer.referralCode || 'REF-ISTORA'}`
+                    )}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="px-3 py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-[11px] flex items-center gap-1 transition-all"
+                  >
+                    <span>WhatsApp</span>
+                  </a>
+                  <a
+                    href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(
+                      `Get ₹200 off your first clothing & fashion order at Istora using code ${customer.referralCode}: https://istora.online/?ref=${customer.referralCode || 'REF-ISTORA'}`
+                    )}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="px-3 py-1.5 rounded-lg bg-black hover:bg-zinc-900 text-white font-bold text-[11px] flex items-center gap-1 transition-all"
+                  >
+                    <span>X / Twitter</span>
+                  </a>
+                  <a
+                    href={`mailto:?subject=${encodeURIComponent('₹200 Gift Voucher for you at Istora')}&body=${encodeURIComponent(
+                      `Hey!\n\nHere is ₹200 off your first purchase at Istora. Click my link or use code ${customer.referralCode}:\nhttps://istora.online/?ref=${customer.referralCode || 'REF-ISTORA'}`
+                    )}`}
+                    className="px-3 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-white font-bold text-[11px] flex items-center gap-1 transition-all"
+                  >
+                    <span>Email Friend</span>
+                  </a>
+                </div>
+              </div>
+
+              {/* Referral Statistics */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="p-4 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-850/50">
+                  <span className="text-[11px] text-zinc-400 block">Friends Invited</span>
+                  <p className="text-2xl font-extrabold text-zinc-900 dark:text-white font-mono mt-1">
+                    {customer.referralClicksCount || 0}
+                  </p>
+                  <span className="text-[10px] text-zinc-500">Inbound referral clicks</span>
+                </div>
+
+                <div className="p-4 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-850/50">
+                  <span className="text-[11px] text-zinc-400 block">Completed Orders</span>
+                  <p className="text-2xl font-extrabold text-zinc-900 dark:text-white font-mono mt-1">
+                    {Math.max(0, Math.floor((customer.totalEarnedCommission || 0) / 200) || (customerOrders.length > 1 ? 1 : 0))}
+                  </p>
+                  <span className="text-[10px] text-emerald-600 font-semibold">Attributed friend purchases</span>
+                </div>
+
+                <div className="p-4 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-850/50">
+                  <span className="text-[11px] text-zinc-400 block">Rewards Earned</span>
+                  <p className="text-2xl font-extrabold text-indigo-600 dark:text-indigo-400 font-mono mt-1">
+                    ₹{((Math.max(0, Math.floor((customer.totalEarnedCommission || 0) / 200) || (customerOrders.length > 1 ? 1 : 0))) * 200).toLocaleString('en-IN')}
+                  </p>
+                  <span className="text-[10px] text-zinc-500">Added as loyalty discount credits</span>
+                </div>
+              </div>
+
+              {/* Influencer Affiliate Teaser Banner */}
+              <div className="p-5 rounded-2xl bg-gradient-to-r from-purple-500/10 via-pink-500/10 to-indigo-500/10 border-2 border-purple-500/30 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-purple-500 animate-pulse" />
+                    <span className="text-xs font-bold text-purple-900 dark:text-purple-300 uppercase tracking-wide">
+                      Content Creator or Influencer?
+                    </span>
+                  </div>
+                  <h4 className="text-sm font-bold text-zinc-900 dark:text-white">
+                    Earn 10% Cash Commission with our Affiliate Program
+                  </h4>
+                  <p className="text-xs text-zinc-600 dark:text-zinc-300">
+                    Get paid real cash directly to your UPI ID or Bank Account on every attributed sale.
+                  </p>
+                </div>
+
+                <button
+                  onClick={() => {
+                    closePortal();
+                    if (openAffiliateModal) openAffiliateModal();
+                  }}
+                  className="px-4 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs shadow-md transition-all shrink-0 flex items-center gap-1.5 cursor-pointer"
+                >
+                  <Award className="w-4 h-4" />
+                  <span>Influencer Portal</span>
                 </button>
               </div>
             </div>

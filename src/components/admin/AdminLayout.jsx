@@ -14,6 +14,7 @@ import ThemesView from './ThemesView';
 import AbandonedCartView from './AbandonedCartView';
 import ReturnsView from './ReturnsView';
 import ReviewsView from './ReviewsView';
+import AffiliatesView from './AffiliatesView';
 import HostingDashboard from '../hosting/HostingDashboard';
 import {
   LayoutDashboard,
@@ -24,6 +25,7 @@ import {
   Star,
   Users,
   Tag,
+  Award,
   Settings,
   Palette,
   Layers,
@@ -69,6 +71,7 @@ export default function AdminLayout() {
     { id: 'reviews', label: 'Reviews & UGC', icon: Star, badge: 'UGC', badgeColor: 'bg-amber-500 text-white' },
     { id: 'products', label: 'Products', icon: Package, badge: products.length, badgeColor: 'bg-zinc-200 text-zinc-700' },
     { id: 'customers', label: 'Customers', icon: Users },
+    { id: 'affiliates', label: 'Affiliates & Referrals', icon: Award, badge: 'Viral', badgeColor: 'bg-purple-600 text-white' },
     { id: 'discounts', label: 'Discounts', icon: Tag },
     { id: 'import', label: 'Import from Shopify', icon: Sparkles, badge: 'Shopify', badgeColor: 'bg-emerald-100 text-emerald-800', isAction: true },
     { id: 'themes', label: 'Themes & Designs', icon: Palette },
@@ -314,6 +317,7 @@ export default function AdminLayout() {
             {adminTab === 'abandoned-carts' && <AbandonedCartView />}
             {adminTab === 'reviews' && <ReviewsView />}
             {adminTab === 'customers' && <CustomersView />}
+            {adminTab === 'affiliates' && <AffiliatesView />}
             {adminTab === 'discounts' && <DiscountsView />}
             {adminTab === 'themes' && <ThemesView />}
             {adminTab === 'hosting' && <HostingDashboard />}

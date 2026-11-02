@@ -27,6 +27,8 @@ public static class CustomerEndpoints
     {
         List<SavedAddress> addresses = new();
         List<WishlistItem> wishlist = new();
+        List<LoyaltyLedgerItem> ledger = new();
+
         try
         {
             if (!string.IsNullOrWhiteSpace(dbCust.SavedAddressesJson))
@@ -45,6 +47,23 @@ public static class CustomerEndpoints
         }
         catch { }
 
+        try
+        {
+            if (!string.IsNullOrWhiteSpace(dbCust.LoyaltyLedgerJson))
+            {
+                ledger = JsonSerializer.Deserialize<List<LoyaltyLedgerItem>>(dbCust.LoyaltyLedgerJson) ?? new();
+            }
+        }
+        catch { }
+
+        string refCode = !string.IsNullOrWhiteSpace(dbCust.ReferralCode)
+            ? dbCust.ReferralCode
+            : $"REF-{(dbCust.Id.Length >= 4 ? dbCust.Id[^4..].ToUpper() : "USER")}-{Math.Abs(dbCust.Email.GetHashCode()) % 900 + 100}";
+
+        string tier = (dbCust.TotalSpent >= 10000 || dbCust.LoyaltyPoints >= 1000) ? "Platinum"
+                    : (dbCust.TotalSpent >= 3000 || dbCust.LoyaltyPoints >= 300) ? "Gold"
+                    : "Silver";
+
         return new CustomerProfile
         {
             Id = dbCust.Id,
@@ -58,6 +77,15 @@ public static class CustomerEndpoints
             TotalSpent = dbCust.TotalSpent,
             Addresses = addresses,
             Wishlist = wishlist,
+            ReferralCode = refCode,
+            ReferredBy = dbCust.ReferredBy,
+            LoyaltyPoints = dbCust.LoyaltyPoints,
+            LoyaltyTier = tier,
+            LoyaltyLedger = ledger,
+            IsAffiliate = dbCust.IsAffiliate,
+            AffiliateBalance = dbCust.AffiliateBalance,
+            TotalEarnedCommission = dbCust.TotalEarnedCommission,
+            ReferralClicksCount = dbCust.ReferralClicksCount,
             CreatedAt = dbCust.CreatedAt
         };
     }
@@ -138,6 +166,19 @@ public static class CustomerEndpoints
                 }
             };
 
+            var newRefCode = $"REF-{(newId.Length >= 4 ? newId[^4..].ToUpper() : "USER")}-{Random.Shared.Next(100, 999)}";
+            var initialLedger = new List<LoyaltyLedgerItem>
+            {
+                new LoyaltyLedgerItem
+                {
+                    Id = Guid.NewGuid().ToString("N")[..8],
+                    Type = "signup_bonus",
+                    Points = 100,
+                    Description = "Welcome bonus points for joining Istora!",
+                    CreatedAt = DateTime.UtcNow.ToString("o")
+                }
+            };
+
             var newCustomer = new DbCustomer
             {
                 Id = newId,
@@ -150,6 +191,10 @@ public static class CustomerEndpoints
                 OrdersCount = 0,
                 TotalSpent = 0,
                 SavedAddressesJson = JsonSerializer.Serialize(defaultAddresses),
+                ReferralCode = newRefCode,
+                ReferredBy = !string.IsNullOrWhiteSpace(req.ReferralCode) ? req.ReferralCode.Trim().ToUpperInvariant() : null,
+                LoyaltyPoints = 100,
+                LoyaltyLedgerJson = JsonSerializer.Serialize(initialLedger),
                 CreatedAt = DateTime.UtcNow.ToString("o")
             };
 
@@ -684,6 +729,324 @@ public static class CustomerEndpoints
             return Results.Ok(wishlist);
         }).WithName("UpdateCustomerWishlist")
           .WithSummary("Sync and persist customer wishlist");
+
+        // 10. Loyalty Rewards & Points Engine
+        group.MapGet("/loyalty", async (string? email, string? customerId, string? storeId, ShopifyDbContext db, ITenantProvider tenantProvider) =>
+        {
+            var targetStore = !string.IsNullOrWhiteSpace(storeId)
+                ? HttpTenantProvider.NormalizeStoreId(storeId)
+                : (tenantProvider.CurrentStoreId ?? "store_apex");
+
+            var customer = await db.Customers.IgnoreQueryFilters().FirstOrDefaultAsync(c =>
+                c.StoreId == targetStore &&
+                ((!string.IsNullOrEmpty(customerId) && c.Id == customerId) ||
+                 (!string.IsNullOrEmpty(email) && c.Email.ToLower() == email.Trim().ToLowerInvariant()))
+            );
+
+            if (customer == null)
+            {
+                return Results.Ok(new
+                {
+                    points = 0,
+                    tier = "Silver",
+                    cashValue = 0,
+                    ledger = new List<LoyaltyLedgerItem>()
+                });
+            }
+
+            var profile = ToCustomerProfile(customer);
+            return Results.Ok(new
+            {
+                points = profile.LoyaltyPoints,
+                tier = profile.LoyaltyTier,
+                cashValue = profile.LoyaltyPoints,
+                ledger = profile.LoyaltyLedger
+            });
+        }).WithName("GetCustomerLoyalty")
+          .WithSummary("Retrieve customer loyalty points balance, tier, and ledger");
+
+        // 11. Customer Referral Program ("Give ₹200, Get ₹200")
+        group.MapGet("/referral", async (string? email, string? customerId, string? storeId, ShopifyDbContext db, ITenantProvider tenantProvider) =>
+        {
+            var targetStore = !string.IsNullOrWhiteSpace(storeId)
+                ? HttpTenantProvider.NormalizeStoreId(storeId)
+                : (tenantProvider.CurrentStoreId ?? "store_apex");
+
+            var customer = await db.Customers.IgnoreQueryFilters().FirstOrDefaultAsync(c =>
+                c.StoreId == targetStore &&
+                ((!string.IsNullOrEmpty(customerId) && c.Id == customerId) ||
+                 (!string.IsNullOrEmpty(email) && c.Email.ToLower() == email.Trim().ToLowerInvariant()))
+            );
+
+            if (customer == null) return Results.NotFound(new { error = "Customer not found." });
+
+            var profile = ToCustomerProfile(customer);
+            var refCode = profile.ReferralCode;
+
+            // Fetch all orders attributed to this customer's referral code
+            var attributedOrders = await db.Orders.IgnoreQueryFilters()
+                .Where(o => o.StoreId == targetStore && o.ReferralCode != null && o.ReferralCode.ToUpper() == refCode.ToUpper())
+                .ToListAsync();
+
+            var totalEarnedBonus = attributedOrders.Count * 200;
+
+            return Results.Ok(new
+            {
+                referralCode = refCode,
+                referralLink = $"https://istora.online/?ref={refCode}",
+                invitedFriendsCount = attributedOrders.Count,
+                completedOrdersCount = attributedOrders.Count,
+                rewardsEarned = totalEarnedBonus,
+                rewardPerReferral = 200,
+                friendDiscount = 200,
+                recentReferrals = attributedOrders.Take(10).Select(o => new
+                {
+                    orderNumber = o.OrderNumber,
+                    customerName = o.CustomerName,
+                    date = o.CreatedAt,
+                    bonusPoints = 200
+                })
+            });
+        }).WithName("GetCustomerReferralStats")
+          .WithSummary("Get referral link, stats, and rewards earned");
+
+        // 12. Affiliate & Influencer Portal
+        app.MapGet("/api/affiliate/portal", async (string? email, string? customerId, string? storeId, ShopifyDbContext db, ITenantProvider tenantProvider) =>
+        {
+            var targetStore = !string.IsNullOrWhiteSpace(storeId)
+                ? HttpTenantProvider.NormalizeStoreId(storeId)
+                : (tenantProvider.CurrentStoreId ?? "store_apex");
+
+            var customer = await db.Customers.IgnoreQueryFilters().FirstOrDefaultAsync(c =>
+                c.StoreId == targetStore &&
+                ((!string.IsNullOrEmpty(customerId) && c.Id == customerId) ||
+                 (!string.IsNullOrEmpty(email) && c.Email.ToLower() == email.Trim().ToLowerInvariant()))
+            );
+
+            if (customer == null) return Results.NotFound(new { error = "Customer account not found." });
+
+            var profile = ToCustomerProfile(customer);
+            var refCode = profile.ReferralCode;
+
+            var events = await db.AffiliateEvents.IgnoreQueryFilters()
+                .Where(e => e.StoreId == targetStore && (e.ReferralCode.ToUpper() == refCode.ToUpper() || e.CustomerId == customer.Id))
+                .OrderByDescending(e => e.CreatedAt)
+                .ToListAsync();
+
+            var orderEvents = events.Where(e => e.EventType == "order").ToList();
+            var payoutEvents = events.Where(e => e.EventType == "payout_request" || e.EventType == "payout_approved").ToList();
+
+            var stats = new AffiliateStatsDto
+            {
+                ReferralCode = refCode,
+                ReferralLink = $"https://istora.online/?ref={refCode}",
+                IsAffiliate = customer.IsAffiliate,
+                TotalClicks = customer.ReferralClicksCount,
+                TotalOrders = orderEvents.Count,
+                GrossSales = orderEvents.Sum(e => e.OrderAmount),
+                CommissionRate = 10m,
+                TotalCommissionEarned = customer.TotalEarnedCommission,
+                UnpaidBalance = customer.AffiliateBalance,
+                PayoutHistory = payoutEvents.Select(p => new AffiliatePayoutItemDto
+                {
+                    Id = p.Id,
+                    Amount = p.PayoutAmount > 0 ? p.PayoutAmount : p.CommissionAmount,
+                    Method = p.PayoutMethod ?? "UPI",
+                    Details = p.PayoutDetails ?? "",
+                    Status = p.Status,
+                    CreatedAt = p.CreatedAt
+                }).ToList()
+            };
+
+            return Results.Ok(stats);
+        }).WithName("GetAffiliatePortal")
+          .WithSummary("Get influencer affiliate analytics, clicks, sales, and payouts");
+
+        app.MapPost("/api/affiliate/join", async (JoinAffiliateRequest req, ShopifyDbContext db, ITenantProvider tenantProvider) =>
+        {
+            var targetStore = !string.IsNullOrWhiteSpace(req.StoreId)
+                ? HttpTenantProvider.NormalizeStoreId(req.StoreId)
+                : (tenantProvider.CurrentStoreId ?? "store_apex");
+
+            var customer = await db.Customers.IgnoreQueryFilters().FirstOrDefaultAsync(c =>
+                c.StoreId == targetStore &&
+                ((!string.IsNullOrEmpty(req.CustomerId) && c.Id == req.CustomerId) ||
+                 (!string.IsNullOrEmpty(req.Email) && c.Email.ToLower() == req.Email.Trim().ToLowerInvariant()))
+            );
+
+            if (customer == null) return Results.NotFound(new { error = "Customer account not found." });
+
+            customer.IsAffiliate = true;
+            if (!string.IsNullOrWhiteSpace(req.PreferredPayoutMethod)) customer.AffiliatePayoutMethod = req.PreferredPayoutMethod;
+            if (!string.IsNullOrWhiteSpace(req.PayoutDetails)) customer.AffiliatePayoutDetails = req.PayoutDetails;
+
+            await db.SaveChangesAsync();
+
+            return Results.Ok(new
+            {
+                success = true,
+                message = "Congratulations! Your Influencer Affiliate Account is now active.",
+                referralCode = customer.ReferralCode,
+                commissionRate = 10
+            });
+        }).WithName("JoinAffiliateProgram")
+          .WithSummary("Activate customer account as an influencer affiliate");
+
+        app.MapPost("/api/affiliate/track-click", async (TrackAffiliateClickRequest req, ShopifyDbContext db, ITenantProvider tenantProvider) =>
+        {
+            if (string.IsNullOrWhiteSpace(req.ReferralCode)) return Results.BadRequest(new { error = "Referral code required." });
+
+            var targetStore = !string.IsNullOrWhiteSpace(req.StoreId)
+                ? HttpTenantProvider.NormalizeStoreId(req.StoreId)
+                : (tenantProvider.CurrentStoreId ?? "store_apex");
+
+            var cleanCode = req.ReferralCode.Trim().ToUpperInvariant();
+            var customer = await db.Customers.IgnoreQueryFilters().FirstOrDefaultAsync(c =>
+                c.StoreId == targetStore && c.ReferralCode.ToUpper() == cleanCode
+            );
+
+            if (customer != null)
+            {
+                customer.ReferralClicksCount += 1;
+                db.AffiliateEvents.Add(new DbAffiliateEvent
+                {
+                    Id = "affclk_" + DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() + "_" + Random.Shared.Next(100, 999),
+                    StoreId = targetStore,
+                    ReferralCode = cleanCode,
+                    CustomerId = customer.Id,
+                    EventType = "click",
+                    Status = "completed",
+                    CreatedAt = DateTime.UtcNow.ToString("o")
+                });
+                await db.SaveChangesAsync();
+            }
+
+            return Results.Ok(new { success = true, tracked = true });
+        }).WithName("TrackAffiliateClick")
+          .WithSummary("Track an inbound visitor referral click");
+
+        app.MapPost("/api/affiliate/request-payout", async (RequestPayoutRequest req, ShopifyDbContext db, ITenantProvider tenantProvider) =>
+        {
+            var targetStore = !string.IsNullOrWhiteSpace(req.StoreId)
+                ? HttpTenantProvider.NormalizeStoreId(req.StoreId)
+                : (tenantProvider.CurrentStoreId ?? "store_apex");
+
+            var customer = await db.Customers.IgnoreQueryFilters().FirstOrDefaultAsync(c =>
+                c.StoreId == targetStore &&
+                ((!string.IsNullOrEmpty(req.CustomerId) && c.Id == req.CustomerId) ||
+                 (!string.IsNullOrEmpty(req.Email) && c.Email.ToLower() == req.Email.Trim().ToLowerInvariant()))
+            );
+
+            if (customer == null) return Results.NotFound(new { error = "Customer not found." });
+
+            if (req.Amount <= 0) return Results.BadRequest(new { error = "Payout amount must be greater than zero." });
+            if (req.Amount > customer.AffiliateBalance)
+            {
+                return Results.BadRequest(new { error = $"Requested amount (₹{req.Amount}) exceeds available balance (₹{customer.AffiliateBalance})." });
+            }
+
+            customer.AffiliateBalance -= req.Amount;
+
+            var payoutEvent = new DbAffiliateEvent
+            {
+                Id = "payout_" + DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
+                StoreId = targetStore,
+                ReferralCode = customer.ReferralCode,
+                CustomerId = customer.Id,
+                EventType = "payout_request",
+                PayoutAmount = req.Amount,
+                PayoutMethod = req.Method ?? "UPI",
+                PayoutDetails = req.Details ?? customer.AffiliatePayoutDetails ?? "",
+                Status = "pending",
+                CreatedAt = DateTime.UtcNow.ToString("o")
+            };
+
+            db.AffiliateEvents.Add(payoutEvent);
+            await db.SaveChangesAsync();
+
+            return Results.Ok(new
+            {
+                success = true,
+                message = $"Payout request for ₹{req.Amount} via {req.Method} submitted successfully.",
+                payoutId = payoutEvent.Id,
+                remainingBalance = customer.AffiliateBalance
+            });
+        }).WithName("RequestAffiliatePayout")
+          .WithSummary("Request commission payout via UPI or Bank Transfer");
+
+        app.MapGet("/api/admin/affiliates", async (string? storeId, ShopifyDbContext db, ITenantProvider tenantProvider) =>
+        {
+            var targetStore = !string.IsNullOrWhiteSpace(storeId)
+                ? HttpTenantProvider.NormalizeStoreId(storeId)
+                : (tenantProvider.CurrentStoreId ?? "store_apex");
+
+            var affiliates = await db.Customers.IgnoreQueryFilters()
+                .Where(c => c.StoreId == targetStore && (c.IsAffiliate || c.ReferralClicksCount > 0 || c.TotalEarnedCommission > 0))
+                .ToListAsync();
+
+            var events = await db.AffiliateEvents.IgnoreQueryFilters()
+                .Where(e => e.StoreId == targetStore)
+                .ToListAsync();
+
+            var result = affiliates.Select(a =>
+            {
+                var refCode = a.ReferralCode;
+                var aEvents = events.Where(e => e.CustomerId == a.Id || (e.ReferralCode.ToUpper() == refCode.ToUpper())).ToList();
+                var orders = aEvents.Where(e => e.EventType == "order").ToList();
+                var pendingPayouts = aEvents.Where(e => e.EventType == "payout_request" && e.Status == "pending").Select(p => new AffiliatePayoutItemDto
+                {
+                    Id = p.Id,
+                    Amount = p.PayoutAmount,
+                    Method = p.PayoutMethod ?? "UPI",
+                    Details = p.PayoutDetails ?? "",
+                    Status = p.Status,
+                    CreatedAt = p.CreatedAt
+                }).ToList();
+
+                return new AdminAffiliateListItemDto
+                {
+                    CustomerId = a.Id,
+                    Name = a.Name,
+                    Email = a.Email,
+                    ReferralCode = a.ReferralCode,
+                    Clicks = a.ReferralClicksCount,
+                    OrdersCount = orders.Count,
+                    GrossSales = orders.Sum(o => o.OrderAmount),
+                    TotalCommission = a.TotalEarnedCommission,
+                    UnpaidBalance = a.AffiliateBalance,
+                    PayoutMethod = a.AffiliatePayoutMethod,
+                    PayoutDetails = a.AffiliatePayoutDetails,
+                    IsAffiliate = a.IsAffiliate,
+                    PendingPayouts = pendingPayouts
+                };
+            }).ToList();
+
+            return Results.Ok(result);
+        }).WithName("GetAdminAffiliates")
+          .WithSummary("List all affiliates and pending payouts for store admin");
+
+        app.MapPost("/api/admin/affiliates/payouts/{id}/approve", async (string id, string? storeId, ShopifyDbContext db, ITenantProvider tenantProvider) =>
+        {
+            var targetStore = !string.IsNullOrWhiteSpace(storeId)
+                ? HttpTenantProvider.NormalizeStoreId(storeId)
+                : (tenantProvider.CurrentStoreId ?? "store_apex");
+
+            var payoutEvent = await db.AffiliateEvents.IgnoreQueryFilters()
+                .FirstOrDefaultAsync(e => e.StoreId == targetStore && e.Id == id && e.EventType == "payout_request");
+
+            if (payoutEvent == null) return Results.NotFound(new { error = "Payout request not found." });
+
+            payoutEvent.Status = "completed";
+            await db.SaveChangesAsync();
+
+            return Results.Ok(new
+            {
+                success = true,
+                message = $"Payout #{id} marked as approved and transferred.",
+                payout = payoutEvent
+            });
+        }).WithName("ApproveAffiliatePayout")
+          .WithSummary("Approve and mark an affiliate payout request as completed");
 
         return app;
     }
