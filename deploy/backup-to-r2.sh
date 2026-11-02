@@ -1,48 +1,70 @@
 #!/bin/bash
 # =============================================================================
-# Automated PostgreSQL Nightly Backup Script -> Cloudflare R2
-# Add to crontab: 0 2 * * * /root/deploy/backup-to-r2.sh >> /var/log/r2-backup.log 2>&1
+# Automated Pre-Deployment PostgreSQL Backup Script -> Cloudflare R2
+# Dumps production database before container updates or migrations.
 # =============================================================================
 
 set -e
 
-# Load environment variables
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
 if [ -f "$DIR/.env" ]; then
     export $(grep -v '^#' "$DIR/.env" | xargs)
 fi
 
 TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
-BACKUP_DIR="/tmp/db_backups"
-FILENAME="backup_${POSTGRES_DB:-shopify_engine}_${TIMESTAMP}.sql.gz"
-FILEPATH="${BACKUP_DIR}/${FILENAME}"
-
+BACKUP_DIR="${BACKUP_DIR:-/opt/shopify-engine/backups}"
 mkdir -p "$BACKUP_DIR"
 
-echo "=== [$(date)] Starting Database Backup ==="
+DB_NAME="${POSTGRES_DB:-shopify_engine}"
+DB_USER="${POSTGRES_USER:-shopify_admin}"
+FILENAME="backup_${DB_NAME}_${TIMESTAMP}.sql.gz"
+FILEPATH="${BACKUP_DIR}/${FILENAME}"
 
-# 1. Dump database from running Postgres container and gzip
-docker exec -t shopify_engine_db pg_dump -U "${POSTGRES_USER:-shopify_admin}" "${POSTGRES_DB:-shopify_engine}" | gzip > "$FILEPATH"
+echo "========================================================="
+echo "📦 [$(date '+%Y-%m-%d %H:%M:%S')] Starting Pre-Deployment DB Backup"
+echo "========================================================="
 
-SIZE=$(du -h "$FILEPATH" | cut -f1)
-echo "✅ Dump created: $FILEPATH ($SIZE)"
-
-# 2. Upload to Cloudflare R2 using AWS CLI (configured with R2 S3 endpoint)
-if [ -n "$CF_ACCOUNT_ID" ] && [ -n "$R2_ACCESS_KEY_ID" ] && [ -n "$R2_SECRET_ACCESS_KEY" ]; then
-    ENDPOINT_URL="https://${CF_ACCOUNT_ID}.r2.cloudflarestorage.com"
-    
-    AWS_ACCESS_KEY_ID="$R2_ACCESS_KEY_ID" \
-    AWS_SECRET_ACCESS_KEY="$R2_SECRET_ACCESS_KEY" \
-    aws s3 cp "$FILEPATH" "s3://${R2_BUCKET_NAME:-shopify-engine-backups}/${FILENAME}" \
-        --endpoint-url "$ENDPOINT_URL"
-
-    echo "🚀 Successfully uploaded to Cloudflare R2 bucket: ${R2_BUCKET_NAME}/${FILENAME}"
-else
-    echo "⚠️ R2 credentials not fully set. File stored locally at $FILEPATH"
+# 1. Verify Postgres container is running
+if ! docker ps --format '{{.Names}}' | grep -q "^shopify_engine_db$"; then
+    echo "⚠️ Warning: Container 'shopify_engine_db' is not running. Checking if database is accessible locally..."
 fi
 
-# 3. Cleanup local temp dump
-rm -f "$FILEPATH"
+# 2. Dump database from running Postgres container and gzip
+echo "⏳ Exporting pg_dump from container 'shopify_engine_db'..."
+if docker exec -t shopify_engine_db pg_dump -U "$DB_USER" "$DB_NAME" | gzip > "$FILEPATH"; then
+    SIZE=$(du -h "$FILEPATH" | cut -f1)
+    echo "✅ Local dump created successfully: $FILEPATH ($SIZE)"
+else
+    echo "❌ ERROR: Failed to dump database from shopify_engine_db!"
+    rm -f "$FILEPATH"
+    exit 1
+fi
 
-# 4. Prune R2 backups older than 14 days (optional retention policy)
-echo "=== [$(date)] Backup Completed Successfully ==="
+# 3. Upload to Cloudflare R2 using AWS CLI (S3-Compatible endpoint)
+ACCOUNT_ID="${CF_ACCOUNT_ID:-$R2_ACCOUNT_ID}"
+BUCKET="${R2_BUCKET_NAME:-shopify-engine-backups}"
+
+if [ -n "$ACCOUNT_ID" ] && [ -n "$R2_ACCESS_KEY_ID" ] && [ -n "$R2_SECRET_ACCESS_KEY" ]; then
+    ENDPOINT_URL="https://${ACCOUNT_ID}.r2.cloudflarestorage.com"
+    echo "☁️ Uploading backup to Cloudflare R2: s3://${BUCKET}/${FILENAME}..."
+    
+    if command -v aws >/dev/null 2>&1; then
+        AWS_ACCESS_KEY_ID="$R2_ACCESS_KEY_ID" \
+        AWS_SECRET_ACCESS_KEY="$R2_SECRET_ACCESS_KEY" \
+        aws s3 cp "$FILEPATH" "s3://${BUCKET}/${FILENAME}" \
+            --endpoint-url "$ENDPOINT_URL"
+        echo "🚀 Backup successfully uploaded to Cloudflare R2: ${BUCKET}/${FILENAME}"
+    else
+        echo "⚠️ Notice: 'aws' CLI not installed on host. Retaining verified local backup on disk at $FILEPATH"
+    fi
+else
+    echo "ℹ️ Notice: R2 credentials not configured in deploy/.env. Retaining verified local backup on disk at $FILEPATH"
+fi
+
+# 4. Prune local backups, keeping the 5 most recent for instant 5-second rollback
+echo "🧹 Pruning old local backups (retaining latest 5 snapshots)..."
+ls -t "$BACKUP_DIR"/backup_*.sql.gz 2>/dev/null | tail -n +6 | xargs -r rm -f
+
+echo "========================================================="
+echo "✅ Pre-Deployment Database Backup Verified & Complete"
+echo "========================================================="

@@ -3,6 +3,18 @@ using ShopifyEngine.Api.Services;
 
 namespace ShopifyEngine.Api.Data;
 
+/// <summary>
+/// ADDITIVE-ONLY PRODUCTION MIGRATIONS ENGINE
+/// =========================================================================
+/// Strict Policy for Rollback & Zero-Downtime Resilience:
+/// 1. All schema modifications MUST be additive (ADD COLUMN IF NOT EXISTS,
+///    CREATE TABLE IF NOT EXISTS, CREATE INDEX IF NOT EXISTS).
+/// 2. NEVER execute DROP COLUMN, DROP TABLE, or in-place RENAME COLUMN.
+/// 3. All newly added columns MUST either be NULLABLE or provide an explicit
+///    DEFAULT value so existing production records remain intact and older
+///    versions of the application can run seamlessly during a rollback.
+/// =========================================================================
+/// </summary>
 public static class DatabaseMigrator
 {
     public static void MigrateAndSeed(IServiceProvider services, ILogger logger)
