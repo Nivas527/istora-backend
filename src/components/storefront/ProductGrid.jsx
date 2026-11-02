@@ -3,14 +3,15 @@ import ProductCard from './ProductCard';
 import FacetedFilterBar from './FacetedFilterBar';
 import { useStore } from '../../context/StoreContext';
 import { useFit } from '../../context/FitContext';
+import { useCurrency } from '../../context/CurrencyContext';
 import { Filter, ArrowUpDown, Search, PackageX, Sparkles, SlidersHorizontal } from 'lucide-react';
 
 export default function ProductGrid({ onSelectProduct, searchQuery, setSearchQuery }) {
   const { products, collections, activeTheme, settings, activeStore } = useStore();
   const { profile } = useFit();
+  const { currencySymbol, convertPrice, currentCurrency } = useCurrency();
   const themeStyles = activeTheme?.styles || {};
   const isDark = themeStyles.isDark || false;
-  const currencySymbol = settings?.currencySymbol || activeStore?.currencySymbol || '$';
 
   const [selectedCollection, setSelectedCollection] = useState('all');
   const [sortBy, setSortBy] = useState('featured');
@@ -22,18 +23,18 @@ export default function ProductGrid({ onSelectProduct, searchQuery, setSearchQue
   const [selectedStyles, setSelectedStyles] = useState([]);
   const [inStockOnly, setInStockOnly] = useState(false);
 
-  // Dynamically compute min and max price across catalog
+  // Dynamically compute min and max price across catalog in active currency
   const { minPossiblePrice, maxPossiblePrice } = useMemo(() => {
     if (!products || products.length === 0) return { minPossiblePrice: 0, maxPossiblePrice: 500 };
     let min = Infinity;
     let max = -Infinity;
     products.forEach((p) => {
-      const pPrice = Number(p.price) || 0;
+      const pPrice = convertPrice(Number(p.price) || 0);
       if (pPrice < min) min = pPrice;
       if (pPrice > max) max = pPrice;
       if (Array.isArray(p.variants)) {
         p.variants.forEach((v) => {
-          const vPrice = Number(v.price) || 0;
+          const vPrice = convertPrice(Number(v.price) || 0);
           if (vPrice < min) min = vPrice;
           if (vPrice > max) max = vPrice;
         });
@@ -43,7 +44,7 @@ export default function ProductGrid({ onSelectProduct, searchQuery, setSearchQue
       minPossiblePrice: Math.floor(min === Infinity ? 0 : min),
       maxPossiblePrice: Math.ceil(max === -Infinity ? 500 : max)
     };
-  }, [products]);
+  }, [products, convertPrice, currentCurrency]);
 
   const [priceRange, setPriceRange] = useState([minPossiblePrice, maxPossiblePrice]);
 
@@ -156,8 +157,8 @@ export default function ProductGrid({ onSelectProduct, searchQuery, setSearchQue
           if (!titleMatch && !descMatch && !vendorMatch && !tagMatch && !optionMatch) return false;
         }
 
-        // 3. Price Range filter
-        const pPrice = Number(product.price) || 0;
+        // 3. Price Range filter (in active currency)
+        const pPrice = convertPrice(Number(product.price) || 0);
         if (pPrice > priceRange[1]) return false;
 
         // 4. In-Stock Only filter

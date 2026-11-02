@@ -1,8 +1,10 @@
 import React, { useState, useRef } from 'react';
 import { StoreProvider, useStore } from './context/StoreContext';
+import { CurrencyProvider } from './context/CurrencyContext';
 import { FitProvider, useFit } from './context/FitContext';
 import { CustomerAuthProvider } from './context/CustomerAuthContext';
 import { WishlistProvider } from './context/WishlistContext';
+import { GeoIpDetectionBanner } from './components/storefront/CurrencySwitcher';
 import CustomerAuthModal from './components/customer/CustomerAuthModal';
 import ShopperPortalModal from './components/customer/ShopperPortalModal';
 import WishlistDrawer from './components/storefront/WishlistDrawer';
@@ -73,6 +75,9 @@ function MainApp() {
 
   return (
     <>
+      {/* Geo-IP Auto-Detection Notification Banner */}
+      <GeoIpDetectionBanner />
+
       {/* View by Active Mode */}
       {effectiveMode === 'hub' ? (
         <LauncherHub />
@@ -364,13 +369,15 @@ function MainApp() {
 export default function App() {
   return (
     <StoreProvider>
-      <CustomerAuthProvider>
-        <WishlistProvider>
-          <FitProvider>
-            <MainApp />
-          </FitProvider>
-        </WishlistProvider>
-      </CustomerAuthProvider>
+      <CurrencyProvider>
+        <CustomerAuthProvider>
+          <WishlistProvider>
+            <FitProvider>
+              <MainApp />
+            </FitProvider>
+          </WishlistProvider>
+        </CustomerAuthProvider>
+      </CurrencyProvider>
     </StoreProvider>
   );
 }

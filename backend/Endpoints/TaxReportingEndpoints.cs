@@ -27,3 +27,4 @@ public static class TaxReportingEndpoints
         return app;
     }
 }
+

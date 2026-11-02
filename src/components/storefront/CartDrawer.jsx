@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useStore } from '../../context/StoreContext';
 import { useWishlist } from '../../context/WishlistContext';
+import { useCurrency } from '../../context/CurrencyContext';
 import AntiBracketingBanner from '../fit/AntiBracketingBanner';
 import {
   X,
@@ -46,6 +47,7 @@ export default function CartDrawer({ onProceedToCheckout }) {
   } = useStore();
 
   const { addToWishlist, wishlistCount, openWishlistDrawer } = useWishlist();
+  const { formatPrice } = useCurrency();
 
   const [promoInput, setPromoInput] = useState('');
   const [promoMessage, setPromoMessage] = useState(null);
@@ -150,7 +152,7 @@ export default function CartDrawer({ onProceedToCheckout }) {
             </div>
             {bogoDetails.eligible && (
               <span className="font-mono font-bold text-blue-700 text-[11px]">
-                Saved ₹{Math.round(bogoDetails.savings).toLocaleString('en-IN')}
+                Saved {formatPrice(bogoDetails.savings)}
               </span>
             )}
           </div>
@@ -231,7 +233,7 @@ export default function CartDrawer({ onProceedToCheckout }) {
                     </div>
 
                     <span className="text-xs font-bold text-zinc-900">
-                      ${(item.price * item.quantity).toFixed(2)}
+                      {formatPrice(item.price * item.quantity)}
                     </span>
                   </div>
 
@@ -362,7 +364,7 @@ export default function CartDrawer({ onProceedToCheckout }) {
             <div className="space-y-1.5 text-xs text-zinc-600 pt-1">
               <div className="flex justify-between">
                 <span>Subtotal</span>
-                <span className="font-semibold text-zinc-900">₹{Math.round(cartSubtotal || 0).toLocaleString('en-IN')}</span>
+                <span className="font-semibold text-zinc-900">{formatPrice(cartSubtotal || 0)}</span>
               </div>
 
               {volumeTierSavings > 0 && (
@@ -371,7 +373,7 @@ export default function CartDrawer({ onProceedToCheckout }) {
                     <Zap className="w-3 h-3 text-amber-500 fill-amber-500" />
                     <span>Volume Tier Savings</span>
                   </span>
-                  <span>-₹{Math.round(volumeTierSavings || 0).toLocaleString('en-IN')}</span>
+                  <span>-{formatPrice(volumeTierSavings || 0)}</span>
                 </div>
               )}
 
@@ -381,7 +383,7 @@ export default function CartDrawer({ onProceedToCheckout }) {
                     Discount ({appliedDiscount?.code})
                     {isAutoAppliedDiscount && <span className="ml-1 text-[10px] text-emerald-700 font-bold">(Auto)</span>}
                   </span>
-                  <span>-₹{Math.round(cartDiscountAmount || 0).toLocaleString('en-IN')}</span>
+                  <span>-{formatPrice(cartDiscountAmount || 0)}</span>
                 </div>
               )}
 
@@ -393,13 +395,13 @@ export default function CartDrawer({ onProceedToCheckout }) {
               <div className="flex justify-between text-sm font-bold text-zinc-900 pt-2 border-t border-zinc-200">
                 <span>Estimated Total</span>
                 <span className="text-base text-zinc-950 font-mono">
-                  ₹{Math.round(cartTotal || Math.max(0, (cartSubtotal || 0) - (cartDiscountAmount || 0) - (volumeTierSavings || 0))).toLocaleString('en-IN')}
+                  {formatPrice(cartTotal || Math.max(0, (cartSubtotal || 0) - (cartDiscountAmount || 0) - (volumeTierSavings || 0)))}
                 </span>
               </div>
 
               {totalCartSavings > 0 && (
                 <div className="bg-emerald-100/60 border border-emerald-200 rounded-lg p-2 text-center text-[11px] font-bold text-emerald-800">
-                  🎉 Total Savings on this order: ₹{Math.round(totalCartSavings).toLocaleString('en-IN')}!
+                  🎉 Total Savings on this order: {formatPrice(totalCartSavings)}!
                 </div>
               )}
             </div>

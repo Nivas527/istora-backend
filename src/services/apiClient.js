@@ -1223,5 +1223,77 @@ export const apiClient = {
       console.warn('[C# API] getGstr1Report fallback:', err.message);
       return null;
     }
+  },
+
+  // Multi-Currency & Geo-IP Internationalization
+  async getExchangeRates(baseCurrency = 'INR') {
+    try {
+      const res = await fetch(getUrl(`/api/currency/rates?baseCurrency=${encodeURIComponent(baseCurrency)}`));
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return await res.json();
+    } catch (err) {
+      console.warn('[C# API] getExchangeRates fallback:', err.message);
+      // Resilient browser-side direct fetch or fallback
+      try {
+        const directRes = await fetch('https://open.er-api.com/v6/latest/INR');
+        if (directRes.ok) {
+          const directData = await directRes.json();
+          return {
+            baseCurrency: 'INR',
+            rates: {
+              INR: 1.0,
+              USD: directData.rates?.USD || 0.0118,
+              EUR: directData.rates?.EUR || 0.0110,
+              GBP: directData.rates?.GBP || 0.0093,
+              AED: directData.rates?.AED || 0.0433
+            },
+            inverseRates: {
+              INR: 1.0,
+              USD: 84.75,
+              EUR: 90.90,
+              GBP: 107.50,
+              AED: 23.09
+            },
+            source: 'Live Market Rates (Client Fallback)',
+            lastUpdated: new Date().toISOString()
+          };
+        }
+      } catch (e) {
+        // Fallback default rates
+      }
+      return {
+        baseCurrency: 'INR',
+        rates: { INR: 1.0, USD: 0.0118, EUR: 0.0110, GBP: 0.0093, AED: 0.0433 },
+        inverseRates: { INR: 1.0, USD: 84.75, EUR: 90.90, GBP: 107.50, AED: 23.09 },
+        source: 'Benchmark Market Rates',
+        lastUpdated: new Date().toISOString()
+      };
+    }
+  },
+
+  async detectGeoIp() {
+    try {
+      const res = await fetch(getUrl('/api/currency/geo-ip'));
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return await res.json();
+    } catch (err) {
+      console.warn('[C# API] detectGeoIp fallback:', err.message);
+      return null;
+    }
+  },
+
+  async convertCurrency(amount, fromCurrency = 'INR', toCurrency = 'USD') {
+    try {
+      const res = await fetch(getUrl('/api/currency/convert'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ amount, fromCurrency, toCurrency })
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return await res.json();
+    } catch (err) {
+      console.warn('[C# API] convertCurrency fallback:', err.message);
+      return null;
+    }
   }
 };

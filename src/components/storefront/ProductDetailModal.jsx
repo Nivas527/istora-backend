@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useStore } from '../../context/StoreContext';
 import { useFit } from '../../context/FitContext';
 import { useWishlist } from '../../context/WishlistContext';
+import { useCurrency } from '../../context/CurrencyContext';
 import ProductReviews from './ProductReviews';
 import FitVerificationWidget from '../fit/FitVerificationWidget';
 import { getProductTierPricing, DEFAULT_VOLUME_TIERS } from '../../utils/promotionEngine';
@@ -28,6 +29,7 @@ export default function ProductDetailModal({ product, onClose }) {
   const { addToCart } = useStore();
   const { profile, openScanModal } = useFit();
   const { isInWishlist, toggleWishlist } = useWishlist();
+  const { formatPrice } = useCurrency();
 
   // Selected image index
   const [activeImageIndex, setActiveImageIndex] = useState(0);
@@ -205,11 +207,11 @@ export default function ProductDetailModal({ product, onClose }) {
               <div className="mt-3 flex items-baseline justify-between border-b border-zinc-100 pb-4">
                 <div className="flex items-baseline gap-3">
                   <span className="text-2xl font-black text-zinc-900">
-                    ${(currentPrice || 0).toFixed(2)}
+                    {formatPrice(currentPrice || 0)}
                   </span>
                   {compareAtPrice && compareAtPrice > currentPrice && (
                     <span className="text-base text-zinc-400 line-through">
-                      ${(compareAtPrice || 0).toFixed(2)}
+                      {formatPrice(compareAtPrice || 0)}
                     </span>
                   )}
                 </div>
@@ -310,7 +312,7 @@ export default function ProductDetailModal({ product, onClose }) {
                   </div>
                   {tierPricing.discountPercent > 0 && (
                     <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200 animate-pulse">
-                      Saving {tierPricing.discountPercent}% (₹{Math.round(tierPricing.totalSavings).toLocaleString('en-IN')} off)
+                      Saving {tierPricing.discountPercent}% ({formatPrice(tierPricing.totalSavings)} off)
                     </span>
                   )}
                 </div>
@@ -349,7 +351,7 @@ export default function ProductDetailModal({ product, onClose }) {
                           {tier.minQty === 1 ? '1 Unit' : tier.minQty === 2 ? 'Buy 2' : 'Buy 3+'}
                         </div>
                         <div className="font-mono text-xs font-extrabold text-zinc-900 mt-0.5">
-                          ₹{Math.round(tierUnitPrice).toLocaleString('en-IN')}
+                          {formatPrice(tierUnitPrice)}
                           <span className="text-[10px] text-zinc-400 font-normal">/ea</span>
                         </div>
                         <div className="text-[10px] text-emerald-600 font-bold mt-0.5">
@@ -407,10 +409,10 @@ export default function ProductDetailModal({ product, onClose }) {
                     <>
                       <ShoppingBag className="w-4 h-4" />
                       <span>
-                        Add to Cart • ₹{Math.round(tierPricing.lineSubtotal).toLocaleString('en-IN')}
+                        Add to Cart • {formatPrice(tierPricing.lineSubtotal)}
                         {tierPricing.discountPercent > 0 && (
                           <span className="line-through text-white/60 ml-1.5 text-xs">
-                            ₹{Math.round((currentPrice || 0) * quantity).toLocaleString('en-IN')}
+                            {formatPrice((currentPrice || 0) * quantity)}
                           </span>
                         )}
                       </span>

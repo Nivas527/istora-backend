@@ -2,11 +2,13 @@ import { Eye, Plus, ShoppingBag, Sparkles, Heart } from 'lucide-react';
 import { useStore } from '../../context/StoreContext';
 import { useFit } from '../../context/FitContext';
 import { useWishlist } from '../../context/WishlistContext';
+import { useCurrency } from '../../context/CurrencyContext';
 
 export default function ProductCard({ product, onSelect }) {
   const { activeTheme } = useStore();
   const { profile, openScanModal } = useFit();
   const { isInWishlist, toggleWishlist } = useWishlist();
+  const { formatPrice } = useCurrency();
   const themeStyles = activeTheme?.styles || {};
   const isDark = themeStyles.isDark || false;
 
@@ -146,11 +148,11 @@ export default function ProductCard({ product, onSelect }) {
               className={`text-base font-bold ${isDark ? 'text-white' : 'text-zinc-900'}`}
               style={{ color: isDark && themeStyles.accentColor ? themeStyles.accentColor : undefined }}
             >
-              ${(product?.price || 0).toFixed(2)}
+              {formatPrice(product?.price || 0)}
             </span>
             {hasDiscount && (
               <span className="text-xs opacity-50 line-through">
-                ${(product?.compareAtPrice || 0).toFixed(2)}
+                {formatPrice(product?.compareAtPrice || 0)}
               </span>
             )}
           </div>

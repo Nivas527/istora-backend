@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useWishlist } from '../../context/WishlistContext';
 import { useStore } from '../../context/StoreContext';
+import { useCurrency } from '../../context/CurrencyContext';
 import {
   X,
   Heart,
@@ -17,6 +18,7 @@ import {
 } from 'lucide-react';
 
 export default function WishlistDrawer({ onSelectProduct }) {
+  const { formatPrice } = useCurrency();
   const {
     wishlist,
     wishlistCount,
@@ -191,7 +193,7 @@ export default function WishlistDrawer({ onSelectProduct }) {
                         {item.isPriceDropped ? (
                           <span className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-300 dark:bg-amber-950/40 dark:text-amber-400 animate-pulse">
                             <TrendingDown className="w-3 h-3" />
-                            <span>Price Dropped! -${item.priceDropSavings.toFixed(2)}</span>
+                            <span>Price Dropped! -{formatPrice(item.priceDropSavings)}</span>
                           </span>
                         ) : null}
 
@@ -218,11 +220,11 @@ export default function WishlistDrawer({ onSelectProduct }) {
                     <div className="flex items-center justify-between pt-2">
                       <div className="flex items-baseline gap-1.5">
                         <span className="text-sm font-extrabold font-mono text-zinc-900 dark:text-white">
-                          ${(item.price || 0).toFixed(2)}
+                          {formatPrice(item.price || 0)}
                         </span>
                         {hasCompare && (
                           <span className="text-xs text-zinc-400 line-through">
-                            ${(item.compareAtPrice || 0).toFixed(2)}
+                            {formatPrice(item.compareAtPrice || 0)}
                           </span>
                         )}
                       </div>

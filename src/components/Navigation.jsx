@@ -5,6 +5,7 @@ import { useCustomerAuth } from '../context/CustomerAuthContext';
 import { useWishlist } from '../context/WishlistContext';
 import GlobalHeader from './common/GlobalHeader';
 import StoreSelectorDropdown from './StoreSelectorDropdown';
+import CurrencySwitcher from './storefront/CurrencySwitcher';
 import {
   ShoppingBag,
   Search,
@@ -298,6 +299,9 @@ export default function Navigation({ onSearchClick, onTrackClick }) {
                 </button>
               )}
             </div>
+
+            {/* Multi-Currency & Geo-IP Switcher */}
+            <CurrencySwitcher isDark={isDark} />
 
             {/* Wishlist / Saved for Later Trigger Button */}
             <button

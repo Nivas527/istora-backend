@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useStore } from '../../context/StoreContext';
 import { useCustomerAuth } from '../../context/CustomerAuthContext';
+import { useCurrency } from '../../context/CurrencyContext';
 import { apiClient } from '../../services/apiClient';
 import {
   Lock,
@@ -37,6 +38,8 @@ export default function CheckoutPage({ onBackToStore, onOrderPlaced }) {
     applyDiscount,
     removeDiscount
   } = useStore();
+
+  const { formatPrice, currentCurrency, currencySymbol, rates } = useCurrency();
 
   const {
     customer,
@@ -791,7 +794,7 @@ export default function CheckoutPage({ onBackToStore, onOrderPlaced }) {
                     </div>
                   </div>
                   <span className="text-xs font-bold text-zinc-900">
-                    {isFreeShipping ? 'FREE' : `$${(settings?.standardShippingRate ?? 6.99).toFixed(2)}`}
+                    {isFreeShipping ? 'FREE' : formatPrice(settings?.standardShippingRate ?? 6.99)}
                   </span>
                 </label>
 
@@ -811,7 +814,7 @@ export default function CheckoutPage({ onBackToStore, onOrderPlaced }) {
                     </div>
                   </div>
                   <span className="text-xs font-bold text-zinc-900">
-                    ${(settings?.expressShippingRate ?? 14.99).toFixed(2)}
+                    {formatPrice(settings?.expressShippingRate ?? 14.99)}
                   </span>
                 </label>
               </div>
@@ -996,7 +999,7 @@ export default function CheckoutPage({ onBackToStore, onOrderPlaced }) {
               ) : (
                 <>
                   <ShieldCheck className="w-4 h-4" />
-                  <span>Pay Now • ${grandTotal.toFixed(2)}</span>
+                  <span>Pay Now • {formatPrice(grandTotal)}</span>
                 </>
               )}
             </button>
@@ -1027,7 +1030,7 @@ export default function CheckoutPage({ onBackToStore, onOrderPlaced }) {
                 </div>
 
                 <span className="text-xs font-bold text-zinc-900">
-                  ${(item.price * item.quantity).toFixed(2)}
+                  {formatPrice(item.price * item.quantity)}
                 </span>
               </div>
             ))}
@@ -1082,13 +1085,13 @@ export default function CheckoutPage({ onBackToStore, onOrderPlaced }) {
           <div className="mt-6 pt-6 border-t border-zinc-200 space-y-2 text-xs text-zinc-600">
             <div className="flex justify-between">
               <span>Subtotal</span>
-              <span className="font-semibold text-zinc-900">${(cartSubtotal || 0).toFixed(2)}</span>
+              <span className="font-semibold text-zinc-900">{formatPrice(cartSubtotal || 0)}</span>
             </div>
 
             {volumeTierSavings > 0 && (
               <div className="flex justify-between text-amber-700 font-semibold">
                 <span>Volume Tier Savings</span>
-                <span>-${(volumeTierSavings || 0).toFixed(2)}</span>
+                <span>-{formatPrice(volumeTierSavings || 0)}</span>
               </div>
             )}
 
@@ -1098,14 +1101,14 @@ export default function CheckoutPage({ onBackToStore, onOrderPlaced }) {
                   Discount ({appliedDiscount?.code})
                   {isAutoAppliedDiscount && <span className="ml-1 text-[10px] font-bold text-emerald-800">(Auto)</span>}
                 </span>
-                <span>-${(cartDiscountAmount || 0).toFixed(2)}</span>
+                <span>-{formatPrice(cartDiscountAmount || 0)}</span>
               </div>
             )}
 
             <div className="flex justify-between">
               <span>Shipping</span>
               <span className="font-semibold text-zinc-900">
-                {shippingCost === 0 ? 'Free' : `$${(shippingCost || 0).toFixed(2)}`}
+                {shippingCost === 0 ? 'Free' : formatPrice(shippingCost || 0)}
               </span>
             </div>
 
@@ -1121,17 +1124,17 @@ export default function CheckoutPage({ onBackToStore, onOrderPlaced }) {
                   <>
                     <div className="flex justify-between text-indigo-700">
                       <span>Central GST / CGST ({gstDetails.ratePercent / 2}%)</span>
-                      <span className="font-semibold">${gstDetails.totalCgst.toFixed(2)}</span>
+                      <span className="font-semibold">{formatPrice(gstDetails.totalCgst)}</span>
                     </div>
                     <div className="flex justify-between text-indigo-700">
                       <span>State GST / SGST ({gstDetails.ratePercent / 2}%)</span>
-                      <span className="font-semibold">${gstDetails.totalSgst.toFixed(2)}</span>
+                      <span className="font-semibold">{formatPrice(gstDetails.totalSgst)}</span>
                     </div>
                   </>
                 ) : (
                   <div className="flex justify-between text-indigo-700">
                     <span>Integrated GST / IGST ({gstDetails.ratePercent}%)</span>
-                    <span className="font-semibold">${gstDetails.totalIgst.toFixed(2)}</span>
+                    <span className="font-semibold">{formatPrice(gstDetails.totalIgst)}</span>
                   </div>
                 )}
                 {settings.pricesIncludeGst && (
@@ -1143,14 +1146,23 @@ export default function CheckoutPage({ onBackToStore, onOrderPlaced }) {
             ) : (
               <div className="flex justify-between">
                 <span>Estimated Taxes (8%)</span>
-                <span className="font-semibold text-zinc-900">${(taxAmount || 0).toFixed(2)}</span>
+                <span className="font-semibold text-zinc-900">{formatPrice(taxAmount || 0)}</span>
               </div>
             )}
 
             <div className="flex justify-between text-base font-extrabold text-zinc-950 pt-3 border-t border-zinc-300">
               <span>Total</span>
-              <span className="text-lg text-[#008060]">${(grandTotal || 0).toFixed(2)}</span>
+              <span className="text-lg text-[#008060]">{formatPrice(grandTotal || 0)}</span>
             </div>
+
+            {currentCurrency !== 'INR' && (
+              <div className="mt-3 p-2.5 bg-blue-50/70 border border-blue-200 rounded-xl text-[11px] text-blue-900 flex items-center gap-2">
+                <Globe className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                <span>
+                  Converted to <strong>{currentCurrency}</strong> via live exchange rates.
+                </span>
+              </div>
+            )}
           </div>
         </div>
       </div>
