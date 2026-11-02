@@ -1,0 +1,71 @@
+name: Deploy Production (Frontend & Backend)
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  # =========================================================================
+  # 1. FRONTEND: Build & Deploy to Cloudflare Pages
+  # =========================================================================
+  deploy-frontend:
+    name: Deploy Storefront to Cloudflare Pages
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm ci || npm install
+
+      - name: Build Vite Production Bundle
+        run: npm run build
+
+      - name: Deploy to Cloudflare Pages
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages deploy dist --project-name=istora-store --branch=apexcommerce
+        continue-on-error: true # Ensures backend deployment proceeds if Cloudflare secrets are unset
+
+  # =========================================================================
+  # 2. BACKEND: Rebuild & Restart Container on AWS Lightsail
+  # =========================================================================
+  deploy-backend:
+    name: Deploy .NET 10 API to AWS Lightsail
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy to AWS Lightsail via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.LIGHTSAIL_HOST }}
+          username: ${{ secrets.LIGHTSAIL_USERNAME || 'ubuntu' }}
+          key: ${{ secrets.LIGHTSAIL_SSH_KEY }}
+          port: ${{ secrets.LIGHTSAIL_PORT || 22 }}
+          script_stop: true
+          script: |
+            echo "🚀 [CI/CD] Starting automated deployment on AWS Lightsail..."
+            cd /opt/shopify-engine
+            
+            echo "📥 [1/3] Pulling latest code from GitHub main..."
+            sudo git pull origin main
+            
+            echo "🔨 [2/3] Rebuilding backend-api container..."
+            cd deploy
+            sudo docker compose build --no-cache backend-api
+            sudo docker compose up -d backend-api
+            
+            echo "🩺 [3/3] Performing health check..."
+            sleep 4
+            curl -f -s http://localhost:5200/api/health || (echo "Health check failed!" && exit 1)
+            
+            echo "✅ [CI/CD] Deployment complete & healthy!"
