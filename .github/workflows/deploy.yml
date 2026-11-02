@@ -12,13 +12,13 @@ jobs:
   # =========================================================================
   deploy-frontend:
     name: Deploy Storefront to Cloudflare Pages
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup Node.js 22
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: 'npm'
@@ -50,7 +50,7 @@ jobs:
   # =========================================================================
   deploy-backend:
     name: Deploy .NET 10 API to AWS Lightsail
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Deploy to AWS Lightsail via Native OpenSSH
         env:
