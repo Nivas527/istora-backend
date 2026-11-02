@@ -44,35 +44,52 @@ jobs:
     name: Deploy .NET 10 API to AWS Lightsail
     runs-on: ubuntu-latest
     steps:
-      - name: Deploy to AWS Lightsail via SSH
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.LIGHTSAIL_HOST }}
-          username: ${{ secrets.LIGHTSAIL_USERNAME || 'deployer' }}
-          key: ${{ secrets.LIGHTSAIL_SSH_KEY }}
-          port: ${{ secrets.LIGHTSAIL_PORT || 22 }}
-          script_stop: true
-          script: |
+      - name: Deploy to AWS Lightsail via Native OpenSSH
+        env:
+          LIGHTSAIL_HOST: ${{ secrets.LIGHTSAIL_HOST }}
+          LIGHTSAIL_USERNAME: ${{ secrets.LIGHTSAIL_USERNAME || 'deployer' }}
+          LIGHTSAIL_SSH_KEY: ${{ secrets.LIGHTSAIL_SSH_KEY }}
+          LIGHTSAIL_PORT: ${{ secrets.LIGHTSAIL_PORT || 22 }}
+        run: |
+          if [ -z "$LIGHTSAIL_HOST" ] || [ -z "$LIGHTSAIL_SSH_KEY" ]; then
+            echo "❌ ERROR: LIGHTSAIL_HOST or LIGHTSAIL_SSH_KEY is empty. Check GitHub Repository Secrets."
+            exit 1
+          fi
+
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+
+          # Write key file cleanly with a trailing newline
+          printf "%s\n" "$LIGHTSAIL_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+
+          # Add host keys to known_hosts to prevent interactive prompts
+          ssh-keyscan -p "$LIGHTSAIL_PORT" -H "$LIGHTSAIL_HOST" >> ~/.ssh/known_hosts 2>/dev/null
+
+          # Execute remote deployment script natively via OpenSSH
+          ssh -i ~/.ssh/deploy_key -p "$LIGHTSAIL_PORT" -o StrictHostKeyChecking=accept-new "$LIGHTSAIL_USERNAME@$LIGHTSAIL_HOST" bash << 'EOF'
+            set -e
             echo "🚀 [CI/CD] Starting automated deployment on AWS Lightsail as dedicated deployer..."
             cd /opt/shopify-engine
-            
+
             echo "📦 [1/4] Pre-Deployment Safety: Exporting pg_dump & syncing to Cloudflare R2..."
             cd deploy
             chmod +x backup-to-r2.sh restore-backup.sh
             ./backup-to-r2.sh || (echo "❌ Database backup failed! Aborting deploy to prevent data loss." && exit 1)
-            
+
             echo "📥 [2/4] Pulling latest code from GitHub main..."
             cd /opt/shopify-engine
             git pull origin main
-            
+
             echo "🔨 [3/4] Rebuilding backend-api container with additive migrations..."
             cd deploy
             docker compose build --no-cache backend-api
             docker compose up -d backend-api
-            
+
             echo "🩺 [4/4] Performing health check..."
             sleep 4
             curl -f -s http://localhost:5200/api/health || (echo "❌ Health check failed! Rollback snapshot available in /opt/shopify-engine/backups." && exit 1)
-            
+
             echo "✅ [CI/CD] Deployment complete, database backed up, and service is healthy!"
+          EOF
 
