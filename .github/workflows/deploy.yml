@@ -77,17 +77,15 @@ jobs:
             echo "🚀 [CI/CD] Starting automated deployment on AWS Lightsail as dedicated deployer..."
             cd /opt/shopify-engine
 
-            echo "📦 [1/4] Pre-Deployment Safety: Exporting pg_dump & syncing to Cloudflare R2..."
-            cd deploy
-            chmod +x backup-to-r2.sh restore-backup.sh
-            ./backup-to-r2.sh || (echo "❌ Database backup failed! Aborting deploy to prevent data loss." && exit 1)
-
-            echo "📥 [2/4] Pulling latest code from GitHub main..."
-            cd /opt/shopify-engine
+            echo "📥 [1/4] Pulling latest code from GitHub main..."
             git pull origin main
 
-            echo "🔨 [3/4] Rebuilding backend-api container with additive migrations..."
+            echo "📦 [2/4] Pre-Deployment Safety: Exporting pg_dump & syncing to Cloudflare R2..."
             cd deploy
+            chmod +x backup-to-r2.sh restore-backup.sh 2>/dev/null || true
+            ./backup-to-r2.sh || (echo "❌ Database backup failed! Aborting deploy to prevent data loss." && exit 1)
+
+            echo "🔨 [3/4] Rebuilding backend-api container with additive migrations..."
             docker compose build --no-cache backend-api
             docker compose up -d backend-api
 
