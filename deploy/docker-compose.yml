@@ -53,6 +53,8 @@ services:
       - uploads_data:/app/uploads
     networks:
       - internal_net
+    ports:
+      - "127.0.0.1:5200:5200"
     expose:
       - "5200"
 

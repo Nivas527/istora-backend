@@ -90,8 +90,23 @@ jobs:
             docker compose up -d backend-api
 
             echo "🩺 [4/4] Performing health check..."
-            sleep 4
-            curl -f -s http://localhost:5200/api/health || (echo "❌ Health check failed! Rollback snapshot available in /opt/shopify-engine/backups." && exit 1)
+            HEALTHY=false
+            for i in $(seq 1 12); do
+              echo "Checking backend health (attempt $i/12)..."
+              if curl -f -s http://127.0.0.1:5200/api/health >/dev/null 2>&1 || curl -k -f -s https://127.0.0.1/api/health -H "Host: api.istora.online" >/dev/null 2>&1 || curl -k -f -s https://api.istora.online/api/health >/dev/null 2>&1; then
+                HEALTHY=true
+                echo "✅ Backend health check responded with 200 OK!"
+                break
+              fi
+              sleep 3
+            done
+
+            if [ "$HEALTHY" = false ]; then
+              echo "❌ Health check failed after 36s! Dumping backend logs..."
+              docker compose logs --tail=100 backend-api
+              echo "Rollback snapshot available in /opt/shopify-engine/backups."
+              exit 1
+            fi
 
             echo "✅ [CI/CD] Deployment complete, database backed up, and service is healthy!"
           EOF

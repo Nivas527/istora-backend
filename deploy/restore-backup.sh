@@ -38,3 +38,4 @@ echo "✅ Database rollback complete! Restarting backend-api container..."
 docker compose restart backend-api
 
 echo "🎉 Rollback finished and backend restarted successfully."
+
