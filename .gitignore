@@ -7,8 +7,10 @@ dist.zip
 .deployments-cache.json
 .wrangler
 .DS_Store
-backend/bin/
-backend/obj/
+bin/
+obj/
+**/bin/
+**/obj/
 
 # Environment files
 .env

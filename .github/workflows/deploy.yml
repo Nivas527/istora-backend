@@ -1,33 +1,86 @@
-name: Deploy Production (Frontend & Backend)
+name: CI/CD Pipeline & Safe Deployment
 
 on:
   push:
+    branches:
+      - main
+  pull_request:
     branches:
       - main
   workflow_dispatch:
 
 jobs:
   # =========================================================================
-  # 1. FRONTEND: Build & Deploy to Cloudflare Pages
+  # 1. QUALITY GATE: Build & Test (Frontend + Backend)
+  # Runs on every Push and Pull Request. Deployments are BLOCKED if this fails.
   # =========================================================================
-  deploy-frontend:
-    name: Deploy Storefront to Cloudflare Pages
+  test-and-build:
+    name: Test & Build Quality Gate
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v7
 
+      # ---------------------------------------------------------------------
+      # A. Frontend Validation (Node 22 / Vite / Tests)
+      # ---------------------------------------------------------------------
       - name: Setup Node.js 22
         uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: 'npm'
 
-      - name: Install Dependencies
+      - name: Install Frontend Dependencies
         run: npm ci || npm install
 
-      - name: Build Vite Production Bundle
+      - name: Run Frontend Tests (GST, Pricing, Business Logic)
+        run: npm test
+
+      - name: Build Frontend Production Bundle (Vite)
         run: npm run build
+
+      - name: Upload Storefront Artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: storefront-dist
+          path: dist/
+          retention-days: 1
+
+      # ---------------------------------------------------------------------
+      # B. Backend Validation (.NET 10 / xUnit / C# Build)
+      # ---------------------------------------------------------------------
+      - name: Setup .NET 10 SDK
+        uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Restore Backend Dependencies
+        run: dotnet restore ShopifyEngine.sln
+
+      - name: Build Backend (.NET 10 Release)
+        run: dotnet build ShopifyEngine.sln -c Release --no-restore
+
+      - name: Run Backend Unit Tests (Invariants, Sizing, Rates)
+        run: dotnet test ShopifyEngine.sln -c Release --no-build
+
+  # =========================================================================
+  # 2. FRONTEND DEPLOYMENT: Cloudflare Pages
+  # ONLY executes when merged to 'main' AND Quality Gate passes 100%.
+  # =========================================================================
+  deploy-frontend:
+    name: Deploy Storefront to Cloudflare Pages
+    needs: [test-and-build]
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v7
+
+      - name: Download Storefront Artifact
+        uses: actions/download-artifact@v8
+        with:
+          name: storefront-dist
+          path: dist
 
       - name: Deploy to Cloudflare Pages
         env:
@@ -36,7 +89,7 @@ jobs:
         run: |
           if [ -z "$CLOUDFLARE_API_TOKEN" ]; then
             echo "ℹ️ Notice: 'CLOUDFLARE_API_TOKEN' secret is not configured in this repository."
-            echo "ℹ️ The storefront Vite production bundle was verified and built successfully into 'dist/'."
+            echo "ℹ️ The storefront Vite production bundle was verified and built successfully."
             echo "ℹ️ If your Cloudflare Pages project (istora-store) is linked via Cloudflare Git Integration, it automatically builds on push."
             echo "ℹ️ To deploy directly from this workflow, add 'CLOUDFLARE_API_TOKEN' to GitHub Secrets."
             exit 0
@@ -46,10 +99,13 @@ jobs:
           npx wrangler pages deploy dist --project-name=istora-store --branch=apexcommerce --commit-dirty=true
 
   # =========================================================================
-  # 2. BACKEND: Rebuild & Restart Container on AWS Lightsail
+  # 3. BACKEND DEPLOYMENT: AWS Lightsail
+  # ONLY executes when merged to 'main' AND Quality Gate passes 100%.
   # =========================================================================
   deploy-backend:
     name: Deploy .NET 10 API to AWS Lightsail
+    needs: [test-and-build]
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
     steps:
       - name: Deploy to AWS Lightsail via Native OpenSSH
@@ -119,4 +175,3 @@ jobs:
 
             echo "✅ [CI/CD] Deployment complete, database backed up, and service is healthy!"
           EOF
-
