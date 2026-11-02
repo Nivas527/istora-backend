@@ -963,6 +963,56 @@ export function StoreProvider({ children }) {
     setIsCartOpen(true);
   };
 
+  const addBundleToCart = (bundleItems, discountCode = 'BUNDLE400') => {
+    if (!Array.isArray(bundleItems) || bundleItems.length === 0) return;
+    mutateActiveStore((store) => {
+      const prevCart = store.cart || { items: [], discountCode: null };
+      let updatedItems = [...(Array.isArray(prevCart.items) ? prevCart.items : [])];
+
+      bundleItems.forEach(({ product, variant, quantity = 1 }) => {
+        if (!product || !variant) return;
+        const variantId = variant.id || variant.sku || `${product.id}_def`;
+        const existingIndex = updatedItems.findIndex((item) => item.variantId === variantId);
+        const itemPrice = Number(variant.price ?? product.price ?? 0);
+        const itemTitle = product.title || 'Product';
+        const variantTitle = variant.title || variant.name || 'Default';
+        const itemImage = (Array.isArray(product.images) && product.images[0]) || product.image || 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&w=400&q=80';
+        const maxStock = variant.inventoryQuantity || 99;
+
+        if (existingIndex > -1) {
+          const newQty = updatedItems[existingIndex].quantity + quantity;
+          updatedItems[existingIndex] = {
+            ...updatedItems[existingIndex],
+            quantity: Math.min(newQty, maxStock)
+          };
+        } else {
+          updatedItems.push({
+            variantId,
+            productId: product.id,
+            title: itemTitle,
+            variantTitle,
+            price: itemPrice,
+            compareAtPrice: variant.compareAtPrice || product.compareAtPrice,
+            image: itemImage,
+            sku: variant.sku || variantId,
+            quantity: Math.min(quantity, maxStock),
+            maxStock
+          });
+        }
+      });
+
+      return {
+        ...store,
+        cart: {
+          ...prevCart,
+          items: updatedItems,
+          discountCode: discountCode || prevCart.discountCode || 'BUNDLE400'
+        }
+      };
+    });
+    setIsCartOpen(true);
+  };
+
   const updateCartItemQty = (variantId, newQuantity) => {
     if (newQuantity <= 0) {
       removeFromCart(variantId);
@@ -1684,6 +1734,7 @@ export function StoreProvider({ children }) {
         updateDiscount,
         deleteDiscount,
         addToCart,
+        addBundleToCart,
         updateCartItemQty,
         removeFromCart,
         clearCart,

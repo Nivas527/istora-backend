@@ -347,7 +347,8 @@ export const initialApexDiscounts = [
   { id: 'disc_bogo_1', code: 'BOGO21', type: 'bogo', ruleType: 'bogo', buyQuantity: 2, getQuantity: 1, getDiscountPercent: 100, applicableCategory: 'Apparel', description: 'Buy 2 T-Shirts, Get 1 Free (BOGO)', minSubtotal: 0, isAutoApplied: false, isActive: true },
   { id: 'disc_thresh_1', code: 'FLAT500', type: 'fixed', ruleType: 'threshold', value: 500, description: 'Get ₹500 off on orders above ₹2,999', minSubtotal: 2999, isAutoApplied: false, isActive: true },
   { id: 'disc_auto_1', code: 'AUTOFIT', type: 'percentage', ruleType: 'threshold', value: 10, description: 'Auto 10% Off Orders over ₹1,999', minSubtotal: 1999, isAutoApplied: true, isActive: true },
-  { id: 'disc_tier_1', code: 'VOLUMETIER', type: 'percentage', ruleType: 'volume_tier', description: 'Buy 2 Save 10%, Buy 3+ Save 15% Volume Tier', tierPricingJson: JSON.stringify([{ minQty: 2, discountPercent: 10 }, { minQty: 3, discountPercent: 15 }]), isAutoApplied: false, isActive: true }
+  { id: 'disc_tier_1', code: 'VOLUMETIER', type: 'percentage', ruleType: 'volume_tier', description: 'Buy 2 Save 10%, Buy 3+ Save 15% Volume Tier', tierPricingJson: JSON.stringify([{ minQty: 2, discountPercent: 10 }, { minQty: 3, discountPercent: 15 }]), isAutoApplied: false, isActive: true },
+  { id: 'disc_bundle400', code: 'BUNDLE400', type: 'fixed', ruleType: 'fixed', value: 400, description: 'Bundle Savings: ₹400 off Complete Look Bundle', minSubtotal: 0, isAutoApplied: false, isActive: true }
 ];
 
 export const initialStores = [

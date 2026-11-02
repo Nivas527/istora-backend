@@ -245,6 +245,78 @@ public class CartItem
     public int Quantity { get; set; } = 1;
 }
 
+public class BundleRecommendationDto
+{
+    [JsonPropertyName("bundleId")]
+    public string BundleId { get; set; } = string.Empty;
+
+    [JsonPropertyName("title")]
+    public string Title { get; set; } = "Frequently Bought Together";
+
+    [JsonPropertyName("headline")]
+    public string Headline { get; set; } = "Pair this item and save ₹400 on the complete look";
+
+    [JsonPropertyName("mainProduct")]
+    public Product MainProduct { get; set; } = new();
+
+    [JsonPropertyName("bundleItems")]
+    public List<BundleItemDto> BundleItems { get; set; } = new();
+
+    [JsonPropertyName("originalTotal")]
+    public decimal OriginalTotal { get; set; }
+
+    [JsonPropertyName("bundlePrice")]
+    public decimal BundlePrice { get; set; }
+
+    [JsonPropertyName("bundleSavings")]
+    public decimal BundleSavings { get; set; }
+
+    [JsonPropertyName("savingsPercent")]
+    public int SavingsPercent { get; set; } = 15;
+
+    [JsonPropertyName("discountCode")]
+    public string DiscountCode { get; set; } = "BUNDLE400";
+
+    [JsonPropertyName("coPurchaseStat")]
+    public string CoPurchaseStat { get; set; } = "88% of shoppers buy these items together";
+
+    [JsonPropertyName("relatedProducts")]
+    public List<RelatedProductDto> RelatedProducts { get; set; } = new();
+}
+
+public class BundleItemDto
+{
+    [JsonPropertyName("product")]
+    public Product Product { get; set; } = new();
+
+    [JsonPropertyName("selectedVariant")]
+    public ProductVariant? SelectedVariant { get; set; }
+
+    [JsonPropertyName("availableVariants")]
+    public List<ProductVariant> AvailableVariants { get; set; } = new();
+
+    [JsonPropertyName("isRequired")]
+    public bool IsRequired { get; set; } = false;
+
+    [JsonPropertyName("matchReason")]
+    public string MatchReason { get; set; } = "Complementary Style";
+}
+
+public class RelatedProductDto
+{
+    [JsonPropertyName("product")]
+    public Product Product { get; set; } = new();
+
+    [JsonPropertyName("matchScore")]
+    public int MatchScore { get; set; } = 95;
+
+    [JsonPropertyName("affinityType")]
+    public string AffinityType { get; set; } = "Category & Color Harmony";
+
+    [JsonPropertyName("affinityBadge")]
+    public string AffinityBadge { get; set; } = "Stylist Pick";
+}
+
 public class Order
 {
     [JsonPropertyName("id")]

@@ -4,6 +4,8 @@ import { useFit } from '../../context/FitContext';
 import { useWishlist } from '../../context/WishlistContext';
 import { useCurrency } from '../../context/CurrencyContext';
 import ProductReviews from './ProductReviews';
+import FrequentlyBoughtTogether from './FrequentlyBoughtTogether';
+import RelatedProductsSection from './RelatedProductsSection';
 import FitVerificationWidget from '../fit/FitVerificationWidget';
 import { getProductTierPricing, DEFAULT_VOLUME_TIERS } from '../../utils/promotionEngine';
 import {
@@ -25,7 +27,20 @@ import {
   Gift
 } from 'lucide-react';
 
-export default function ProductDetailModal({ product, onClose }) {
+export default function ProductDetailModal({ product: initialProduct, onClose, onSelectProduct }) {
+  const [product, setProduct] = useState(initialProduct);
+
+  useEffect(() => {
+    setProduct(initialProduct);
+  }, [initialProduct]);
+
+  const handleSwitchProduct = (newProd) => {
+    setProduct(newProd);
+    setActiveImageIndex(0);
+    setQuantity(1);
+    if (onSelectProduct) onSelectProduct(newProd);
+  };
+
   const { addToCart } = useStore();
   const { profile, openScanModal } = useFit();
   const { isInWishlist, toggleWishlist } = useWishlist();
@@ -460,6 +475,12 @@ export default function ProductDetailModal({ product, onClose }) {
                 </div>
               )}
             </div>
+
+            {/* AI Frequently Bought Together Bundle Upsell */}
+            <FrequentlyBoughtTogether product={product} currentVariant={currentVariant} />
+
+            {/* AI Stylist Recommendations / Related Products */}
+            <RelatedProductsSection currentProduct={product} onSelectProduct={handleSwitchProduct} />
 
             {/* Customer Reviews & Star Ratings */}
             <ProductReviews productId={product.id} productTitle={product.title} />

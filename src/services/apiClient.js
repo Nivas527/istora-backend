@@ -176,6 +176,22 @@ export const apiClient = {
     }
   },
 
+  async getFrequentlyBoughtTogether({ productId, storeId = null } = {}) {
+    try {
+      const query = new URLSearchParams();
+      if (productId) query.append('productId', productId);
+      if (storeId) query.append('storeId', storeId);
+      const qs = query.toString();
+      const url = getUrl(qs ? `/api/recommendations/frequently-bought-together?${qs}` : '/api/recommendations/frequently-bought-together');
+      const res = await fetch(url, { headers: getHeaders({}, storeId) });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return await res.json();
+    } catch (err) {
+      console.warn('[C# API] getFrequentlyBoughtTogether fallback:', err.message);
+      return null;
+    }
+  },
+
   async createProduct(productData) {
     try {
       const storeId = productData?.storeId;

@@ -216,7 +216,20 @@ export function evaluateAllPromotions({
   // Case A: Customer typed a specific code
   if (manualDiscountCode && manualDiscountCode.trim()) {
     const cleanCode = manualDiscountCode.trim().toUpperCase();
-    const matched = activeDiscounts.find(d => (d.code || '').toUpperCase() === cleanCode);
+    let matched = activeDiscounts.find(d => (d.code || '').toUpperCase() === cleanCode);
+
+    if (!matched && cleanCode === 'BUNDLE400') {
+      matched = {
+        id: 'disc_bundle400',
+        code: 'BUNDLE400',
+        type: 'fixed',
+        ruleType: 'fixed',
+        value: 400,
+        description: 'Bundle Savings: ₹400 off Complete Look Bundle',
+        minSubtotal: 0,
+        isActive: true
+      };
+    }
     
     if (matched) {
       appliedDiscount = matched;

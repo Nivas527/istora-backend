@@ -144,6 +144,66 @@ public class StoreService
                 _db.SaveChanges();
             }
 
+            // 3b. Ensure complementary bundle items seeded in store_apex
+            if (!_db.Products.IgnoreQueryFilters().Any(p => p.Id == "bundle_cargo_1"))
+            {
+                _db.Products.AddRange(
+                    new DbProduct
+                    {
+                        Id = "bundle_cargo_1",
+                        StoreId = "store_apex",
+                        Title = "Apex Articulated Technical Cargo Pants",
+                        Category = "Bottoms",
+                        Price = 89.00m,
+                        Badge = "Coordinated",
+                        Image = "https://images.unsplash.com/photo-1517445312882-bc9910d016b7?auto=format&fit=crop&w=600&q=80",
+                        Description = "Ergonomic 6-pocket ripstop cargo trousers with magnetic quick-release pocket closures.",
+                        Inventory = 50,
+                        VariantsJson = JsonSerializer.Serialize(new[]
+                        {
+                            new { id = "var_cargo_30", name = "30W / Tactical Black", price = 89.00m, sku = "APX-CRG-30" },
+                            new { id = "var_cargo_32", name = "32W / Tactical Black", price = 89.00m, sku = "APX-CRG-32" },
+                            new { id = "var_cargo_34", name = "34W / Tactical Black", price = 89.00m, sku = "APX-CRG-34" }
+                        })
+                    },
+                    new DbProduct
+                    {
+                        Id = "bundle_cap_1",
+                        StoreId = "store_apex",
+                        Title = "Stealth HydroLite Aerodynamic Cap",
+                        Category = "Accessories",
+                        Price = 34.00m,
+                        Badge = "Coordinated",
+                        Image = "https://images.unsplash.com/photo-1588850561407-ed78c282e89b?auto=format&fit=crop&w=600&q=80",
+                        Description = "Laser-ventilated featherweight running cap with moisture-wicking sweatband.",
+                        Inventory = 60,
+                        VariantsJson = JsonSerializer.Serialize(new[]
+                        {
+                            new { id = "var_cap_blk", name = "One Size / Stealth Black", price = 34.00m, sku = "APX-CAP-BLK" },
+                            new { id = "var_cap_gry", name = "One Size / Slate Grey", price = 34.00m, sku = "APX-CAP-GRY" }
+                        })
+                    },
+                    new DbProduct
+                    {
+                        Id = "bundle_socks_1",
+                        StoreId = "store_apex",
+                        Title = "Apex Merino Anti-Blister Performance Socks (3-Pack)",
+                        Category = "Accessories",
+                        Price = 28.00m,
+                        Badge = "Stylist Pick",
+                        Image = "https://images.unsplash.com/photo-1582966779680-9759c99ec1c7?auto=format&fit=crop&w=600&q=80",
+                        Description = "Zoned targeted compression and seamless toe box crafted from New Zealand merino wool.",
+                        Inventory = 100,
+                        VariantsJson = JsonSerializer.Serialize(new[]
+                        {
+                            new { id = "var_socks_m", name = "Medium (US 7-9.5)", price = 28.00m, sku = "APX-SCK-M" },
+                            new { id = "var_socks_l", name = "Large (US 10-13)", price = 28.00m, sku = "APX-SCK-L" }
+                        })
+                    }
+                );
+                _db.SaveChanges();
+            }
+
             // 4. Ensure Discounts & Advanced Promotional Rules seeded
             if (!_db.Discounts.IgnoreQueryFilters().Any(d => d.Code == "BOGO21"))
             {
@@ -212,6 +272,18 @@ public class StoreService
                         Value = 200,
                         MinSubtotal = 999,
                         Description = "Referral Friend Bonus: ₹200 off orders above ₹999",
+                        IsActive = true
+                    },
+                    new DbDiscount
+                    {
+                        Id = "disc_bundle400",
+                        StoreId = "store_apex",
+                        Code = "BUNDLE400",
+                        Type = "fixed",
+                        RuleType = "fixed",
+                        Value = 400,
+                        MinSubtotal = 0,
+                        Description = "Bundle Savings: ₹400 off Complete Look Bundle",
                         IsActive = true
                     }
                 };
@@ -847,6 +919,214 @@ public class StoreService
             Variants = DeserializeVariants(p.VariantsJson),
             PreviewVideoUrl = p.PreviewVideoUrl,
             GarmentSpec = DeserializeGarmentSpec(p.GarmentSpecJson)
+        };
+    }
+
+    public BundleRecommendationDto GetFrequentlyBoughtTogether(string productId, string? storeId = null)
+    {
+        var tenantId = !string.IsNullOrWhiteSpace(storeId)
+            ? HttpTenantProvider.NormalizeStoreId(storeId)
+            : (!string.IsNullOrWhiteSpace(_tenantProvider.CurrentStoreId) ? _tenantProvider.CurrentStoreId : "store_apex");
+
+        var allProds = GetProducts(tenantId);
+        if (allProds == null || allProds.Count < 3)
+        {
+            var fallbackProds = GetProducts("store_apex");
+            if (fallbackProds != null && fallbackProds.Count > 0)
+            {
+                allProds = allProds == null ? fallbackProds : allProds.Concat(fallbackProds.Where(fp => !allProds.Any(ap => ap.Id == fp.Id))).ToList();
+            }
+        }
+
+        var mainProduct = allProds?.FirstOrDefault(p => p.Id == productId) ?? allProds?.FirstOrDefault();
+        if (mainProduct == null)
+        {
+            mainProduct = new Product
+            {
+                Id = productId,
+                Title = "AeroGlide Elite Carbon Runner",
+                Price = 189.99m,
+                Category = "Footwear",
+                Image = "https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=600&q=80",
+                Variants = new List<ProductVariant>
+                {
+                    new ProductVariant { Id = "var_1_9", Name = "US 9 / Stealth Black", Price = 189.99m, Sku = "AG-BLK-9" },
+                    new ProductVariant { Id = "var_1_10", Name = "US 10 / Stealth Black", Price = 189.99m, Sku = "AG-BLK-10" }
+                }
+            };
+        }
+
+        // Ensure main product has variants
+        if (mainProduct.Variants == null || mainProduct.Variants.Count == 0)
+        {
+            mainProduct.Variants = new List<ProductVariant>
+            {
+                new ProductVariant { Id = $"{mainProduct.Id}_s", Name = "Small / Matte Obsidian", Price = mainProduct.Price, Sku = $"{mainProduct.Id}-S" },
+                new ProductVariant { Id = $"{mainProduct.Id}_m", Name = "Medium / Matte Obsidian", Price = mainProduct.Price, Sku = $"{mainProduct.Id}-M" },
+                new ProductVariant { Id = $"{mainProduct.Id}_l", Name = "Large / Matte Obsidian", Price = mainProduct.Price, Sku = $"{mainProduct.Id}-L" }
+            };
+        }
+
+        // Curate complementary items
+        var otherProds = (allProds ?? new List<Product>()).Where(p => p.Id != mainProduct.Id).ToList();
+
+        // High aesthetic complementary products catalog for cohesive streetwear looks
+        var complementaryCatalog = new List<Product>
+        {
+            new Product
+            {
+                Id = "bundle_cargo_1",
+                Title = "Apex Articulated Technical Cargo Pants",
+                Category = "Bottoms",
+                Price = 89.00m,
+                Image = "https://images.unsplash.com/photo-1517445312882-bc9910d016b7?auto=format&fit=crop&w=600&q=80",
+                Description = "Ergonomic 6-pocket ripstop cargo trousers with magnetic quick-release pocket closures.",
+                Variants = new List<ProductVariant>
+                {
+                    new ProductVariant { Id = "var_cargo_30", Name = "30W / Tactical Black", Price = 89.00m, Sku = "APX-CRG-30" },
+                    new ProductVariant { Id = "var_cargo_32", Name = "32W / Tactical Black", Price = 89.00m, Sku = "APX-CRG-32" },
+                    new ProductVariant { Id = "var_cargo_34", Name = "34W / Tactical Black", Price = 89.00m, Sku = "APX-CRG-34" }
+                }
+            },
+            new Product
+            {
+                Id = "bundle_cap_1",
+                Title = "Stealth HydroLite Aerodynamic Cap",
+                Category = "Accessories",
+                Price = 34.00m,
+                Image = "https://images.unsplash.com/photo-1588850561407-ed78c282e89b?auto=format&fit=crop&w=600&q=80",
+                Description = "Laser-ventilated featherweight running cap with moisture-wicking sweatband.",
+                Variants = new List<ProductVariant>
+                {
+                    new ProductVariant { Id = "var_cap_blk", Name = "One Size / Stealth Black", Price = 34.00m, Sku = "APX-CAP-BLK" },
+                    new ProductVariant { Id = "var_cap_gry", Name = "One Size / Slate Grey", Price = 34.00m, Sku = "APX-CAP-GRY" }
+                }
+            },
+            new Product
+            {
+                Id = "bundle_socks_1",
+                Title = "Apex Merino Anti-Blister Performance Socks (3-Pack)",
+                Category = "Accessories",
+                Price = 28.00m,
+                Image = "https://images.unsplash.com/photo-1582966779680-9759c99ec1c7?auto=format&fit=crop&w=600&q=80",
+                Description = "Zoned targeted compression and seamless toe box crafted from New Zealand merino wool.",
+                Variants = new List<ProductVariant>
+                {
+                    new ProductVariant { Id = "var_socks_m", Name = "Medium (US 7-9.5)", Price = 28.00m, Sku = "APX-SCK-M" },
+                    new ProductVariant { Id = "var_socks_l", Name = "Large (US 10-13)", Price = 28.00m, Sku = "APX-SCK-L" }
+                }
+            }
+        };
+
+        // Select 2 bundle products that don't match mainProduct
+        Product bundleProd1;
+        Product bundleProd2;
+
+        var existingBottom = otherProds.FirstOrDefault(p => p.Category?.ToLower() == "bottoms" || p.Title.ToLower().Contains("pant") || p.Title.ToLower().Contains("short"));
+        var existingGear = otherProds.FirstOrDefault(p => p.Category?.ToLower() == "gear" || p.Category?.ToLower() == "accessories" || p.Title.ToLower().Contains("vessel") || p.Title.ToLower().Contains("bottle"));
+        var existingApparel = otherProds.FirstOrDefault(p => p.Category?.ToLower() == "apparel" && p.Id != mainProduct.Id);
+
+        if (mainProduct.Category?.ToLower() == "apparel")
+        {
+            bundleProd1 = existingBottom ?? complementaryCatalog[0];
+            bundleProd2 = existingGear ?? otherProds.FirstOrDefault(p => p.Id != bundleProd1.Id) ?? complementaryCatalog[1];
+        }
+        else if (mainProduct.Category?.ToLower() == "footwear")
+        {
+            bundleProd1 = existingApparel ?? otherProds.FirstOrDefault() ?? complementaryCatalog[0];
+            bundleProd2 = existingGear ?? complementaryCatalog[2];
+        }
+        else
+        {
+            bundleProd1 = existingApparel ?? otherProds.FirstOrDefault() ?? complementaryCatalog[0];
+            bundleProd2 = otherProds.Skip(1).FirstOrDefault() ?? complementaryCatalog[1];
+        }
+
+        // Ensure variants exist on bundle items
+        void EnsureVariants(Product p)
+        {
+            if (p.Variants == null || p.Variants.Count == 0)
+            {
+                p.Variants = new List<ProductVariant>
+                {
+                    new ProductVariant { Id = $"{p.Id}_v1", Name = "Standard / Medium", Price = p.Price, Sku = $"{p.Id}-M" },
+                    new ProductVariant { Id = $"{p.Id}_v2", Name = "Standard / Large", Price = p.Price, Sku = $"{p.Id}-L" }
+                };
+            }
+        }
+        EnsureVariants(bundleProd1);
+        EnsureVariants(bundleProd2);
+
+        var bundleItems = new List<BundleItemDto>
+        {
+            new BundleItemDto
+            {
+                Product = bundleProd1,
+                SelectedVariant = bundleProd1.Variants.FirstOrDefault(),
+                AvailableVariants = bundleProd1.Variants,
+                IsRequired = false,
+                MatchReason = "Color Harmony & Complementary Fit"
+            },
+            new BundleItemDto
+            {
+                Product = bundleProd2,
+                SelectedVariant = bundleProd2.Variants.FirstOrDefault(),
+                AvailableVariants = bundleProd2.Variants,
+                IsRequired = false,
+                MatchReason = "Frequently Paired • 88% Co-Purchase"
+            }
+        };
+
+        var originalTotal = mainProduct.Price + bundleProd1.Price + bundleProd2.Price;
+        var bundleSavings = Math.Min(400m, Math.Round(originalTotal * 0.18m, 2));
+        if (bundleSavings <= 0) bundleSavings = 400m;
+        var bundlePrice = Math.Max(0, originalTotal - bundleSavings);
+        var savingsPercent = originalTotal > 0 ? (int)Math.Round((bundleSavings / originalTotal) * 100) : 18;
+
+        // Related Products (Stylist Picks / Category Affinity)
+        var relatedList = new List<RelatedProductDto>();
+        var candidates = otherProds.Where(p => p.Id != bundleProd1.Id && p.Id != bundleProd2.Id).ToList();
+        if (candidates.Count < 4)
+        {
+            candidates = candidates.Concat(complementaryCatalog.Where(c => c.Id != bundleProd1.Id && c.Id != bundleProd2.Id)).ToList();
+        }
+
+        var scores = new[] { 97, 93, 89, 85 };
+        var affinities = new[]
+        {
+            ("Category Affinity", "Stylist Pick"),
+            ("Color Palette Harmony", "Trending"),
+            ("High Co-Purchase", "88% Match"),
+            ("Recommended by Fit AI", "Popular")
+        };
+
+        for (int i = 0; i < Math.Min(4, candidates.Count); i++)
+        {
+            var cand = candidates[i];
+            EnsureVariants(cand);
+            relatedList.Add(new RelatedProductDto
+            {
+                Product = cand,
+                MatchScore = scores[i % scores.Length],
+                AffinityType = affinities[i % affinities.Length].Item1,
+                AffinityBadge = affinities[i % affinities.Length].Item2
+            });
+        }
+
+        return new BundleRecommendationDto
+        {
+            BundleId = $"bundle_{mainProduct.Id}_{DateTimeOffset.UtcNow.ToUnixTimeSeconds()}",
+            Title = "Frequently Bought Together",
+            Headline = $"Pair this with {bundleProd1.Title} & {bundleProd2.Title} — Save ₹400 on the Bundle",
+            MainProduct = mainProduct,
+            BundleItems = bundleItems,
+            OriginalTotal = originalTotal,
+            BundlePrice = bundlePrice,
+            BundleSavings = bundleSavings,
+            SavingsPercent = savingsPercent,
+            DiscountCode = "BUNDLE400",
+            CoPurchaseStat = "88% of shoppers buy this complete coordinated look together",
+            RelatedProducts = relatedList
         };
     }
 
@@ -1998,6 +2278,23 @@ public class StoreService
                     Value = 200m,
                     MinSubtotal = 999m,
                     Description = "Referral Friend Bonus: ₹200 off orders above ₹999",
+                    IsActive = true
+                };
+            }
+
+            // Check if it matches BUNDLE400 or bundle promo
+            if (discountToApply == null && (cleanCode == "BUNDLE400" || cleanCode.StartsWith("BUNDLE-")))
+            {
+                discountToApply = new DbDiscount
+                {
+                    Id = "dynamic_bundle",
+                    StoreId = tenantId,
+                    Code = cleanCode,
+                    Type = "fixed",
+                    RuleType = "fixed",
+                    Value = 400m,
+                    MinSubtotal = 0m,
+                    Description = "Bundle Savings: ₹400 off Complete Look Bundle",
                     IsActive = true
                 };
             }
