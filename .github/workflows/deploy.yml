@@ -17,10 +17,10 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Setup Node.js 20
+      - name: Setup Node.js 22
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: 'npm'
 
       - name: Install Dependencies
@@ -30,12 +30,20 @@ jobs:
         run: npm run build
 
       - name: Deploy to Cloudflare Pages
-        uses: cloudflare/wrangler-action@v3
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: pages deploy dist --project-name=istora-store --branch=apexcommerce
-        continue-on-error: true # Ensures backend deployment proceeds if Cloudflare secrets are unset
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID || '39ac7f87a59d83a8107875548b496a7d' }}
+        run: |
+          if [ -z "$CLOUDFLARE_API_TOKEN" ]; then
+            echo "ℹ️ Notice: 'CLOUDFLARE_API_TOKEN' secret is not configured in this repository."
+            echo "ℹ️ The storefront Vite production bundle was verified and built successfully into 'dist/'."
+            echo "ℹ️ If your Cloudflare Pages project (istora-store) is linked via Cloudflare Git Integration, it automatically builds on push."
+            echo "ℹ️ To deploy directly from this workflow, add 'CLOUDFLARE_API_TOKEN' to GitHub Secrets."
+            exit 0
+          fi
+
+          echo "🚀 Deploying storefront dist to Cloudflare Pages (istora-store)..."
+          npx wrangler pages deploy dist --project-name=istora-store --branch=apexcommerce --commit-dirty=true
 
   # =========================================================================
   # 2. BACKEND: Rebuild & Restart Container on AWS Lightsail
