@@ -59,8 +59,13 @@ jobs:
           mkdir -p ~/.ssh
           chmod 700 ~/.ssh
 
-          # Write key file cleanly with a trailing newline
-          printf "%s\n" "$LIGHTSAIL_SSH_KEY" > ~/.ssh/deploy_key
+          # Support both Base64-encoded key and raw PEM with automatic carriage return cleanup
+          if echo "$LIGHTSAIL_SSH_KEY" | grep -q "BEGIN"; then
+            echo "$LIGHTSAIL_SSH_KEY" | tr -d '\r' > ~/.ssh/deploy_key
+          else
+            echo "$LIGHTSAIL_SSH_KEY" | tr -d '\r' | base64 -d > ~/.ssh/deploy_key
+          fi
+          echo "" >> ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
 
           # Add host keys to known_hosts to prevent interactive prompts
