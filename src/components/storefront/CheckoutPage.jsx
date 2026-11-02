@@ -491,7 +491,7 @@ export default function CheckoutPage({ onBackToStore, onOrderPlaced }) {
 
         <div className="flex items-center gap-2 text-xs font-medium text-emerald-700 bg-emerald-50 px-3 py-1 rounded-full border border-emerald-200">
           <Lock className="w-3.5 h-3.5 text-emerald-600" />
-          <span>Shopify 256-bit Encrypted Checkout</span>
+          <span>256-bit Bank-Grade Encrypted Checkout</span>
         </div>
       </div>
 

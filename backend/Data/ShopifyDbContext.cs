@@ -64,7 +64,7 @@ public class DbStoreSetting
     [Key]
     public string Id { get; set; } = "default";
     public string StoreName { get; set; } = "Apex Athletics";
-    public string StoreDomain { get; set; } = "apex-store.myshopify.local";
+    public string StoreDomain { get; set; } = "apex.istora.online";
     public string Currency { get; set; } = "USD";
     public string CurrencySymbol { get; set; } = "$";
     public string ContactEmail { get; set; } = "support@apexathletics.com";

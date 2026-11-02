@@ -467,7 +467,7 @@ export default function ProductDetailModal({ product: initialProduct, onClose, o
               {openAccordion === 'arch' && (
                 <div className="p-3 bg-zinc-50 rounded-lg text-[11px] text-zinc-600 space-y-1.5 border border-zinc-200">
                   <p>
-                    <strong>How Shopify handles this:</strong> Shopify stores up to 3 options axes (`option1`, `option2`, `option3`). Every unique Cartesian combination generates a distinct <code>ProductVariant</code> node with its own inventory item, SKU, and price.
+                    <strong>Cartesian Matrix Architecture:</strong> The platform stores up to 3 options axes (`option1`, `option2`, `option3`). Every unique Cartesian combination generates a distinct <code>ProductVariant</code> node with its own inventory item, SKU, and price.
                   </p>
                   <p className="font-mono text-[10px] text-emerald-800 bg-emerald-50 p-1.5 rounded">
                     Selected ID: {currentVariant?.id} | SKU: {currentVariant?.sku} | Stock: {currentVariant?.inventoryQuantity}

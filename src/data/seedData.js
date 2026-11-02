@@ -355,7 +355,7 @@ export const initialStores = [
   {
     id: 'store_apex',
     name: 'Apex Athletics & Co.',
-    subdomain: 'apex-athletics.myshopify.local',
+    subdomain: 'apex.istora.online',
     customDomain: 'apexstore.fashion.com',
     category: 'Sportswear & Performance',
     themeId: 'theme_apex_velocity',
@@ -377,7 +377,7 @@ export const initialStores = [
   {
     id: 'store_aura',
     name: 'Aura Studio Acoustics',
-    subdomain: 'aura-sound.myshopify.local',
+    subdomain: 'aura.istora.online',
     customDomain: 'aurasound.audio.com',
     category: 'Consumer Electronics & Audio',
     themeId: 'theme_nordic_sound',

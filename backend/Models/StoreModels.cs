@@ -161,7 +161,7 @@ public class StoreSettings
     public string StoreName { get; set; } = "Apex Athletics";
 
     [JsonPropertyName("storeDomain")]
-    public string StoreDomain { get; set; } = "apex-store.myshopify.local";
+    public string StoreDomain { get; set; } = "apex.istora.online";
 
     [JsonPropertyName("currency")]
     public string Currency { get; set; } = "USD";

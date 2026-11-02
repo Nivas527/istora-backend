@@ -62,7 +62,7 @@ app.MapStoreEndpoints()
 app.Lifetime.ApplicationStarted.Register(() =>
 {
     Console.WriteLine("\n=========================================================");
-    Console.WriteLine("🚀 Shopify Engine & Vercel React Hosting Engine (.NET 10)");
+    Console.WriteLine("🚀 Istora Commerce Engine & Cloudflare / Vercel Hosting (.NET 10)");
     Console.WriteLine($"🏛️ Architecture: Enterprise Clean Modular Layering");
     Console.WriteLine($"🐘 Database:    PostgreSQL (localhost:5432/shopify_engine)");
     Console.WriteLine($"📖 Swagger UI:  http://localhost:{port}/swagger");

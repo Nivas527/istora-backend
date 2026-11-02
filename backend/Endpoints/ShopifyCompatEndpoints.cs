@@ -22,7 +22,7 @@ public static class ShopifyCompatEndpoints
                     name = s.StoreName,
                     email = s.ContactEmail,
                     domain = s.StoreDomain,
-                    myshopify_domain = "istora.myshopify.local",
+                    myshopify_domain = s.StoreDomain ?? "istora.online",
                     currency = s.Currency,
                     money_format = (s.CurrencySymbol ?? "$") + "{{amount}}",
                     plan_name = "enterprise",

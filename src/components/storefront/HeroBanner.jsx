@@ -72,7 +72,7 @@ export default function HeroBanner({ onExploreClick }) {
         {/* Subtitle */}
         <p className="mt-5 text-sm sm:text-base text-zinc-400 max-w-2xl leading-relaxed">
           {styles.heroSubtitle ||
-            'Featuring Shopify-compatible Variant Matrix Combinatorics, sub-second optimistic cart state, automated inventory locking, and a high-density Polaris merchant control plane.'}
+            'Featuring enterprise Variant Matrix Combinatorics, sub-second optimistic cart state, automated inventory locking, and a high-density merchant control plane.'}
         </p>
 
         {/* CTAs */}

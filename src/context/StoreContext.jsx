@@ -9,10 +9,10 @@ import { evaluateAllPromotions, calculateBogoDiscount } from '../utils/promotion
 
 const StoreContext = createContext(null);
 
-const STORAGE_KEY = 'shopify_multi_tenancy_stores_v3';
-const ACTIVE_STORE_KEY = 'shopify_active_store_id_v3';
-const DEPLOYMENTS_STORAGE_KEY = 'shopify_hosted_deployments_v1';
-const THEMES_STORAGE_KEY = 'shopify_custom_themes_v1';
+const STORAGE_KEY = 'istora_multi_tenancy_stores_v3';
+const ACTIVE_STORE_KEY = 'istora_active_store_id_v3';
+const DEPLOYMENTS_STORAGE_KEY = 'istora_hosted_deployments_v1';
+const THEMES_STORAGE_KEY = 'istora_custom_themes_v1';
 
 // Resolves whether the current browser URL targets a dedicated single store (e.g. apex.istora.online, ?store=apex, or /s/apex)
 function resolveDedicatedStore(storeList) {
@@ -151,8 +151,8 @@ export function StoreProvider({ children }) {
       const targetId = isDed ? initResolution.storeId : null;
 
       const saved = isDed
-        ? (localStorage.getItem(`${STORAGE_KEY}_${targetId}`) || localStorage.getItem(STORAGE_KEY))
-        : localStorage.getItem(STORAGE_KEY);
+        ? (localStorage.getItem(`${STORAGE_KEY}_${targetId}`) || localStorage.getItem(STORAGE_KEY) || localStorage.getItem(`shopify_multi_tenancy_stores_v3_${targetId}`) || localStorage.getItem('shopify_multi_tenancy_stores_v3'))
+        : (localStorage.getItem(STORAGE_KEY) || localStorage.getItem('shopify_multi_tenancy_stores_v3'));
 
       let list = initialStores;
       if (saved) {
@@ -200,7 +200,7 @@ export function StoreProvider({ children }) {
       return list.map((s) => ({
         id: s.id || `store_${Date.now()}`,
         name: s.name || 'Apex Athletics & Co.',
-        subdomain: s.subdomain || 'apex-athletics.myshopify.local',
+        subdomain: s.subdomain || 'apex.istora.online',
         customDomain: s.customDomain || (s.id === 'store_apex' ? 'apexstore.fashion.com' : s.id === 'store_aura' ? 'aurasound.audio.com' : `${s.subdomain?.split('.')[0] || 'store'}.com`),
         category: s.category || 'Sportswear & Performance',
         accentColor: s.accentColor || '#008060',
@@ -237,7 +237,7 @@ export function StoreProvider({ children }) {
       return dedicatedResolution.storeId;
     }
     try {
-      const saved = localStorage.getItem(ACTIVE_STORE_KEY);
+      const saved = localStorage.getItem(ACTIVE_STORE_KEY) || localStorage.getItem('shopify_active_store_id_v3');
       return saved || initialStores[0].id;
     } catch {
       return initialStores[0].id;
@@ -327,7 +327,7 @@ export function StoreProvider({ children }) {
   // Themes list with custom dist.zip persistence
   const [themes, setThemes] = useState(() => {
     try {
-      const saved = localStorage.getItem(THEMES_STORAGE_KEY);
+      const saved = localStorage.getItem(THEMES_STORAGE_KEY) || localStorage.getItem('shopify_custom_themes_v1');
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) return parsed;
@@ -341,7 +341,7 @@ export function StoreProvider({ children }) {
   // Vercel React Hosting Deployments
   const [deployments, setDeployments] = useState(() => {
     try {
-      const saved = localStorage.getItem(DEPLOYMENTS_STORAGE_KEY);
+      const saved = localStorage.getItem(DEPLOYMENTS_STORAGE_KEY) || localStorage.getItem('shopify_hosted_deployments_v1');
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) return parsed;
@@ -673,7 +673,7 @@ export function StoreProvider({ children }) {
       apiClient.updateStoreSettings({
         id: 'default',
         storeName: activeStore?.name || 'Apex Athletics',
-        storeDomain: activeStore?.subdomain || 'apex-store.myshopify.local',
+        storeDomain: activeStore?.subdomain || 'apex.istora.online',
         theme: selectedTheme.id
       }).catch(() => {});
     } catch {}
@@ -864,7 +864,7 @@ export function StoreProvider({ children }) {
   const discounts = activeStore?.discounts || [];
   const settings = {
     storeName: activeStore?.name || 'Apex Athletics & Co.',
-    storeDomain: activeStore?.subdomain || 'apex-athletics.myshopify.local',
+    storeDomain: activeStore?.subdomain || 'apex.istora.online',
     customDomain: activeStore?.customDomain || (activeStore?.id === 'store_apex' ? 'apexstore.fashion.com' : `${activeStore?.subdomain?.split('.')[0] || 'store'}.com`),
     currency: activeStore?.currency || 'USD',
     currencySymbol: activeStore?.currencySymbol || '$',
@@ -1341,11 +1341,11 @@ export function StoreProvider({ children }) {
     }).catch(err => console.warn('[StoreContext] Backend product sync error:', err));
 
     if (typeof window !== 'undefined') {
-      window.dispatchEvent(new CustomEvent('shopify:products:updated', { detail: newProduct }));
+      window.dispatchEvent(new CustomEvent('istora:products:updated', { detail: newProduct }));
       // Broadcast to iframe hosted runners
       document.querySelectorAll('iframe').forEach(iframe => {
         try {
-          iframe.contentWindow?.postMessage({ type: 'SHOPIFY_PRODUCTS_UPDATED', product: newProduct }, '*');
+          iframe.contentWindow?.postMessage({ type: 'ISTORA_PRODUCTS_UPDATED', product: newProduct }, '*');
         } catch (e) {}
       });
     }

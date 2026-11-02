@@ -14,8 +14,8 @@ export function buildHostedHtmlBundle(deployment, storefrontBridge = null) {
   const envVars = deployment?.envVars || {};
   const storeContextData = storefrontBridge || {
     store: {
-      name: 'Shopify Apex Engine',
-      domain: 'store.myshopify.local',
+      name: 'Apex Commerce',
+      domain: 'store.istora.online',
       currency: 'USD',
       currencySymbol: '$'
     },
