@@ -278,7 +278,7 @@ export default function ProductReviews({ productId, productTitle }) {
               </div>
             </div>
 
-            {/* Biometric Fit Meter Summary */}
+            {/* Size & Fit Meter Summary */}
             <div className="flex items-center gap-2 pt-1 text-xs">
               <span className="inline-flex items-center gap-1 font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-100/70 dark:bg-emerald-950/50 px-2 py-0.5 rounded-md">
                 <Sparkles className="w-3.5 h-3.5" />
@@ -485,7 +485,7 @@ export default function ProductReviews({ productId, productTitle }) {
             </div>
           </div>
 
-          {/* 2. Biometric Fit Feedback Option */}
+          {/* 2. Size & Fit Feedback Option */}
           <div>
             <label className="block text-xs font-bold text-zinc-700 dark:text-zinc-300 mb-1.5">
               How did this garment fit you?

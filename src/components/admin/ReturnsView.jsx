@@ -285,7 +285,7 @@ export default function ReturnsView() {
                         <div className="p-2 rounded-lg bg-purple-50 border border-purple-200/80 text-[11px] text-purple-950 space-y-0.5">
                           <p className="font-bold flex items-center gap-1 text-purple-900">
                             <Sparkles className="w-3 h-3 text-purple-600" />
-                            Biometric Fit Insight:
+                            Size Check Insight:
                           </p>
                           <p className="text-[10px] leading-tight text-purple-900/90">{rma.fitInsight}</p>
                         </div>

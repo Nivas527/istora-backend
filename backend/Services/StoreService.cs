@@ -1097,7 +1097,7 @@ public class StoreService
             ("Category Affinity", "Stylist Pick"),
             ("Color Palette Harmony", "Trending"),
             ("High Co-Purchase", "88% Match"),
-            ("Recommended by Fit AI", "Popular")
+            ("Recommended by Size Check", "Popular")
         };
 
         for (int i = 0; i < Math.Min(4, candidates.Count); i++)

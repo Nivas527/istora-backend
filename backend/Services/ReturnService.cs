@@ -61,7 +61,7 @@ public class ReturnService
         var fitInsight = req.FitInsight;
         if (string.IsNullOrWhiteSpace(fitInsight) && req.Reason == "size_mismatch")
         {
-            fitInsight = "Biometric Fit Check: Customer torso/chest measurement (40 in) is 1 size above current garment tag (38 in). Recommended exchange to Size L.";
+            fitInsight = "Size Check: Customer torso/chest measurement (40 in) is 1 size above current garment tag (38 in). Recommended exchange to Size L.";
         }
 
         var rmaId = $"rma_{DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}_{Random.Shared.Next(100, 999)}";
@@ -392,7 +392,7 @@ public class ReturnService
             IgstReversed = 0m,
             TotalGstReversed = 526.27m,
             TotalCreditAmount = 3450.00m,
-            Reason = "Size Mismatch (Biometric Fit Check Exchange to Size L)",
+            Reason = "Size Mismatch (Size Check Exchange to Size L)",
             Items = sampleItems1
         };
 
@@ -410,7 +410,7 @@ public class ReturnService
                 Type = "exchange",
                 Reason = "size_mismatch",
                 ReasonDetails = "Sleeves and chest fit tight across upper torso.",
-                FitInsight = "Biometric Fit Check: Customer chest measurement (40.5 in) exceeds garment chest spec (38 in). Exchange to Size L recommended.",
+                FitInsight = "Size Check: Customer chest measurement (40.5 in) exceeds garment chest spec (38 in). Exchange to Size L recommended.",
                 ItemsJson = JsonSerializer.Serialize(sampleItems1),
                 TotalRefundAmount = 3450m,
                 Status = "approved",

@@ -210,12 +210,12 @@ export default function CustomerReturnModal({ order, isOpen, onClose, onSuccess 
               </select>
             </div>
 
-            {/* Biometric Fit Insights Highlight */}
+            {/* Size Check Diagnostic Highlight */}
             {reason === 'size_mismatch' && (
               <div className="p-3.5 rounded-xl bg-gradient-to-r from-purple-50 to-indigo-50 border border-purple-200 space-y-2">
                 <div className="flex items-center gap-2 text-purple-900 font-bold text-xs">
                   <Sparkles className="w-4 h-4 text-purple-600" />
-                  <span>Biometric Fit Check Diagnostic</span>
+                  <span>Size Check Diagnostic</span>
                 </div>
                 <p className="text-[11px] text-purple-950 leading-relaxed">
                   Based on your saved torso/chest measurements (40 in), this garment tag (38 in) had a <strong>92% probability of chest tightness</strong>. We recommend exchanging to <strong>Size L</strong>.

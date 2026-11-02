@@ -248,7 +248,7 @@ export default function FacetedFilterBar({
               </div>
             </div>
 
-            {/* 2. Size Filter (Linked with Biometric Fit) */}
+            {/* 2. Size Filter (Linked with Size Check) */}
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">

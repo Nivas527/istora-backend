@@ -136,7 +136,7 @@ export default function ProductCard({ product, onSelect }) {
             </span>
           </div>
 
-          {/* Direct Biometric Fit & Volume Tier Badge */}
+          {/* Direct Size Check & Volume Tier Badge */}
           <div className="mt-2 flex items-center justify-between gap-1 flex-wrap">
             <span
               onClick={(e) => {

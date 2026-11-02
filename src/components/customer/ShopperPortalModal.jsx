@@ -790,7 +790,7 @@ export default function ShopperPortalModal({ onTrackOrder }) {
               <div className="flex items-center justify-between">
                 <div>
                   <h3 className="text-sm font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
-                    My Biometric Fit Profile
+                    My Size Check Profile
                   </h3>
                   <p className="text-xs text-zinc-400">
                     Calibrated body measurements for zero-return garment sizing verification.
@@ -804,15 +804,15 @@ export default function ShopperPortalModal({ onTrackOrder }) {
                   className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm transition-all cursor-pointer"
                 >
                   <Sparkles className="w-3.5 h-3.5" />
-                  <span>Update Fit Scan</span>
+                  <span>Update Size Check</span>
                 </button>
               </div>
 
-              {/* Sensitive Biometric Shield Banner */}
+              {/* Measurement Protection Banner */}
               <div className="p-4 rounded-2xl border border-emerald-500/30 bg-emerald-50/30 dark:bg-emerald-950/20 text-xs space-y-1">
                 <div className="flex items-center gap-2 font-bold text-emerald-900 dark:text-emerald-200">
                   <ShieldCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-                  <span>Privacy-Preserving Biometric Protection Active</span>
+                  <span>Privacy-Preserving Measurement Protection Active</span>
                 </div>
                 <p className="text-zinc-600 dark:text-zinc-400 text-[11px] leading-relaxed">
                   Your body photos are processed solely in volatile memory (RAM) and destroyed within 60 seconds. Only numeric vector measurements are retained on your device for size recommendations.

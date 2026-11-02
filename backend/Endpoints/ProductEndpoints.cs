@@ -53,13 +53,13 @@ public static class ProductEndpoints
         }).WithName("DeleteProduct")
           .WithSummary("Remove a product from tenant inventory");
 
-        // AI "Frequently Bought Together" & Bundle Upsell Engine
+        // Frequently Bought Together & Bundle Upsell Engine
         group.MapGet("/{id}/bundle-recommendations", (string id, string? storeId, StoreService store) =>
         {
             var bundle = store.GetFrequentlyBoughtTogether(id, storeId);
             return Results.Ok(bundle);
         }).WithName("GetProductBundleRecommendations")
-          .WithSummary("Get AI-powered frequently bought together bundle and related products");
+          .WithSummary("Get frequently bought together bundle and related products");
 
         app.MapGet("/api/recommendations/frequently-bought-together", (string productId, string? storeId, StoreService store) =>
         {
@@ -67,7 +67,7 @@ public static class ProductEndpoints
             return Results.Ok(bundle);
         }).WithTags("Products")
           .WithName("GetFrequentlyBoughtTogether")
-          .WithSummary("Get AI frequently bought together bundle recommendations");
+          .WithSummary("Get frequently bought together bundle recommendations");
 
         return app;
     }

@@ -9,9 +9,9 @@ public static class FitEndpoints
     public static IEndpointRouteBuilder MapFitEndpoints(this IEndpointRouteBuilder app)
     {
         var group = app.MapGroup("/api/fit")
-                       .WithTags("Fit Verification & Return Reduction Engine");
+                       .WithTags("Size Check & Fit Verification Engine");
 
-        // 1. Verify Fit for Shopper Profile (Ephemeral Biometric Processing)
+        // 1. Verify Fit for Shopper Profile (Measurement-Based Size Check)
         group.MapPost("/verify", (
             [FromBody] FitVerificationRequest request,
             StoreService storeService,

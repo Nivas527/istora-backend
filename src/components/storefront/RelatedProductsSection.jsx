@@ -76,11 +76,11 @@ export default function RelatedProductsSection({ currentProduct, onSelectProduct
           <div className="flex items-center gap-1.5">
             <Sparkles className="w-4 h-4 text-emerald-600" />
             <h3 className="text-sm sm:text-base font-extrabold text-zinc-900 tracking-tight">
-              AI Stylist Recommendations
+              Frequently Bought Together & Style Pairings
             </h3>
           </div>
           <p className="text-xs text-zinc-500 mt-0.5">
-            Curated based on category affinity, color harmony & silhouette pairing
+            Curated based on co-purchase history, color harmony & silhouette pairing
           </p>
         </div>
       </div>
@@ -170,3 +170,4 @@ export default function RelatedProductsSection({ currentProduct, onSelectProduct
     </section>
   );
 }
+

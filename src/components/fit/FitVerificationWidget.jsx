@@ -283,7 +283,7 @@ export default function FitVerificationWidget({ product, selectedSize, onSelectS
         </div>
       )}
 
-      {/* Sensitive Biometric Data & Privacy Guarantee Footer */}
+      {/* Measurement Data & Privacy Guarantee Footer */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between pt-2 border-t border-zinc-200/80 text-[10px] text-zinc-500 gap-1.5">
         <span className="flex items-center gap-1.5 text-zinc-600 font-medium">
           <Lock className="w-3 h-3 text-emerald-600 shrink-0" />

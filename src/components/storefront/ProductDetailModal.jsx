@@ -476,10 +476,10 @@ export default function ProductDetailModal({ product: initialProduct, onClose, o
               )}
             </div>
 
-            {/* AI Frequently Bought Together Bundle Upsell */}
+            {/* Frequently Bought Together Bundle Upsell */}
             <FrequentlyBoughtTogether product={product} currentVariant={currentVariant} />
 
-            {/* AI Stylist Recommendations / Related Products */}
+            {/* Frequently Bought Together & Style Pairings */}
             <RelatedProductsSection currentProduct={product} onSelectProduct={handleSwitchProduct} />
 
             {/* Customer Reviews & Star Ratings */}

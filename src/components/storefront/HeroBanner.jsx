@@ -91,7 +91,7 @@ export default function HeroBanner({ onExploreClick }) {
             className="flex items-center gap-2 px-5 py-3 bg-emerald-950/80 hover:bg-emerald-900 border border-emerald-500/60 text-emerald-300 font-bold rounded-xl text-xs shadow-lg transition-all hover:scale-[1.02] active:scale-95 cursor-pointer ring-1 ring-emerald-500/30"
           >
             <Sparkles className="w-4 h-4 text-emerald-400 animate-pulse" />
-            <span>✨ Biometric Fit Check ({profile.chestCm}cm / {profile.waistCm}cm)</span>
+            <span>✨ Size Check ({profile.chestCm}cm / {profile.waistCm}cm)</span>
           </button>
 
           <button
