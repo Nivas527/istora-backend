@@ -46,14 +46,14 @@ fi
 # to 'apexcommerce' or any public media bucket attached to media.istora.online.
 # They MUST go to an isolated private bucket with ZERO public access.
 ACCOUNT_ID="${R2_BACKUP_ACCOUNT_ID:-${CF_ACCOUNT_ID:-$R2_ACCOUNT_ID}}"
-BUCKET="${R2_BACKUP_BUCKET_NAME:-istora-db-backups}"
+BUCKET="${R2_BACKUP_BUCKET_NAME:-apexcommerce-backup}"
 ACCESS_KEY="${R2_BACKUP_ACCESS_KEY_ID:-$R2_ACCESS_KEY_ID}"
 SECRET_KEY="${R2_BACKUP_SECRET_ACCESS_KEY:-$R2_SECRET_ACCESS_KEY}"
 
 # Hard Security Assertion: Refuse upload to public media bucket
 if [ "$BUCKET" = "apexcommerce" ] || ([ -n "$R2_BUCKET_NAME" ] && [ "$BUCKET" = "$R2_BUCKET_NAME" ]); then
     echo "🛑 FATAL SECURITY ERROR: Attempted to upload database backup to public media bucket '$BUCKET'!"
-    echo "🛑 Backups must use a private bucket (e.g. istora-db-backups) with no public domain or public URL."
+    echo "🛑 Backups must use a private bucket (e.g. apexcommerce-backup) with no public domain or public URL."
     echo "🛑 Set R2_BACKUP_BUCKET_NAME to a dedicated private bucket in deploy/.env."
     exit 1
 fi
@@ -65,11 +65,24 @@ if [ -n "$ACCOUNT_ID" ] && [ -n "$ACCESS_KEY" ] && [ -n "$SECRET_KEY" ]; then
     if command -v aws >/dev/null 2>&1; then
         AWS_ACCESS_KEY_ID="$ACCESS_KEY" \
         AWS_SECRET_ACCESS_KEY="$SECRET_KEY" \
+        AWS_DEFAULT_REGION="auto" \
         aws s3 cp "$FILEPATH" "s3://${BUCKET}/${FILENAME}" \
-            --endpoint-url "$ENDPOINT_URL"
+            --endpoint-url "$ENDPOINT_URL" \
+            --region auto
+        echo "🚀 Backup successfully uploaded to private Cloudflare R2: ${BUCKET}/${FILENAME}"
+    elif command -v docker >/dev/null 2>&1; then
+        echo "⏳ 'aws' CLI not on host, streaming backup upload via docker amazon/aws-cli..."
+        docker run --rm \
+            -e AWS_ACCESS_KEY_ID="$ACCESS_KEY" \
+            -e AWS_SECRET_ACCESS_KEY="$SECRET_KEY" \
+            -e AWS_DEFAULT_REGION="auto" \
+            -v "$BACKUP_DIR:$BACKUP_DIR:ro" \
+            amazon/aws-cli s3 cp "$FILEPATH" "s3://${BUCKET}/${FILENAME}" \
+            --endpoint-url "$ENDPOINT_URL" \
+            --region auto
         echo "🚀 Backup successfully uploaded to private Cloudflare R2: ${BUCKET}/${FILENAME}"
     else
-        echo "⚠️ Notice: 'aws' CLI not installed on host. Retaining verified local backup on disk at $FILEPATH"
+        echo "⚠️ Notice: Neither 'aws' CLI nor docker found. Retaining verified local backup on disk at $FILEPATH"
     fi
 else
     echo "ℹ️ Notice: R2 backup credentials (R2_BACKUP_ACCESS_KEY_ID / R2_BACKUP_SECRET_ACCESS_KEY) not configured in deploy/.env. Retaining verified local backup on disk at $FILEPATH"
