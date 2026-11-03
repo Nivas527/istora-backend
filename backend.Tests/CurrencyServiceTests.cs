@@ -58,3 +58,4 @@ public class CurrencyServiceTests
         Assert.Contains(list, c => c.Code == "GBP" && c.Symbol == "£");
     }
 }
+

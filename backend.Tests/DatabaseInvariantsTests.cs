@@ -33,4 +33,29 @@ public class DatabaseInvariantsTests
             Assert.Contains("IF NOT EXISTS", content, StringComparison.OrdinalIgnoreCase);
         }
     }
+
+    [Fact]
+    public void BackupScript_StrictlyBlocksPublicMediaBucket()
+    {
+        var scriptPath = Path.Combine(AppContext.BaseDirectory, "../../../deploy/backup-to-r2.sh");
+        if (!File.Exists(scriptPath))
+        {
+            scriptPath = Path.Combine(Directory.GetCurrentDirectory(), "../../deploy/backup-to-r2.sh");
+        }
+
+        if (File.Exists(scriptPath))
+        {
+            var content = File.ReadAllText(scriptPath);
+
+            // Invariant 1: Must isolate backups using R2_BACKUP_BUCKET_NAME
+            Assert.Contains("R2_BACKUP_BUCKET_NAME", content);
+
+            // Invariant 2: Must refuse upload if bucket points to apexcommerce (public media)
+            Assert.Contains("Refusing to upload database backup to public media bucket", content);
+
+            // Invariant 3: Must default to a private bucket name, never apexcommerce
+            Assert.DoesNotContain("BUCKET=\"apexcommerce\"", content);
+        }
+    }
 }
+
