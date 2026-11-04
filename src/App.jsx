@@ -19,6 +19,7 @@ import HeroBanner from './components/storefront/HeroBanner';
 import PreviewVideosSection from './components/storefront/PreviewVideosSection';
 import ProductGrid from './components/storefront/ProductGrid';
 import ProductDetailModal from './components/storefront/ProductDetailModal';
+import ProductDetailPage from './components/storefront/ProductDetailPage';
 import CartDrawer from './components/storefront/CartDrawer';
 import CheckoutPage from './components/storefront/CheckoutPage';
 import OrderConfirmationModal from './components/storefront/OrderConfirmationModal';
@@ -38,6 +39,7 @@ function MainApp() {
     settings,
     activeTheme,
     deployments,
+    products,
     selectedProductForQuickView,
     setSelectedProductForQuickView,
     isCreateStoreModalOpen,
@@ -54,6 +56,7 @@ function MainApp() {
     ? (typeof window !== 'undefined' && window.location.pathname.startsWith('/admin') ? 'admin' : 'storefront')
     : activeMode;
 
+  const [activeProductPage, setActiveProductPage] = useState(null);
   const [isCheckoutActive, setIsCheckoutActive] = useState(false);
   const [completedOrder, setCompletedOrder] = useState(null);
   const [isTrackingModalOpen, setIsTrackingModalOpen] = useState(false);
@@ -62,6 +65,91 @@ function MainApp() {
   const [distZipViewMode, setDistZipViewMode] = useState('app'); // 'app' | 'catalog'
 
   const catalogRef = useRef(null);
+
+  // Helper to resolve product from current URL path or search query (?product=id or /products/id)
+  const resolveProductFromUrl = () => {
+    if (typeof window === 'undefined') return null;
+    try {
+      const pathname = window.location.pathname;
+      const searchParams = new URLSearchParams(window.location.search);
+
+      const pathMatch = pathname.match(/^\/(?:products|product)\/([^/?#]+)/i);
+      const idFromPath = pathMatch ? decodeURIComponent(pathMatch[1]) : null;
+      const idFromQuery = searchParams.get('product') || searchParams.get('p');
+      const targetId = idFromPath || idFromQuery;
+
+      if (targetId && Array.isArray(products) && products.length > 0) {
+        const clean = targetId.toLowerCase().trim();
+        return products.find(p =>
+          (p.id && p.id.toLowerCase() === clean) ||
+          (p.handle && p.handle.toLowerCase() === clean) ||
+          (p.slug && p.slug.toLowerCase() === clean) ||
+          (p.title && p.title.toLowerCase().replace(/\s+/g, '-') === clean)
+        ) || null;
+      }
+    } catch (e) {
+      console.warn('URL product resolution error:', e);
+    }
+    return null;
+  };
+
+  // Sync initial URL on mount and when products load
+  useEffect(() => {
+    const matched = resolveProductFromUrl();
+    if (matched) {
+      setActiveProductPage(matched);
+    }
+  }, [products]);
+
+  // Handle browser Back / Forward history navigation (popstate)
+  useEffect(() => {
+    const handlePopState = () => {
+      const matched = resolveProductFromUrl();
+      setActiveProductPage(matched);
+      if (isCheckoutActive) setIsCheckoutActive(false);
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, [products, isCheckoutActive]);
+
+  // Navigate to dedicated product details page
+  const handleNavigateToProduct = (product) => {
+    if (!product) return;
+    setActiveProductPage(product);
+    setSelectedProductForQuickView(null);
+    setIsCheckoutActive(false);
+
+    if (typeof window !== 'undefined') {
+      const newPath = `/products/${product.id}`;
+      if (window.location.pathname !== newPath) {
+        window.history.pushState({ productId: product.id }, '', newPath);
+      }
+      window.scrollTo({ top: 0, behavior: 'instant' });
+    }
+  };
+
+  // Navigate back to catalog
+  const handleBackToCatalog = () => {
+    setActiveProductPage(null);
+    setSelectedProductForQuickView(null);
+
+    if (typeof window !== 'undefined') {
+      const currentPath = window.location.pathname;
+      if (currentPath.match(/^\/(?:products|product)\//i)) {
+        window.history.pushState(null, '', '/');
+      }
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  };
+
+  // Auto-delegate any legacy setSelectedProductForQuickView to full page navigation
+  useEffect(() => {
+    if (selectedProductForQuickView) {
+      handleNavigateToProduct(selectedProductForQuickView);
+      setSelectedProductForQuickView(null);
+    }
+  }, [selectedProductForQuickView]);
 
   const scrollToCatalog = () => {
     const el = document.getElementById('catalog-section');
@@ -101,11 +189,18 @@ function MainApp() {
         </div>
       ) : (
         <div className={`min-h-screen flex flex-col ${(activeTheme?.styles?.pageBg) || 'bg-[#f6f6f7] text-zinc-900'} ${(activeTheme?.styles?.fontHeading) || 'font-sans'}`}>
-          {/* Checkout Screen or Storefront View */}
+          {/* Checkout Screen, Dedicated Product Details Page, or Catalog Storefront View */}
           {isCheckoutActive ? (
             <CheckoutPage
               onBackToStore={() => setIsCheckoutActive(false)}
               onOrderPlaced={handleOrderPlaced}
+            />
+          ) : activeProductPage ? (
+            <ProductDetailPage
+              product={activeProductPage}
+              onBack={handleBackToCatalog}
+              onSelectProduct={handleNavigateToProduct}
+              onBuyNow={() => setIsCheckoutActive(true)}
             />
           ) : (
             <>
@@ -175,6 +270,7 @@ function MainApp() {
                   ) : (
                     <main className="flex-1 pb-16">
                       <Navigation
+                        onHomeClick={handleBackToCatalog}
                         onSearchClick={() => {
                           const input = document.querySelector('input[placeholder*="Filter by keyword"]');
                           if (input) input.focus();
@@ -188,7 +284,7 @@ function MainApp() {
                       <HeroBanner onExploreClick={scrollToCatalog} />
                       <PreviewVideosSection />
                       <ProductGrid
-                        onSelectProduct={(p) => setSelectedProductForQuickView(p)}
+                        onSelectProduct={handleNavigateToProduct}
                         searchQuery={searchQuery}
                         setSearchQuery={setSearchQuery}
                       />
@@ -198,6 +294,7 @@ function MainApp() {
               ) : (
                 <main className="flex-1 pb-16">
                   <Navigation
+                    onHomeClick={handleBackToCatalog}
                     onSearchClick={() => {
                       const input = document.querySelector('input[placeholder*="Filter by keyword"]');
                       if (input) input.focus();
@@ -211,7 +308,7 @@ function MainApp() {
                   <HeroBanner onExploreClick={scrollToCatalog} />
                   <PreviewVideosSection />
                   <ProductGrid
-                    onSelectProduct={(p) => setSelectedProductForQuickView(p)}
+                    onSelectProduct={handleNavigateToProduct}
                     searchQuery={searchQuery}
                     setSearchQuery={setSearchQuery}
                   />
@@ -369,7 +466,7 @@ function MainApp() {
       <AffiliatePortalModal />
 
       {/* Saved for Later & Wishlist Drawer */}
-      <WishlistDrawer onSelectProduct={setSelectedProductForQuickView} />
+      <WishlistDrawer onSelectProduct={handleNavigateToProduct} />
     </>
   );
 }
