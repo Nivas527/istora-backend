@@ -23,7 +23,7 @@ import {
   Gift
 } from 'lucide-react';
 
-export default function Navigation({ onSearchClick, onTrackClick }) {
+export default function Navigation({ onSearchClick, onTrackClick, onHomeClick }) {
   const {
     activeTheme,
     settings,
@@ -73,8 +73,11 @@ export default function Navigation({ onSearchClick, onTrackClick }) {
           {/* Brand Logo & Multi-Tenant Store Selector */}
           <div className="flex items-center space-x-3">
             <div
-              className="flex items-center space-x-3 cursor-pointer"
-              onClick={() => setActiveMode('storefront')}
+              className="flex items-center space-x-3 cursor-pointer group"
+              onClick={() => {
+                if (onHomeClick) onHomeClick();
+                setActiveMode('storefront');
+              }}
             >
               <div
                 className="w-10 h-10 rounded-xl flex items-center justify-center text-white shadow-md transition-all"
